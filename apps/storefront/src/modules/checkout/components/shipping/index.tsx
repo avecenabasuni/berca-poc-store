@@ -152,21 +152,21 @@ const Shipping: React.FC<ShippingProps> = ({
   }, [isOpen])
 
   return (
-    <div className="bg-white">
+    <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm mt-6">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
           className={clx(
-            "flex flex-row text-3xl-regular gap-x-2 items-baseline",
+            "flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-3 items-center",
             {
               "opacity-50 pointer-events-none select-none":
                 !isOpen && cart.shipping_methods?.length === 0,
             }
           )}
         >
-          Delivery
+          <span>Metode Pengiriman</span>
           {!isOpen && (cart.shipping_methods?.length ?? 0) > 0 && (
-            <CheckCircleSolid />
+            <CheckCircleSolid className="text-[#E53946] w-6 h-6" />
           )}
         </Heading>
         {!isOpen &&
@@ -176,10 +176,10 @@ const Shipping: React.FC<ShippingProps> = ({
             <Text>
               <button
                 onClick={handleEdit}
-                className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+                className="text-[#E53946] font-semibold hover:underline"
                 data-testid="edit-delivery-button"
               >
-                Edit
+                Ubah
               </button>
             </Text>
           )}

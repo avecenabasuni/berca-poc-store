@@ -40,23 +40,23 @@ const Addresses = ({
   const [message, formAction] = useActionState(setAddresses, null)
 
   return (
-    <div className="bg-white">
+    <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
-          className="flex flex-row text-3xl-regular gap-x-2 items-baseline"
+          className="flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-3 items-center"
         >
-          Shipping Address
-          {!isOpen && <CheckCircleSolid />}
+          <span>Alamat Pengiriman</span>
+          {!isOpen && <CheckCircleSolid className="text-[#E53946] w-6 h-6" />}
         </Heading>
         {!isOpen && cart?.shipping_address && (
           <Text>
             <button
               onClick={handleEdit}
-              className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+              className="text-[#E53946] font-semibold hover:underline"
               data-testid="edit-address-button"
             >
-              Edit
+              Ubah
             </button>
           </Text>
         )}

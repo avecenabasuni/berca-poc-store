@@ -24,29 +24,26 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
     (cart.payment_collection || paidByGiftcard)
 
   return (
-    <div className="bg-white">
+    <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm mt-6">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
           className={clx(
-            "flex flex-row text-3xl-regular gap-x-2 items-baseline",
+            "flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-2 items-center",
             {
               "opacity-50 pointer-events-none select-none": !isOpen,
             },
           )}
         >
-          Review
+          <span>Konfirmasi & Buat Pesanan</span>
         </Heading>
       </div>
       {isOpen && previousStepsCompleted && (
         <>
           <div className="flex items-start gap-x-1 w-full mb-6">
-            <div className="w-full">
-              <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                By clicking the Place Order button, you confirm that you have
-                read, understand and accept our Terms of Use, Terms of Sale and
-                Returns Policy and acknowledge that you have read Berca Store's
-                Privacy Policy.
+            <div className="w-full bg-[#F5F5F7] p-4 rounded-xl border border-[#CFCFD4]/40">
+              <Text className="text-xs text-[#1E1F74]/80 leading-relaxed">
+                Dengan menekan tombol <strong>Buat Pesanan</strong>, Anda mengonfirmasi bahwa Anda telah membaca, memahami, dan menyetujui Syarat & Ketentuan Layanan, Kebijakan Pengembalian, serta Kebijakan Privasi Berca Store.
               </Text>
             </div>
           </div>
