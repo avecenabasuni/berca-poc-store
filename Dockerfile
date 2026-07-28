@@ -12,6 +12,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN chmod +x start.sh start-storefront.sh
+
 EXPOSE 9000 5173 8000
 
 ENTRYPOINT ["./start.sh"]
