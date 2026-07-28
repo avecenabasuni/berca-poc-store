@@ -1,27 +1,30 @@
-import { listCategories } from "@lib/data/categories";
-import { listCollections } from "@lib/data/collections";
-import { Text, clx } from "@modules/common/components/ui";
+import { listCategories } from "@lib/data/categories"
+import { listCollections } from "@lib/data/collections"
+import { Text, clx } from "@modules/common/components/ui"
 
-import LocalizedClientLink from "@modules/common/components/localized-client-link";
-import MedusaCTA from "@modules/layout/components/medusa-cta";
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 export default async function Footer() {
   const { collections } = await listCollections({
     fields: "*products",
-  });
-  const productCategories = await listCategories();
+  })
+  const productCategories = await listCategories()
 
   return (
     <footer className="border-t border-ui-border-base w-full">
       <div className="content-container flex flex-col w-full">
         <div className="flex flex-col gap-y-6 xsmall:flex-row items-start justify-between py-40">
-          <div>
+          <div className="flex flex-col gap-y-4">
             <LocalizedClientLink
               href="/"
               className="txt-compact-xlarge-plus text-ui-fg-subtle hover:text-ui-fg-base uppercase"
             >
-              Medusa Store
+              Berca Store
             </LocalizedClientLink>
+            <Text className="txt-small text-ui-fg-subtle max-w-xs">
+              Belanja lebih mudah, lebih cepat. Temukan produk berkualitas
+              dengan harga terbaik.
+            </Text>
           </div>
           <div className="text-small-regular gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
             {productCategories && productCategories?.length > 0 && (
@@ -35,7 +38,7 @@ export default async function Footer() {
                 >
                   {productCategories?.slice(0, 6).map((c) => {
                     if (c.parent_category) {
-                      return;
+                      return
                     }
 
                     const children =
@@ -43,7 +46,7 @@ export default async function Footer() {
                         name: child.name,
                         handle: child.handle,
                         id: child.id,
-                      })) || null;
+                      })) || null
 
                     return (
                       <li
@@ -53,7 +56,7 @@ export default async function Footer() {
                         <LocalizedClientLink
                           className={clx(
                             "hover:text-ui-fg-base",
-                            children && "txt-small-plus"
+                            children && "txt-small-plus",
                           )}
                           href={`/categories/${c.handle}`}
                           data-testid="category-link"
@@ -77,7 +80,7 @@ export default async function Footer() {
                           </ul>
                         )}
                       </li>
-                    );
+                    )
                   })}
                 </ul>
               </div>
@@ -92,7 +95,7 @@ export default async function Footer() {
                     "grid grid-cols-1 gap-2 text-ui-fg-subtle txt-small",
                     {
                       "grid-cols-2": (collections?.length || 0) > 3,
-                    }
+                    },
                   )}
                 >
                   {collections?.slice(0, 6).map((c) => (
@@ -109,49 +112,53 @@ export default async function Footer() {
               </div>
             )}
             <div className="flex flex-col gap-y-2">
-              <span className="txt-small-plus txt-ui-fg-base">Medusa</span>
+              <span className="txt-small-plus txt-ui-fg-base">
+                Tentang Kami
+              </span>
               <ul className="grid grid-cols-1 gap-y-2 text-ui-fg-subtle txt-small">
                 <li>
-                  <a
-                    href="https://github.com/medusajs"
-                    target="_blank"
-                    rel="noreferrer"
+                  <LocalizedClientLink
                     className="hover:text-ui-fg-base"
+                    href="#"
                   >
-                    GitHub
-                  </a>
+                    Kebijakan Pengiriman
+                  </LocalizedClientLink>
                 </li>
                 <li>
-                  <a
-                    href="https://docs.medusajs.com"
-                    target="_blank"
-                    rel="noreferrer"
+                  <LocalizedClientLink
                     className="hover:text-ui-fg-base"
+                    href="#"
                   >
-                    Documentation
-                  </a>
+                    Kebijakan Pengembalian
+                  </LocalizedClientLink>
                 </li>
                 <li>
-                  <a
-                    href="https://github.com/medusajs/dtc-starter"
-                    target="_blank"
-                    rel="noreferrer"
+                  <LocalizedClientLink
                     className="hover:text-ui-fg-base"
+                    href="#"
                   >
-                    Source code
-                  </a>
+                    Bantuan & FAQ
+                  </LocalizedClientLink>
+                </li>
+                <li>
+                  <LocalizedClientLink
+                    className="hover:text-ui-fg-base"
+                    href="#"
+                  >
+                    Hubungi Kami
+                  </LocalizedClientLink>
                 </li>
               </ul>
             </div>
           </div>
         </div>
-        <div className="flex w-full mb-16 justify-between text-ui-fg-muted">
+        <div className="flex w-full mb-16 justify-between items-center text-ui-fg-muted">
           <Text className="txt-compact-small">
-            © {new Date().getFullYear()} Medusa Store. All rights reserved.
+            © {new Date().getFullYear()} Berca Store. All rights reserved.
           </Text>
-          <MedusaCTA />
+          <Text className="txt-compact-small text-ui-fg-subtle">Indonesia</Text>
         </div>
       </div>
     </footer>
-  );
+  )
 }

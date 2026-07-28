@@ -1,6 +1,6 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ChevronDown from "@modules/common/icons/chevron-down"
-import MedusaCTA from "@modules/layout/components/medusa-cta"
+import { Text } from "@modules/common/components/ui"
 
 export default function CheckoutLayout({
   children,
@@ -29,14 +29,18 @@ export default function CheckoutLayout({
             className="txt-compact-xlarge-plus text-ui-fg-subtle hover:text-ui-fg-base uppercase"
             data-testid="store-link"
           >
-            Medusa Store
+            Berca Store
           </LocalizedClientLink>
           <div className="flex-1 basis-0" />
         </nav>
       </div>
-      <div className="relative" data-testid="checkout-container">{children}</div>
+      <div className="relative" data-testid="checkout-container">
+        {children}
+      </div>
       <div className="py-4 w-full flex items-center justify-center">
-        <MedusaCTA />
+        <Text className="txt-compact-small text-ui-fg-subtle">
+          © {new Date().getFullYear()} Berca Store. All rights reserved.
+        </Text>
       </div>
     </div>
   )

@@ -12,7 +12,10 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
   const isOpen = searchParams.get("step") === "review"
 
   const paidByGiftcard = !!(
-    (cart as unknown as Record<string, unknown>)?.gift_cards && ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])?.length > 0 && cart?.total === 0
+    (cart as unknown as Record<string, unknown>)?.gift_cards &&
+    ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])
+      ?.length > 0 &&
+    cart?.total === 0
   )
 
   const previousStepsCompleted =
@@ -29,7 +32,7 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
             "flex flex-row text-3xl-regular gap-x-2 items-baseline",
             {
               "opacity-50 pointer-events-none select-none": !isOpen,
-            }
+            },
           )}
         >
           Review
@@ -42,8 +45,8 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
               <Text className="txt-medium-plus text-ui-fg-base mb-1">
                 By clicking the Place Order button, you confirm that you have
                 read, understand and accept our Terms of Use, Terms of Sale and
-                Returns Policy and acknowledge that you have read Medusa
-                Store&apos;s Privacy Policy.
+                Returns Policy and acknowledge that you have read Berca Store's
+                Privacy Policy.
               </Text>
             </div>
           </div>

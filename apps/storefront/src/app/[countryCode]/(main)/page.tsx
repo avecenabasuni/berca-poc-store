@@ -1,14 +1,16 @@
 import { Metadata } from "next"
 
 import FeaturedProducts from "@modules/home/components/featured-products"
+import CategoryGrid from "@modules/home/components/categories"
 import Hero from "@modules/home/components/hero"
 import { listCollections } from "@lib/data/collections"
+import { listCategories } from "@lib/data/categories"
 import { getRegion } from "@lib/data/regions"
 
 export const metadata: Metadata = {
-  title: "Medusa Next.js Starter Template",
+  title: "Berca Store — Belanja Lebih Mudah, Lebih Cepat",
   description:
-    "A performant frontend ecommerce starter template with Next.js 15 and Medusa.",
+    "Temukan berbagai pilihan produk berkualitas dengan harga terbaik di Berca Store. Pengiriman cepat ke seluruh Indonesia.",
 }
 
 export default async function Home(props: {
@@ -24,6 +26,8 @@ export default async function Home(props: {
     fields: "id, handle, title",
   })
 
+  const productCategories = await listCategories()
+
   if (!collections || !region) {
     return null
   }
@@ -36,6 +40,9 @@ export default async function Home(props: {
           <FeaturedProducts collections={collections} region={region} />
         </ul>
       </div>
+      {productCategories && productCategories.length > 0 && (
+        <CategoryGrid categories={productCategories} />
+      )}
     </>
   )
 }
