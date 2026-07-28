@@ -21,7 +21,7 @@ export default async function Nav() {
       <div className="bg-[#1E1F74] text-[#F5F5F7] text-xs py-1.5 text-center font-medium tracking-wide border-b border-[#3A1E65]">
         <span>Diskon hingga 30% untuk koleksi terbaru — Gratis Pengiriman ke seluruh Indonesia</span>
       </div>
-      <header className="relative h-16 mx-auto border-b duration-200 bg-white/95 backdrop-blur-md border-[#CFCFD4]/50">
+      <header className="relative h-16 mx-auto border-b duration-200 bg-white border-[#CFCFD4]/50">
         <nav className="content-container txt-xsmall-plus text-[#1E1F74] flex items-center justify-between w-full h-full text-small-regular">
           <div className="flex-1 basis-0 h-full flex items-center">
             <div className="h-full">
