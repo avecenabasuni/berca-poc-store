@@ -20,6 +20,18 @@ module.exports = {
         padding: "padding-top padding-right padding-bottom padding-left",
       },
       colors: {
+        brand: {
+          indigo: "#1E1F74",
+          purple: "#3A1E65",
+          plum: "#582158",
+          berry: "#782046",
+          crimson: "#9F2335",
+          coral: "#E53946",
+          white: "#FFFFFF",
+          offwhite: "#F5F5F7",
+          muted: "#CFCFD4",
+          black: "#000000",
+        },
         grey: {
           0: "#FFFFFF",
           5: "#F9FAFB",

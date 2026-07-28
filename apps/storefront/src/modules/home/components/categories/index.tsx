@@ -35,42 +35,49 @@ export default function CategoryGrid({
   }
 
   return (
-    <div className="content-container py-12 small:py-24">
-      <div className="flex flex-col items-center mb-12">
-        <Heading
-          level="h2"
-          className="text-3xl small:text-4xl text-ui-fg-base font-semibold text-center"
-        >
-          Jelajahi Kategori
-        </Heading>
-        <Text className="text-ui-fg-subtle mt-3 text-center max-w-lg">
-          Temukan produk yang tepat untuk Anda berdasarkan kategori favorit
-        </Text>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 small:gap-6">
-        {topLevelCategories.slice(0, 8).map((category) => (
-          <LocalizedClientLink
-            key={category.id}
-            href={`/categories/${category.handle}`}
-            className="group relative block aspect-[3/4] overflow-hidden rounded-lg"
+    <div className="bg-[#F5F5F7] py-16 small:py-24 border-y border-[#CFCFD4]/40">
+      <div className="content-container">
+        <div className="flex flex-col items-center mb-12">
+          <span className="text-[#E53946] text-xs uppercase tracking-widest font-semibold mb-2">
+            Kategori Terpopuler
+          </span>
+          <Heading
+            level="h2"
+            className="text-3xl small:text-4xl text-[#1E1F74] font-bold text-center"
           >
-            <img
-              src={getCategoryImage(category.handle)}
-              alt={category.name}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors duration-300" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-              <Heading
-                level="h3"
-                className="text-white text-lg small:text-xl font-semibold text-center"
-              >
-                {category.name}
-              </Heading>
-              <Text className="text-white/80 text-sm mt-1">Lihat Produk →</Text>
-            </div>
-          </LocalizedClientLink>
-        ))}
+            Jelajahi Kategori
+          </Heading>
+          <Text className="text-[#3A1E65]/80 mt-3 text-center max-w-lg">
+            Temukan produk yang tepat untuk Anda berdasarkan kategori favorit
+          </Text>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 small:gap-6">
+          {topLevelCategories.slice(0, 8).map((category) => (
+            <LocalizedClientLink
+              key={category.id}
+              href={`/categories/${category.handle}`}
+              className="group relative block aspect-[3/4] overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-xl"
+            >
+              <img
+                src={getCategoryImage(category.handle)}
+                alt={category.name}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1E1F74]/90 via-[#3A1E65]/50 to-transparent group-hover:from-[#1E1F74]/95 group-hover:via-[#582158]/70 transition-all duration-300" />
+              <div className="absolute inset-0 flex flex-col items-center justify-end p-6 text-center">
+                <Heading
+                  level="h3"
+                  className="text-white text-lg small:text-xl font-bold tracking-tight"
+                >
+                  {category.name}
+                </Heading>
+                <span className="text-[#E53946] group-hover:text-white text-xs font-semibold mt-2 inline-flex items-center gap-1 transition-colors duration-300 bg-white/10 group-hover:bg-[#E53946] px-3 py-1 rounded-full border border-white/20">
+                  Lihat Produk →
+                </span>
+              </div>
+            </LocalizedClientLink>
+          ))}
+        </div>
       </div>
     </div>
   )
