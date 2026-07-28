@@ -35,14 +35,14 @@ export default async function Home(props: {
   return (
     <>
       <Hero />
-      <div className="py-12">
+      {productCategories && productCategories.length > 0 && (
+        <CategoryGrid categories={productCategories} />
+      )}
+      <div className="py-6">
         <ul className="flex flex-col gap-x-6">
           <FeaturedProducts collections={collections} region={region} />
         </ul>
       </div>
-      {productCategories && productCategories.length > 0 && (
-        <CategoryGrid categories={productCategories} />
-      )}
     </>
   )
 }

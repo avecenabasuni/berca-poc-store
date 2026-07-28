@@ -34,14 +34,14 @@ const Hero = () => {
           </Text>
           <div className="flex gap-4 mt-4">
             <LocalizedClientLink href="/store">
-              <Button variant="primary" className="w-fit bg-white text-black hover:bg-gray-100">
+              <Button variant="secondary" className="w-fit font-medium hover:bg-gray-100">
                 Belanja Sekarang
               </Button>
             </LocalizedClientLink>
             <LocalizedClientLink href="/collections">
               <Button
-                variant="secondary"
-                className="w-fit bg-white/10 border-white/30 text-white hover:bg-white/20"
+                variant="transparent"
+                className="w-fit bg-white/10 border border-white/30 text-white hover:bg-white/20 font-medium"
               >
                 Lihat Koleksi
               </Button>

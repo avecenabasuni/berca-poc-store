@@ -47,7 +47,7 @@ export default function CategoryGrid({
           Temukan produk yang tepat untuk Anda berdasarkan kategori favorit
         </Text>
       </div>
-      <div className="grid grid-cols-2 small:grid-cols-3 md:grid-cols-4 gap-4 small:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 small:gap-6">
         {topLevelCategories.slice(0, 8).map((category) => (
           <LocalizedClientLink
             key={category.id}
