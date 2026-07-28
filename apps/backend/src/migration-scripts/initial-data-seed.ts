@@ -35,7 +35,7 @@ export default async function initial_data_seed({
     ModuleRegistrationName.FULFILLMENT
   );
 
-  const countries = ["gb", "de", "dk", "se", "fr", "es", "it"];
+  const countries = ["id", "gb", "de", "dk", "se", "fr", "es", "it"];
 
   logger.info("Seeding store data...");
   const {
@@ -81,8 +81,12 @@ export default async function initial_data_seed({
           name: "Default Store",
           supported_currencies: [
             {
-              currency_code: "eur",
+              currency_code: "idr",
               is_default: true,
+            },
+            {
+              currency_code: "eur",
+              is_default: false,
             },
             {
               currency_code: "usd",
@@ -100,9 +104,15 @@ export default async function initial_data_seed({
     input: {
       regions: [
         {
+          name: "Indonesia",
+          currency_code: "idr",
+          countries: ["id"],
+          payment_providers: ["pp_system_default"],
+        },
+        {
           name: "Europe",
           currency_code: "eur",
-          countries,
+          countries: ["gb", "de", "dk", "se", "fr", "es", "it"],
           payment_providers: ["pp_system_default"],
         },
       ],
@@ -163,6 +173,10 @@ export default async function initial_data_seed({
       {
         name: "Europe",
         geo_zones: [
+          {
+            country_code: "id",
+            type: "country",
+          },
           {
             country_code: "gb",
             type: "country",
