@@ -37,6 +37,53 @@ export default async function initial_data_seed({
 
   const countries = ["id", "gb", "de", "dk", "se", "fr", "es", "it"];
 
+  // Check if regions already exist in database
+  const { data: existingRegions } = await query.graph({
+    entity: "region",
+    fields: ["id", "name", "countries.iso_2"],
+  });
+
+  if (existingRegions && existingRegions.length > 0) {
+    logger.info("Existing regions found in database. Checking for Indonesia region...");
+    const hasIndonesia = existingRegions.some((r: any) =>
+      r.name === "Indonesia" || r.countries?.some((c: any) => c.iso_2 === "id")
+    );
+
+    if (!hasIndonesia) {
+      logger.info("Adding Indonesia region to existing database...");
+      await createRegionsWorkflow(container).run({
+        input: {
+          regions: [
+            {
+              name: "Indonesia",
+              currency_code: "idr",
+              countries: ["id"],
+              payment_providers: ["pp_system_default"],
+            },
+          ],
+        },
+      });
+
+      try {
+        await createTaxRegionsWorkflow(container).run({
+          input: [
+            {
+              country_code: "id",
+              provider_id: "tp_system",
+            },
+          ],
+        });
+      } catch (err) {
+        logger.warn("Tax region 'id' skipped:", err);
+      }
+
+      logger.info("Successfully added Indonesia region!");
+    } else {
+      logger.info("Indonesia region already exists in database.");
+    }
+    return;
+  }
+
   logger.info("Seeding store data...");
   const {
     result: [defaultSalesChannel],
