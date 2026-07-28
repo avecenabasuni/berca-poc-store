@@ -1,7 +1,6 @@
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import ChevronDown from "@modules/common/icons/chevron-down"
 import { Text } from "@modules/common/components/ui"
-import { Lock } from "@medusajs/icons"
 
 export default function CheckoutLayout({
   children,
@@ -33,7 +32,9 @@ export default function CheckoutLayout({
             Berca Store
           </LocalizedClientLink>
           <div className="flex-1 basis-0 flex justify-end items-center text-xs text-white/80 font-medium gap-1.5">
-            <Lock className="w-4 h-4 text-[#E53946]" />
+            <svg className="w-4 h-4 text-[#E53946]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
             <span className="hidden small:inline">Pembayaran Aman & Terenkripsi</span>
           </div>
         </nav>
