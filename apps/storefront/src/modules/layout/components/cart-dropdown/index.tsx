@@ -6,6 +6,7 @@ import {
   PopoverPanel,
   Transition,
 } from "@headlessui/react"
+import { ShoppingBag } from "@medusajs/icons"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@modules/common/components/ui"
@@ -75,17 +76,29 @@ const CartDropdown = ({
 
   return (
     <div
-      className="h-full z-50"
+      className="h-full z-50 flex items-center"
       onMouseEnter={openAndCancel}
       onMouseLeave={close}
     >
-      <Popover className="relative h-full">
-        <PopoverButton className="h-full">
+      <Popover className="relative h-full flex items-center">
+        <PopoverButton className="h-full flex items-center">
           <LocalizedClientLink
-            className="hover:text-ui-fg-base"
+            className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center relative p-2.5 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
             href="/cart"
             data-testid="nav-cart-link"
-          >{`Cart (${totalItems})`}</LocalizedClientLink>
+            title={`Shopping Bag (${totalItems})`}
+          >
+            <ShoppingBag className="w-5 h-5" />
+            {totalItems > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 bg-[#E53946] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                {totalItems}
+              </span>
+            ) : (
+              <span className="absolute -top-0.5 -right-0.5 bg-[#1E1F74] text-white text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                0
+              </span>
+            )}
+          </LocalizedClientLink>
         </PopoverButton>
         <Transition
           show={cartDropdownOpen}

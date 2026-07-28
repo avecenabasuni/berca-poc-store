@@ -8,6 +8,8 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
 
+import { User, MagnifyingGlass, ShoppingBag } from "@medusajs/icons"
+
 export default async function Nav() {
   const [regions, locales, currentLocale] = await Promise.all([
     listRegions().then((regions: StoreRegion[]) => regions),
@@ -24,7 +26,7 @@ export default async function Nav() {
       <header className="relative h-16 mx-auto border-b duration-200 bg-white border-[#CFCFD4]/50">
         <nav className="content-container txt-xsmall-plus text-[#1E1F74] flex items-center justify-between w-full h-full text-small-regular">
           <div className="flex-1 basis-0 h-full flex items-center">
-            <div className="h-full">
+            <div className="h-full flex items-center">
               <SideMenu
                 regions={regions}
                 locales={locales}
@@ -43,24 +45,38 @@ export default async function Nav() {
             </LocalizedClientLink>
           </div>
 
-          <div className="flex items-center gap-x-6 h-full flex-1 basis-0 justify-end">
-            <div className="hidden small:flex items-center gap-x-6 h-full">
-              <LocalizedClientLink
-                className="hover:text-[#E53946] font-medium transition-colors"
-                href="/account"
-                data-testid="nav-account-link"
-              >
-                Account
-              </LocalizedClientLink>
-            </div>
+          <div className="flex items-center gap-x-2 small:gap-x-3 h-full flex-1 basis-0 justify-end">
+            <LocalizedClientLink
+              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
+              href="/store"
+              title="Cari Produk"
+            >
+              <MagnifyingGlass className="w-5 h-5" />
+              <span className="sr-only">Search</span>
+            </LocalizedClientLink>
+
+            <LocalizedClientLink
+              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
+              href="/account"
+              data-testid="nav-account-link"
+              title="Akun Saya"
+            >
+              <User className="w-5 h-5" />
+              <span className="sr-only">Account</span>
+            </LocalizedClientLink>
+
             <Suspense
               fallback={
                 <LocalizedClientLink
-                  className="hover:text-[#E53946] font-medium transition-colors flex gap-2"
+                  className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center relative p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
                   href="/cart"
                   data-testid="nav-cart-link"
+                  title="Shopping Bag"
                 >
-                  Cart (0)
+                  <ShoppingBag className="w-5 h-5" />
+                  <span className="absolute -top-0.5 -right-0.5 bg-[#1E1F74] text-white text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                    0
+                  </span>
                 </LocalizedClientLink>
               }
             >
