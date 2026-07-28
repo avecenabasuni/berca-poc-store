@@ -63,6 +63,7 @@ services:
       - "8000:8000"
     environment:
       - NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://medusa:9000
+      - NEXT_PUBLIC_DEFAULT_REGION=id
     env_file:
       - apps/storefront/.env
     volumes:
