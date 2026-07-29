@@ -1,18 +1,57 @@
 #!/bin/bash
-# run-pgbouncer-poc.sh — Trigger 8-minute PgBouncer Saturation for 5-Minute Datadog Monitor Evaluation
+# run-pgbouncer-poc.sh — Smoke Test Medusa & Trigger 8-minute PgBouncer Saturation Test
 
 set -euo pipefail
 
+MEDUSA_BASE_URL="${MEDUSA_BASE_URL:-http://medusa:9000}"
+
 echo ""
 echo "=========================================================================="
-echo "  PGBOUNCER SATURATION POC RUNNER (8-MINUTE DURATION)"
+echo "  PGBOUNCER POC: SMOKE TEST & SATURATION RUNNER"
 echo "=========================================================================="
-echo "  Target Pooler:    PgBouncer (port 6432)"
-echo "  Clients:          25 parallel clients (5 backend connections max)"
+echo "  Architecture:     User / Medusa -> PgBouncer (6432) -> PostgreSQL (5432)"
+echo "  Target Pooler:    PgBouncer (max 5 backend connections)"
 echo "  Duration:         480 seconds (8 minutes)"
 echo "  Transaction:      BEGIN; SELECT pg_sleep(30); COMMIT;"
 echo "=========================================================================="
 echo ""
+
+# ------------------------------------------------------------------------------
+# STEP 1: SMOKE TEST MEDUSA VIA PGBOUNCER
+# ------------------------------------------------------------------------------
+echo "[STEP 1/2] Running Medusa Smoke Test via PgBouncer..."
+
+# Extract Publishable API Key if present
+API_KEY="${MEDUSA_PUBLISHABLE_KEY:-}"
+if [ -z "$API_KEY" ] && [ -f "apps/storefront/.env" ]; then
+  API_KEY=$(grep "NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY" apps/storefront/.env | cut -d '=' -f2 | tr -d '\r\n"') || true
+fi
+
+# 1. Health check
+echo "  -> Checking Medusa /health endpoint..."
+docker compose exec -T postgres wget -q --spider http://medusa:9000/health || {
+  echo "[ERROR] Medusa backend is not healthy! Please ensure 'docker compose up -d' is running."
+  exit 1
+}
+echo "  [OK] Medusa backend health check passed."
+
+# 2. Store API query test
+if [ -n "$API_KEY" ]; then
+  echo "  -> Testing Store Products API (/store/products) via PgBouncer connection..."
+  HTTP_CODE=$(docker compose exec -T postgres wget -q -S --header="x-publishable-api-key: ${API_KEY}" -O /dev/null http://medusa:9000/store/products 2>&1 | grep "HTTP/" | tail -n1 | awk '{print $2}')
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo "  [OK] Store API returned 200 OK — PgBouncer transaction pooling mode is fully compatible!"
+  else
+    echo "  [WARN] Store API returned HTTP ${HTTP_CODE} (API Key: ${API_KEY:0:10}...)"
+  fi
+else
+  echo "  [INFO] MEDUSA_PUBLISHABLE_KEY not found; skipping Store API header test."
+fi
+
+echo ""
+echo "=========================================================================="
+echo "[STEP 2/2] STARTING 8-MINUTE PGBOUNCER SATURATION TEST (25 CLIENTS)"
+echo "=========================================================================="
 echo "  Starting 8-minute saturation run in 3 seconds..."
 sleep 3
 

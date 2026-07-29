@@ -11,9 +11,9 @@ module.exports = defineConfig({
       sslmode: 'disable',
       pool: {
         min: 1,
-        max: 5,
+        max: 25,
         idleTimeoutMillis: 10000,
-        acquireTimeoutMillis: 5000,
+        acquireTimeoutMillis: 10000,
       },
     },
     http: {

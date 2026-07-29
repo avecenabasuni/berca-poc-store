@@ -91,12 +91,13 @@ services:
     depends_on:
       - postgres
       - redis
+      - pgbouncer
     ports:
       - "9000:9000"
       - "5173:5173"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/medusa-store
+      - DATABASE_URL=postgres://postgres:postgres@pgbouncer:6432/medusa-store
       - REDIS_URL=redis://redis:6379
       - DD_AGENT_HOST=datadog-agent
       - DD_SERVICE=medusa-backend

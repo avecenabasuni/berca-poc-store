@@ -7,31 +7,42 @@ POC ini dikembangkan khusus untuk mendemonstrasikan **pola kejenuhan database co
 Durasi 8 menit memberikan window evaluasi yang cukup untuk Datadog Monitor dengan agregasi `avg(last_5m)` untuk mendeteksi kondisi pool jenuh dan antrean klien secara stabil tanpa fluktuasi sementara.
 
 ### Poin Kunci Desain:
+- **Jalur Koneksi Otoritatif**: Medusa Backend dan Load-test Runner **keduanya melalui PgBouncer**, bukan langsung ke PostgreSQL.
 - **PgBouncer** bertindak sebagai pooler database perantara dengan batas koneksi backend `default_pool_size=5` dan `max_db_connections=5`.
-- **Medusa Backend** tetap terhubung langsung ke PostgreSQL dan **TIDAK diubah** (`DATABASE_URL` & `databaseDriverOptions.pool` tetap terisolasi).
-- **Pgbench Runner** menjalankan 25 klien paralel langsung ke PgBouncer tanpa mengubah data aplikasi (`-n`).
+- **Pool Klien Medusa**: Ditingkatkan menjadi `pool.max = 25` di `medusa-config.ts` agar Medusa tidak menjadi bottleneck lebih dahulu; PgBouncer tetap membatasi koneksi fisik ke PostgreSQL maksimum 5.
+- **Pgbench Runner**: Menjalankan 25 klien paralel langsung ke PgBouncer tanpa mengubah data aplikasi (`-n`).
 
 ---
 
-## 2. Arsitektur & Konfigurasi
+## 2. Jalur Koneksi yang Dipakai
 
 ```text
-+-----------------------+              +-----------------------+
-|  Medusa Backend       | ------------>|  PostgreSQL (Port 5432|
-|  (Terisolasi, normal) |              |  direct connection)   |
-+-----------------------+              +-----------------------+
-                                                   ^
-+-----------------------+                          |
-|  pgbench (25 clients) |                          | (max 5 conn)
-|  8 menit (480s)       |                          |
-+-----------+-----------+              +-----------+-----------+
-            |                          |  PgBouncer            |
-            +------------------------->|  (Port 6432, pool=5)  |
-                                       +-----------+-----------+
-                                                   | (autodiscovery)
-                                       +-----------v-----------+
-                                       |  Datadog Agent        |
-                                       +-----------------------+
+User → Medusa → PgBouncer (Port 6432) → PostgreSQL (Port 5432)
+Load-test runner (pgbench) → PgBouncer (Port 6432) → PostgreSQL (Port 5432)
+Datadog PostgreSQL check → PostgreSQL langsung (Port 5432)
+Datadog PgBouncer check → PgBouncer admin database (Port 6432)
+```
+
+```text
++-----------------------+
+|  User / Storefront    |
++-----------+-----------+
+            |
+            v
++-----------+-----------+              +-----------------------+              +-----------------------+
+|  Medusa Backend       | ------------>|  PgBouncer            | ------------>|  PostgreSQL           |
+|  (pool.max = 25)      |              |  (Port 6432, pool=5)  |              |  (Port 5432)          |
++-----------------------+              +-----------+-----------+              +-----------+-----------+
+                                                   ^                                      ^
++-----------------------+                          |                                      |
+|  pgbench (25 clients) | -------------------------+                                      |
+|  8 menit (480s)       |                                                                 |
++-----------------------+                                                                 |
+                                                                                          |
++-----------------------+                                                                 |
+|  Datadog Agent        | ----------------------------------------------------------------+
+|  (Postgres & DBM)     |
++-----------------------+
 ```
 
 ### Konfigurasi PgBouncer (`docker/pgbouncer/pgbouncer.ini`)
@@ -40,8 +51,9 @@ Durasi 8 menit memberikan window evaluasi yang cukup untuk Datadog Monitor denga
 - `max_db_connections = 5`
 - `reserve_pool_size = 0`
 - `max_client_conn = 50`
-- `query_wait_timeout = 600` (agar 20 klien antre tidak di-disconnect sebelum 8 menit)
+- `query_wait_timeout = 600` (agar 20 klien antre tidak diputus oleh pooler sebelum 8 menit)
 - `stats_users = datadog, postgres`
+- `ignore_startup_parameters = extra_float_digits, search_path, options`
 
 ### Datadog Autodiscovery Label (`docker-compose.yml`)
 Agent Datadog mengumpulkan metrik dari PgBouncer menggunakan Autodiscovery Docker labels:
@@ -50,7 +62,7 @@ Agent Datadog mengumpulkan metrik dari PgBouncer menggunakan Autodiscovery Docke
 
 ---
 
-## 3. Cara Menjalankan Test Saturation 8 Menit
+## 3. Cara Menjalankan Smoke Test & Saturation Test 8 Menit
 
 Jalankan script runner khusus PgBouncer POC dari root project:
 
@@ -58,20 +70,16 @@ Jalankan script runner khusus PgBouncer POC dari root project:
 ./run-pgbouncer-poc.sh
 ```
 
-Atau eksekusi langsung via Docker Compose:
-
-```bash
-docker compose exec -T postgres pgbench \
-  -h pgbouncer \
-  -p 6432 \
-  -U postgres \
-  -c 25 \
-  -j 5 \
-  -T 480 \
-  -n \
-  -f /load-test/pgbench-saturation.sql \
-  medusa-store
-```
+Script akan mengeksekusi dua tahap:
+1. **Smoke Test Medusa via PgBouncer**:
+   Memastikan Medusa backend (`/health` & `/store/products`) dapat berkomunikasi dengan lancar melalui PgBouncer.
+2. **Pgbench Saturation Test 8 Menit**:
+   Membanjiri PgBouncer dengan 25 klien paralel selama 480 detik (8 menit):
+   ```sql
+   BEGIN;
+   SELECT pg_sleep(30);
+   COMMIT;
+   ```
 
 ---
 
