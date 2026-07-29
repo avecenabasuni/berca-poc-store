@@ -13,7 +13,7 @@ module.exports = defineConfig({
         min: 1,
         max: 5,
         idleTimeoutMillis: 10000,
-        connectionTimeoutMillis: 5000,
+        acquireTimeoutMillis: 5000,
       },
     },
     http: {
