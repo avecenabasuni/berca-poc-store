@@ -1,5 +1,5 @@
 #!/bin/bash
-# run-full-poc.sh — Master Unified POC Runner (8-Minute Concurrency & Disk Log Saturation Test)
+# run-full-poc.sh — Master Unified POC Runner (15-Minute Concurrency & Disk Log Saturation Test)
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ mkdir -p "$LOG_DIR"
 
 echo ""
 echo "=========================================================================="
-echo "  UNIFIED POC RUNNER: PGBOUNCER POOL & DISK LOG SATURATION (8 MINUTES)"
+echo "  UNIFIED POC RUNNER: PGBOUNCER POOL & DISK LOG SATURATION (15 MINUTES)"
 echo "=========================================================================="
 echo "  Flow Architecture:"
 echo "  1. Traffic Spike    --> High concurrency load test"
@@ -55,13 +55,13 @@ touch "$TRIGGER_FILE"
 echo "  [OK] Log generator triggered (target: 85% disk log capacity)."
 
 # ------------------------------------------------------------------------------
-# STEP 3: EXECUTE 8-MINUTE PGBOUNCER SATURATION (25 CLIENTS)
+# STEP 3: EXECUTE 15-MINUTE PGBOUNCER SATURATION (25 CLIENTS)
 # ------------------------------------------------------------------------------
 echo ""
 echo "=========================================================================="
-echo "[STEP 3/3] STARTING 8-MINUTE CONCURRENCY SATURATION TEST (25 CLIENTS)"
+echo "[STEP 3/3] STARTING 15-MINUTE CONCURRENCY SATURATION TEST (25 CLIENTS)"
 echo "=========================================================================="
-echo "  Starting 8-minute run in 3 seconds..."
+echo "  Starting 15-minute run in 3 seconds..."
 sleep 3
 
 docker compose exec -T postgres pgbench \
@@ -70,7 +70,7 @@ docker compose exec -T postgres pgbench \
   -U postgres \
   -c 25 \
   -j 5 \
-  -T 480 \
+  -T 900 \
   -n \
   -f /load-test/pgbench-saturation.sql \
   medusa-store || true
@@ -79,7 +79,7 @@ echo ""
 echo "=========================================================================="
 echo "  SATURATION RUN FINISHED — DATADOG COMPOSITE MONITOR WILL ALERT"
 echo "=========================================================================="
-echo "  Acceptance Criteria (Minutes 5 to 8):"
+echo "  Acceptance Criteria (Minutes 5 to 15):"
 echo "  1. PgBouncer sv_active = 5, cl_waiting ~20"
 echo "  2. Disk Log Volume in_use >= 0.85 (85%)"
 echo "  3. Datadog Composite Monitor triggers ALERT / CRITICAL"

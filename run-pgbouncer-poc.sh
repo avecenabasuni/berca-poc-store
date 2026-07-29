@@ -1,5 +1,5 @@
 #!/bin/bash
-# run-pgbouncer-poc.sh — Smoke Test Medusa & Trigger 8-minute PgBouncer Saturation Test
+# run-pgbouncer-poc.sh — Smoke Test Medusa & Trigger 15-minute PgBouncer Saturation Test
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ echo "  PGBOUNCER POC: SMOKE TEST & SATURATION RUNNER"
 echo "=========================================================================="
 echo "  Architecture:     User / Medusa -> PgBouncer (6432) -> PostgreSQL (5432)"
 echo "  Target Pooler:    PgBouncer (max 5 backend connections)"
-echo "  Duration:         480 seconds (8 minutes)"
+echo "  Duration:         900 seconds (15 minutes)"
 echo "  Transaction:      BEGIN; SELECT pg_sleep(30); COMMIT;"
 echo "=========================================================================="
 echo ""
@@ -50,9 +50,9 @@ fi
 
 echo ""
 echo "=========================================================================="
-echo "[STEP 2/2] STARTING 8-MINUTE PGBOUNCER SATURATION TEST (25 CLIENTS)"
+echo "[STEP 2/2] STARTING 15-MINUTE PGBOUNCER SATURATION TEST (25 CLIENTS)"
 echo "=========================================================================="
-echo "  Starting 8-minute saturation run in 3 seconds..."
+echo "  Starting 15-minute saturation run in 3 seconds..."
 sleep 3
 
 docker compose exec -T postgres pgbench \
@@ -61,7 +61,7 @@ docker compose exec -T postgres pgbench \
   -U postgres \
   -c 25 \
   -j 5 \
-  -T 480 \
+  -T 900 \
   -n \
   -f /load-test/pgbench-saturation.sql \
   medusa-store
