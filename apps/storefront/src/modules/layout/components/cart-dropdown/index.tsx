@@ -15,7 +15,8 @@ import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import Thumbnail from "@modules/products/components/thumbnail"
-import { usePathname } from "next/navigation"
+import { useParams, usePathname } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
 import { Fragment, useEffect, useRef, useState } from "react"
 
 const CartDropdown = ({
@@ -23,6 +24,9 @@ const CartDropdown = ({
 }: {
   cart?: HttpTypes.StoreCart | null
 }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).cart
+
   const [activeTimer, setActiveTimer] = useState<NodeJS.Timer | undefined>(
     undefined
   )
@@ -116,8 +120,8 @@ const CartDropdown = ({
             data-testid="nav-cart-dropdown"
           >
             <div className="p-4 flex items-center justify-between border-b border-[#CFCFD4]/40">
-              <h3 className="text-base font-bold text-[#1E1F74]">Keranjang Belanja</h3>
-              <span className="text-xs text-[#1E1F74]/60 font-medium">{totalItems} Item</span>
+              <h3 className="text-base font-bold text-[#1E1F74]">{t.title}</h3>
+              <span className="text-xs text-[#1E1F74]/60 font-medium">{totalItems} {t.items}</span>
             </div>
             {cartState && cartState.items?.length ? (
               <>
@@ -165,7 +169,7 @@ const CartDropdown = ({
                                 data-testid="cart-item-quantity"
                                 data-value={item.quantity}
                               >
-                                Jumlah: {item.quantity}
+                                {t.quantity}: {item.quantity}
                               </span>
                             </div>
                             <div className="flex justify-end flex-shrink-0 text-right text-sm font-bold text-[#1E1F74]">
@@ -181,7 +185,7 @@ const CartDropdown = ({
                             className="mt-2 text-xs text-[#E53946] hover:underline self-start"
                             data-testid="cart-item-remove-button"
                           >
-                            Hapus
+                            {t.remove}
                           </DeleteButton>
                         </div>
                       </div>
@@ -190,7 +194,7 @@ const CartDropdown = ({
                 <div className="p-5 flex flex-col gap-y-4 bg-[#F5F5F7] rounded-b-2xl border-t border-[#CFCFD4]/40">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-[#1E1F74]">
-                      Subtotal
+                      {t.subtotal}
                     </span>
                     <span
                       className="text-lg font-bold text-[#1E1F74]"
@@ -209,7 +213,7 @@ const CartDropdown = ({
                       size="large"
                       data-testid="go-to-cart-button"
                     >
-                      Lihat Keranjang Belanja
+                      {t.viewCart}
                     </Button>
                   </LocalizedClientLink>
                 </div>
@@ -220,12 +224,12 @@ const CartDropdown = ({
                   <div className="bg-[#1E1F74] text-xs flex items-center justify-center w-8 h-8 rounded-full text-white font-bold">
                     <span>0</span>
                   </div>
-                  <span className="text-sm font-medium text-[#1E1F74]/80">Keranjang belanja Anda kosong.</span>
+                  <span className="text-sm font-medium text-[#1E1F74]/80">{t.empty}</span>
                   <div>
                     <LocalizedClientLink href="/store">
                       <>
                         <span className="sr-only">Halaman semua produk</span>
-                        <Button onClick={close}>Jelajahi Produk</Button>
+                        <Button onClick={close}>{t.explore}</Button>
                       </>
                     </LocalizedClientLink>
                   </div>

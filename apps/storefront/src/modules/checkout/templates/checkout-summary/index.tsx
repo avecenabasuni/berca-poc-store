@@ -1,12 +1,18 @@
-import { Heading } from "@modules/common/components/ui"
+"use client"
 
+import { Heading } from "@modules/common/components/ui"
 import ItemsPreviewTemplate from "@modules/cart/templates/preview"
 import DiscountCode from "@modules/checkout/components/discount-code"
 import CartTotals from "@modules/common/components/cart-totals"
 import Divider from "@modules/common/components/divider"
 import { HttpTypes } from "@medusajs/types"
+import { useParams } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
 
 const CheckoutSummary = ({ cart }: { cart: HttpTypes.StoreCart }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).checkout
+
   return (
     <div className="sticky top-24 flex flex-col-reverse small:flex-col gap-y-8 py-8 small:py-0">
       <div className="w-full bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm flex flex-col">
@@ -15,7 +21,7 @@ const CheckoutSummary = ({ cart }: { cart: HttpTypes.StoreCart }) => {
           level="h2"
           className="flex flex-row text-2xl font-bold text-[#1E1F74] items-baseline justify-between"
         >
-          <span>Ringkasan Pesanan</span>
+          <span>{t.summaryTitle}</span>
         </Heading>
         <Divider className="my-4 border-[#CFCFD4]/50" />
         <CartTotals totals={cart} />

@@ -2,7 +2,8 @@
 
 import { Badge, Heading, Input, Label, Text } from "@modules/common/components/ui"
 import React from "react"
-
+import { useParams } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
 import { applyPromotions } from "@lib/data/cart"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
@@ -15,6 +16,9 @@ type DiscountCodeProps = {
 }
 
 const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).checkout
+
   const [isOpen, setIsOpen] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState("")
 
@@ -61,20 +65,16 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
-              className="txt-medium text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+              className="text-xs font-semibold text-[#1E1F74] hover:text-[#E53946]"
               data-testid="add-discount-button"
             >
-              Add Promotion Code(s)
+              + {countryCode === "id" ? "Tambahkan Kode Diskon" : "Add Discount Code"}
             </button>
-
-            {/* <Tooltip content="You can add multiple promotion codes">
-              <InformationCircleSolid color="var(--fg-muted)" />
-            </Tooltip> */}
           </Label>
 
           {isOpen && (
             <>
-              <div className="flex w-full gap-x-2">
+              <div className="flex w-full gap-x-2 mt-2">
                 <Input
                   className="size-full"
                   id="promotion-input"
@@ -87,7 +87,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                   variant="secondary"
                   data-testid="discount-apply-button"
                 >
-                  Apply
+                  {t.apply}
                 </SubmitButton>
               </div>
 
