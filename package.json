@@ -24,6 +24,9 @@
       "@types/react-dom": "19.0.5"
     }
   },
+  "dependencies": {
+    "dd-trace": "^5.41.0"
+  },
   "devDependencies": {
     "@medusajs/eslint-plugin": "2.18.0",
     "eslint": "^9.39.4",

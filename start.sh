@@ -8,5 +8,5 @@ echo "Seeding database..."
 pnpm seed || echo "Seeding failed, continuing..."
 
 echo "Starting Medusa development server..."
-export NODE_OPTIONS="-r dd-trace/init --import dd-trace/register.js"
+export NODE_OPTIONS="-r /server/node_modules/dd-trace/init"
 pnpm dev
