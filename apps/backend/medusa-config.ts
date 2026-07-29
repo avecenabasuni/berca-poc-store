@@ -9,6 +9,12 @@ module.exports = defineConfig({
     databaseDriverOptions: {
       ssl: false,
       sslmode: 'disable',
+      pool: {
+        min: 1,
+        max: 5,
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 5000,
+      },
     },
     http: {
       storeCors: process.env.STORE_CORS!,

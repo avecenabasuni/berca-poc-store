@@ -48,6 +48,12 @@ services:
       - .:/server
       - /server/node_modules
       - /server/apps/backend/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
     networks:
       - medusa_network
 
@@ -73,6 +79,25 @@ services:
       - /server/apps/storefront/node_modules
       - /server/apps/storefront/.next
     entrypoint: ["./start-storefront.sh"]
+    networks:
+      - medusa_network
+
+  # Load Test Traffic Generator
+  # Runs k6 baseline traffic continuously to build realistic historical data.
+  # Spike tests are triggered manually via ./load-test/trigger-spike.sh
+  traffic-generator:
+    image: grafana/k6:latest
+    container_name: medusa_traffic_generator
+    restart: unless-stopped
+    depends_on:
+      medusa:
+        condition: service_healthy
+    environment:
+      - MEDUSA_BASE_URL=http://medusa:9000
+      - MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-}
+    volumes:
+      - ./load-test:/scripts
+    entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
     networks:
       - medusa_network
 
