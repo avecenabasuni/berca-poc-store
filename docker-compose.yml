@@ -16,6 +16,9 @@ services:
     ports:
       - "5432:5432"
     labels:
+      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.service: "medusa-postgres"
+      com.datadoghq.tags.version: "1.0.0"
       com.datadoghq.ad.check_names: '["postgres"]'
       com.datadoghq.ad.init_configs: '[{}]'
       com.datadoghq.ad.instances: '[{
@@ -24,7 +27,13 @@ services:
         "port": 5432,
         "username": "datadog",
         "password": "datadog",
-        "dbname": "medusa-store"
+        "dbname": "medusa-store",
+        "service": "medusa-postgres",
+        "tags": [
+          "dbinstanceidentifier:medusa-postgres-db",
+          "service:medusa-postgres",
+          "env:production"
+        ]
       }]'
     volumes:
       - postgres_data:/var/lib/postgresql/data
