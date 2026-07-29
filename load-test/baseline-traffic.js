@@ -99,13 +99,15 @@ function shouldInjectError() {
 // ---------------------------------------------------------------------------
 export default function () {
   const journeyStart = Date.now()
+  const vuId = __VU
 
   // -----------------------------------------------------------------------
   // Step 1: Browse product listing
   // -----------------------------------------------------------------------
   let products = []
   group("browse_products", function () {
-    const url = shouldInjectError()
+    const isError = shouldInjectError()
+    const url = isError
       ? `${BASE_URL}/store/products?limit=invalid`
       : `${BASE_URL}/store/products?limit=20`
 
@@ -117,13 +119,15 @@ export default function () {
 
     if (ok && res.json() && res.json().products) {
       products = res.json().products
+      console.log(`[VU ${vuId}] [STEP 1] Browse catalog -> Found ${products.length} products`)
+    } else {
+      console.log(`[VU ${vuId}] [STEP 1] Browse catalog -> Failed (${res.status})`)
     }
   })
 
   thinkTime()
 
   if (products.length === 0) {
-    // Nothing to browse — end journey early
     journeyDuration.add(Date.now() - journeyStart)
     return
   }
@@ -134,7 +138,8 @@ export default function () {
   let selectedProduct = null
   group("view_product_detail", function () {
     const product = randomItem(products)
-    const productId = shouldInjectError() ? "non_existent_id_999" : product.id
+    const isError = shouldInjectError()
+    const productId = isError ? "non_existent_id_999" : product.id
     const res = http.get(`${BASE_URL}/store/products/${productId}`, {
       headers: HEADERS,
       timeout: "8s",
@@ -146,6 +151,9 @@ export default function () {
 
     if (ok && res.json() && res.json().product) {
       selectedProduct = res.json().product
+      console.log(`[VU ${vuId}] [STEP 2] View product -> "${selectedProduct.title}" (${selectedProduct.id})`)
+    } else {
+      console.log(`[VU ${vuId}] [STEP 2] View product -> Failed (${res.status})`)
     }
   })
 
@@ -154,7 +162,10 @@ export default function () {
   // -----------------------------------------------------------------------
   // Step 3: 70% chance — create cart and add item
   // -----------------------------------------------------------------------
-  if (Math.random() > 0.30 && selectedProduct) {
+  const willCreateCart = Math.random() > 0.30
+  if (!willCreateCart) {
+    console.log(`[VU ${vuId}] [BOUNCE] Left store after viewing product detail`)
+  } else if (selectedProduct) {
     let cartId = null
 
     group("create_cart", function () {
@@ -170,6 +181,9 @@ export default function () {
 
       if (ok && res.json() && res.json().cart) {
         cartId = res.json().cart.id
+        console.log(`[VU ${vuId}] [STEP 3a] Cart created -> ID: ${cartId}`)
+      } else {
+        console.log(`[VU ${vuId}] [STEP 3a] Cart creation failed (${res.status})`)
       }
     })
 
@@ -192,21 +206,28 @@ export default function () {
           "add item: status 200": (r) => r.status === 200,
         })
         errorRate.add(!ok)
+
+        if (ok) {
+          console.log(`[VU ${vuId}] [STEP 3b] Added ${quantity}x item(s) to cart`)
+        } else {
+          console.log(`[VU ${vuId}] [STEP 3b] Failed adding item to cart (${res.status})`)
+        }
       })
 
       thinkTime()
 
       // -----------------------------------------------------------------
       // Step 4: ~35% of cart users proceed toward checkout
-      // (simulates ~75% cart abandonment from the 70% who added to cart)
       // -----------------------------------------------------------------
-      if (Math.random() < 0.35) {
+      const willCheckout = Math.random() < 0.35
+      if (!willCheckout) {
+        console.log(`[VU ${vuId}] [CART ABANDONMENT] Left items in cart without checkout`)
+      } else {
         group("checkout_flow", function () {
-          // Update cart with customer email
           const emailRes = http.post(
             `${BASE_URL}/store/carts/${cartId}`,
             JSON.stringify({
-              email: `testuser${__VU}@loadtest.local`,
+              email: `testuser${vuId}@loadtest.local`,
             }),
             { headers: HEADERS, timeout: "8s" }
           )
@@ -216,7 +237,6 @@ export default function () {
 
           thinkTime()
 
-          // Attempt to create payment collection (may fail — that is OK)
           const paymentRes = http.post(
             `${BASE_URL}/store/payment-collections`,
             JSON.stringify({ cart_id: cartId }),
@@ -227,6 +247,8 @@ export default function () {
               r.status === 200 || r.status === 400,
           })
           errorRate.add(!paymentOk)
+
+          console.log(`[VU ${vuId}] [STEP 4] Completed checkout flow`)
         })
 
         thinkTime()
