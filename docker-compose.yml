@@ -99,7 +99,10 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://postgres:postgres@pgbouncer:6432/medusa-store
       - REDIS_URL=redis://redis:6379
+      - NODE_OPTIONS=--import dd-trace/initialize.mjs
       - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_URL=http://datadog-agent:8126
+      - DD_TRACE_STARTUP_LOGS=true
       - DD_SERVICE=medusa-backend
       - DD_ENV=production
       - DD_VERSION=1.0.0
@@ -133,7 +136,10 @@ services:
     environment:
       - NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://medusa:9000
       - NEXT_PUBLIC_DEFAULT_REGION=id
+      - NODE_OPTIONS=--import dd-trace/initialize.mjs
       - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_URL=http://datadog-agent:8126
+      - DD_TRACE_STARTUP_LOGS=true
       - DD_SERVICE=medusa-storefront
       - DD_ENV=production
       - DD_VERSION=1.0.0
