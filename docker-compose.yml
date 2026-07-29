@@ -42,7 +42,6 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/medusa-store
       - REDIS_URL=redis://redis:6379
-      - NODE_OPTIONS=--require dd-trace/init
       - DD_AGENT_HOST=datadog-agent
       - DD_SERVICE=medusa-backend
       - DD_ENV=production
@@ -75,7 +74,6 @@ services:
     environment:
       - NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://medusa:9000
       - NEXT_PUBLIC_DEFAULT_REGION=id
-      - NODE_OPTIONS=--require dd-trace/init
       - DD_AGENT_HOST=datadog-agent
       - DD_SERVICE=medusa-storefront
       - DD_ENV=production
