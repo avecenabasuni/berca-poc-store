@@ -120,7 +120,7 @@ services:
       - DD_LOGS_ENABLED=true
       - DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
-      - DD_CONTAINER_EXCLUDE_LOGS="name:dd-agent"
+      - DD_CONTAINER_EXCLUDE_LOGS=name:dd-agent
     volumes:
       - /var/run/datadog:/var/run/datadog
       - /var/run/docker.sock:/var/run/docker.sock:ro
