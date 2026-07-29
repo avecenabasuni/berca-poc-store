@@ -4,14 +4,31 @@ services:
     image: postgres:15-alpine
     container_name: medusa_postgres
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c track_activity_query_size=4096
+      -c pg_stat_statements.track=all
     environment:
       POSTGRES_DB: medusa-store
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+    labels:
+      com.datadoghq.ad.check_names: '["postgres"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: '[{
+        "dbm": true,
+        "host": "%%host%%",
+        "port": 5432,
+        "username": "datadog",
+        "password": "datadog",
+        "dbname": "medusa-store"
+      }]'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init/01-datadog-dbm.sql:/docker-entrypoint-initdb.d/01-datadog-dbm.sql:ro
     networks:
       - medusa_network
 
