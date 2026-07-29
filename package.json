@@ -15,7 +15,8 @@
     "backend:dev": "turbo dev --filter=@dtc/backend",
     "storefront:dev": "turbo dev --filter=@dtc/storefront",
     "docker:up": "docker compose up --build -d",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "spike": "./spike.sh"
   },
   "pnpm": {
     "overrides": {
