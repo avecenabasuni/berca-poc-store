@@ -38,6 +38,36 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init/01-datadog-dbm.sql:/docker-entrypoint-initdb.d/01-datadog-dbm.sql:ro
+      - ./load-test:/load-test:ro
+    networks:
+      - medusa_network
+
+  # PgBouncer Connection Pooler (for 5-Minute Datadog Monitor Saturation POC)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: medusa_pgbouncer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    labels:
+      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.service: "pgbouncer"
+      com.datadoghq.tags.version: "1.0.0"
+      com.datadoghq.ad.check_names: '["pgbouncer"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: '[{
+        "host": "%%host%%",
+        "port": 6432,
+        "username": "datadog",
+        "password": "datadog",
+        "database_url": "postgresql://datadog:datadog@%%host%%:6432/pgbouncer",
+        "tags": ["service:pgbouncer", "env:production"]
+      }]'
     networks:
       - medusa_network
 

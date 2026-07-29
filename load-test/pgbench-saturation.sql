@@ -1,0 +1,3 @@
+BEGIN;
+SELECT pg_sleep(30);
+COMMIT;
