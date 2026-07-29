@@ -43,6 +43,11 @@ Infrastruktur load testing untuk mendemonstrasikan skenario **database connectio
 | `MEDUSA_PUBLISHABLE_KEY` | Ya | - | Publishable API key dari Medusa admin |
 | `MEDUSA_BASE_URL` | Tidak | `http://localhost:9000` (lokal) / `http://medusa:9000` (Docker) | URL backend |
 
+> **Tips Ambil API Key**: Kamu bisa langsung mengambil `MEDUSA_PUBLISHABLE_KEY` yang di-generate otomatis saat seed:
+> ```bash
+> docker compose logs medusa | grep "PUBLISHABLE API KEY"
+> ```
+
 Set di root `.env` atau export sebelum menjalankan Docker Compose:
 
 ```bash

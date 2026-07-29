@@ -196,6 +196,8 @@ export default async function initial_data_seed({
     },
   });
 
+  logger.info(`DEFAULT PUBLISHABLE API KEY: ${publishableApiKey.token || publishableApiKey.id}`);
+
   const {
     result: [store],
   } = await createStoresWorkflow(container).run({

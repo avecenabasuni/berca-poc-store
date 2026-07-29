@@ -22,6 +22,10 @@ const journeyDuration = new Trend("journey_duration", true)
 const BASE_URL = __ENV.MEDUSA_BASE_URL || "http://localhost:9000"
 const API_KEY = __ENV.MEDUSA_PUBLISHABLE_KEY || ""
 
+if (!API_KEY) {
+  console.log("[WARNING] MEDUSA_PUBLISHABLE_KEY is NOT set! Medusa v2 /store/* endpoints will return 400 Bad Request without a valid publishable API key.")
+}
+
 const HEADERS = {
   "Content-Type": "application/json",
   "x-publishable-api-key": API_KEY,
@@ -33,7 +37,6 @@ const HEADERS = {
 // k6 scenarios with ramping-vus provide smooth transitions.
 // ---------------------------------------------------------------------------
 function getTimeBasedConfig() {
-  // k6 __ENV or system time — use UTC offset +7
   const now = new Date()
   const utc7Hour = (now.getUTCHours() + 7) % 24
 
@@ -71,7 +74,6 @@ export const options = {
     },
   },
   thresholds: {
-    // Intentionally loose — we expect some failures for realism
     errors: ["rate<0.10"],
     http_req_duration: ["p(95)<10000"],
   },
@@ -94,12 +96,25 @@ function shouldInjectError() {
   return Math.random() < 0.03
 }
 
+function getErrorMessage(res) {
+  if (!res || !res.body) return "No response body"
+  try {
+    const json = res.json()
+    if (json && json.message) return json.message
+    if (json && json.type) return `[${json.type}] ${JSON.stringify(json)}`
+  } catch (e) {
+    // ignore
+  }
+  return String(res.body).substring(0, 120)
+}
+
 // ---------------------------------------------------------------------------
 // Main VU function — one iteration = one user journey
 // ---------------------------------------------------------------------------
 export default function () {
   const journeyStart = Date.now()
   const vuId = __VU
+  const regionId = getRegionId()
 
   // -----------------------------------------------------------------------
   // Step 1: Browse product listing
@@ -107,9 +122,13 @@ export default function () {
   let products = []
   group("browse_products", function () {
     const isError = shouldInjectError()
-    const url = isError
-      ? `${BASE_URL}/store/products?limit=invalid`
-      : `${BASE_URL}/store/products?limit=20`
+    let url = `${BASE_URL}/store/products?limit=20`
+    if (regionId) {
+      url += `&region_id=${regionId}`
+    }
+    if (isError) {
+      url = `${BASE_URL}/store/products?limit=invalid`
+    }
 
     const res = http.get(url, { headers: HEADERS, timeout: "8s" })
     const ok = check(res, {
@@ -120,8 +139,10 @@ export default function () {
     if (ok && res.json() && res.json().products) {
       products = res.json().products
       console.log(`[VU ${vuId}] [STEP 1] Browse catalog -> Found ${products.length} products`)
+    } else if (isError) {
+      console.log(`[VU ${vuId}] [STEP 1] (Simulated Error) Browse catalog -> Failed (${res.status})`)
     } else {
-      console.log(`[VU ${vuId}] [STEP 1] Browse catalog -> Failed (${res.status})`)
+      console.log(`[VU ${vuId}] [STEP 1] Browse catalog -> Failed (${res.status}): ${getErrorMessage(res)}`)
     }
   })
 
@@ -140,10 +161,12 @@ export default function () {
     const product = randomItem(products)
     const isError = shouldInjectError()
     const productId = isError ? "non_existent_id_999" : product.id
-    const res = http.get(`${BASE_URL}/store/products/${productId}`, {
-      headers: HEADERS,
-      timeout: "8s",
-    })
+    let url = `${BASE_URL}/store/products/${productId}`
+    if (regionId) {
+      url += `?region_id=${regionId}`
+    }
+
+    const res = http.get(url, { headers: HEADERS, timeout: "8s" })
     const ok = check(res, {
       "product detail: status 200": (r) => r.status === 200,
     })
@@ -152,8 +175,10 @@ export default function () {
     if (ok && res.json() && res.json().product) {
       selectedProduct = res.json().product
       console.log(`[VU ${vuId}] [STEP 2] View product -> "${selectedProduct.title}" (${selectedProduct.id})`)
+    } else if (isError) {
+      console.log(`[VU ${vuId}] [STEP 2] (Simulated Error) View product -> Failed (${res.status})`)
     } else {
-      console.log(`[VU ${vuId}] [STEP 2] View product -> Failed (${res.status})`)
+      console.log(`[VU ${vuId}] [STEP 2] View product -> Failed (${res.status}): ${getErrorMessage(res)}`)
     }
   })
 
@@ -169,11 +194,11 @@ export default function () {
     let cartId = null
 
     group("create_cart", function () {
-      const res = http.post(
-        `${BASE_URL}/store/carts`,
-        JSON.stringify({ region_id: getRegionId() }),
-        { headers: HEADERS, timeout: "8s" }
-      )
+      const payload = regionId ? JSON.stringify({ region_id: regionId }) : JSON.stringify({})
+      const res = http.post(`${BASE_URL}/store/carts`, payload, {
+        headers: HEADERS,
+        timeout: "8s",
+      })
       const ok = check(res, {
         "create cart: status 200": (r) => r.status === 200,
       })
@@ -183,7 +208,7 @@ export default function () {
         cartId = res.json().cart.id
         console.log(`[VU ${vuId}] [STEP 3a] Cart created -> ID: ${cartId}`)
       } else {
-        console.log(`[VU ${vuId}] [STEP 3a] Cart creation failed (${res.status})`)
+        console.log(`[VU ${vuId}] [STEP 3a] Cart creation failed (${res.status}): ${getErrorMessage(res)}`)
       }
     })
 
@@ -210,7 +235,7 @@ export default function () {
         if (ok) {
           console.log(`[VU ${vuId}] [STEP 3b] Added ${quantity}x item(s) to cart`)
         } else {
-          console.log(`[VU ${vuId}] [STEP 3b] Failed adding item to cart (${res.status})`)
+          console.log(`[VU ${vuId}] [STEP 3b] Failed adding item to cart (${res.status}): ${getErrorMessage(res)}`)
         }
       })
 
@@ -248,7 +273,11 @@ export default function () {
           })
           errorRate.add(!paymentOk)
 
-          console.log(`[VU ${vuId}] [STEP 4] Completed checkout flow`)
+          if (paymentOk) {
+            console.log(`[VU ${vuId}] [STEP 4] Completed checkout flow`)
+          } else {
+            console.log(`[VU ${vuId}] [STEP 4] Checkout flow payment collection failed (${paymentRes.status})`)
+          }
         })
 
         thinkTime()
@@ -274,9 +303,11 @@ function getRegionId() {
     })
     if (res.status === 200 && res.json() && res.json().regions && res.json().regions.length > 0) {
       cachedRegionId = res.json().regions[0].id
+    } else {
+      console.log(`[GET REGION FAILED] (${res.status}): ${getErrorMessage(res)}`)
     }
   } catch (e) {
-    // Ignore — will use null which may cause cart creation to fail naturally
+    // Ignore
   }
 
   return cachedRegionId
