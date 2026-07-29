@@ -202,6 +202,45 @@ pool: {
 
 > **WARNING**: Konfigurasi ini hanya untuk POC/demo. Production pool biasanya `max: 20-50`.
 
+## 6. Datadog Agent Integration (Trimmed POC)
+
+Service `datadog-agent` ditambahkan ke `docker-compose.yml` untuk memonitor container metrics, APM traces, dan container logs.
+
+### Cara Mendapatkan `DD_API_KEY`
+1. Login ke akun Datadog kamu (`datadoghq.com`).
+2. Pergi ke **Organization Settings** → **API Keys**.
+3. Copy API Key kamu atau buat key baru (misal: `medusa-poc-key`).
+
+### Konfigurasi `.env`
+Tambahkan `DD_API_KEY` ke file `.env` di root project (atau salin dari `.env.example`):
+
+```env
+DD_API_KEY=your_datadog_api_key_here
+DD_SITE=datadoghq.com
+```
+
+### Cara Menjalankan Datadog Agent Service
+Jalankan service `datadog-agent` secara spesifik via Docker Compose:
+
+```bash
+docker compose up -d datadog-agent
+```
+
+### Cara Verifikasi Status Agent
+Pastikan Datadog Agent berjalan dan berhasil terhubung ke server Datadog:
+
+```bash
+docker compose exec datadog-agent agent status
+```
+
+Cari bagian berikut pada output:
+- **Agent info**: Version, status OK.
+- **API Keys**: `API key ending with xxxxx: is valid`.
+- **Collector & Logs**: Agent berhasil mengoleksi log dan container metrics.
+
+> **CATATAN**: Integrasi khusus PostgreSQL (Postgres integration) **BELUM** termasuk dalam step ini dan akan ditambahkan secara terpisah pada step berikutnya.
+
+
 ## File Structure
 
 ```
