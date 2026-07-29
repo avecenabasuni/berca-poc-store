@@ -193,6 +193,6 @@ export default function () {
     }
   }
 
-  // Minimal think time during spike — we want to overwhelm the pool
-  sleep(Math.random() * 0.5)
+  // Zero/minimal think time during spike — continuously flood requests to exhaust connection pool
+  sleep(Math.random() * 0.05)
 }
