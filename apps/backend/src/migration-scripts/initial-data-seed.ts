@@ -21,6 +21,8 @@ import {
   createTaxRegionsWorkflow,
   linkSalesChannelsToApiKeyWorkflow,
   linkSalesChannelsToStockLocationWorkflow,
+  updateProductVariantsWorkflow,
+  updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
 
 export default async function initial_data_seed({
@@ -40,11 +42,44 @@ export default async function initial_data_seed({
   // Check if regions already exist in database
   const { data: existingRegions } = await query.graph({
     entity: "region",
-    fields: ["id", "name", "countries.iso_2"],
+    fields: ["id", "name", "currency_code", "countries.iso_2"],
   });
 
   if (existingRegions && existingRegions.length > 0) {
-    logger.info("Existing regions found in database. Checking for Indonesia region...");
+    logger.info("Existing database detected. Ensuring Store currencies, Indonesia region, and IDR prices...");
+
+    // 1. Ensure Store supported currencies include IDR
+    try {
+      const { data: stores } = await query.graph({
+        entity: "store",
+        fields: ["id", "supported_currencies.currency_code"],
+      });
+      const store = stores?.[0];
+      if (store) {
+        const hasIDR = store.supported_currencies?.some((c: any) => c.currency_code === "idr");
+        if (!hasIDR) {
+          logger.info("Updating store supported currencies to include IDR...");
+          await updateStoresWorkflow(container).run({
+            input: {
+              selector: { id: store.id },
+              update: {
+                supported_currencies: [
+                  { currency_code: "idr", is_default: true },
+                  ...(store.supported_currencies?.map((c: any) => ({
+                    currency_code: c.currency_code,
+                    is_default: false,
+                  })) || []),
+                ],
+              },
+            },
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn("Store supported currencies update skipped:", err);
+    }
+
+    // 2. Ensure Indonesia region exists
     const hasIndonesia = existingRegions.some((r: any) =>
       r.name === "Indonesia" || r.countries?.some((c: any) => c.iso_2 === "id")
     );
@@ -81,6 +116,48 @@ export default async function initial_data_seed({
     } else {
       logger.info("Indonesia region already exists in database.");
     }
+
+    // 3. Ensure all Product Variants have IDR prices
+    try {
+      const { data: variants } = await query.graph({
+        entity: "product_variant",
+        fields: ["id", "prices.currency_code", "prices.amount"],
+      });
+
+      if (variants && variants.length > 0) {
+        const variantsNeedingIDR = variants.filter(
+          (v: any) => !v.prices?.some((p: any) => p.currency_code === "idr")
+        );
+
+        if (variantsNeedingIDR.length > 0) {
+          logger.info(`Adding IDR prices to ${variantsNeedingIDR.length} product variants...`);
+          await updateProductVariantsWorkflow(container).run({
+            input: {
+              product_variants: variantsNeedingIDR.map((v: any) => {
+                const existingPrices = (v.prices || []).map((p: any) => ({
+                  currency_code: p.currency_code,
+                  amount: p.amount,
+                }));
+                return {
+                  id: v.id,
+                  prices: [
+                    ...existingPrices,
+                    {
+                      currency_code: "idr",
+                      amount: 150000,
+                    },
+                  ],
+                };
+              }),
+            },
+          });
+          logger.info("Successfully added IDR prices to product variants!");
+        }
+      }
+    } catch (err) {
+      logger.warn("Updating variant IDR prices skipped:", err);
+    }
+
     return;
   }
 
