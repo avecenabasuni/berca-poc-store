@@ -92,9 +92,11 @@ services:
     depends_on:
       medusa:
         condition: service_healthy
+    env_file:
+      - apps/storefront/.env
     environment:
       - MEDUSA_BASE_URL=http://medusa:9000
-      - MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-}
+      - MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}}
     volumes:
       - ./load-test:/scripts
     entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]

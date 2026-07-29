@@ -21,10 +21,10 @@ const poolExhausted = new Counter("pool_exhausted_errors")
 // Configuration
 // ---------------------------------------------------------------------------
 const BASE_URL = __ENV.MEDUSA_BASE_URL || "http://localhost:9000"
-const API_KEY = __ENV.MEDUSA_PUBLISHABLE_KEY || ""
+const API_KEY = __ENV.MEDUSA_PUBLISHABLE_KEY || __ENV.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
 
 if (!API_KEY) {
-  console.log("[WARNING] MEDUSA_PUBLISHABLE_KEY is NOT set! Medusa v2 /store/* endpoints will return 400 Bad Request without a valid publishable API key.")
+  console.log("[WARNING] MEDUSA_PUBLISHABLE_KEY / NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY is NOT set! Medusa v2 /store/* endpoints will return 400 Bad Request without a valid publishable API key.")
 }
 
 const HEADERS = {
