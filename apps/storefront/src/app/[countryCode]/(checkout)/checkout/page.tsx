@@ -10,8 +10,11 @@ export const metadata: Metadata = {
   title: "Checkout",
 }
 
-export default async function Checkout() {
-  const cart = await retrieveCart()
+export default async function Checkout(props: {
+  params: Promise<{ countryCode: string }>
+}) {
+  const { countryCode } = await props.params
+  const cart = await retrieveCart(undefined, undefined, countryCode)
 
   if (!cart) {
     return notFound()

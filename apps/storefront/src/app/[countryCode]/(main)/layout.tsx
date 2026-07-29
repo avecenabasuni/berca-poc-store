@@ -19,7 +19,7 @@ export default async function PageLayout(props: {
 }) {
   const { countryCode } = await props.params
   const customer = await retrieveCustomer()
-  const cart = await retrieveCart()
+  const cart = await retrieveCart(undefined, undefined, countryCode)
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {

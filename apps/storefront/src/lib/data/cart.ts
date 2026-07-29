@@ -21,7 +21,7 @@ import { getLocale } from "./locale-actions"
  * @param cartId - optional - The ID of the cart to retrieve.
  * @returns The cart object if found, or null if not found.
  */
-export async function retrieveCart(cartId?: string, fields?: string) {
+export async function retrieveCart(cartId?: string, fields?: string, countryCode?: string) {
   const id = cartId || (await getCartId())
   fields ??=
     "*items, *region, *items.product, *items.variant, *items.thumbnail, *items.metadata, +items.total, *promotions, +shipping_methods.name"
@@ -38,7 +38,7 @@ export async function retrieveCart(cartId?: string, fields?: string) {
     ...(await getCacheOptions("carts")),
   }
 
-  return await sdk.client
+  let cart = await sdk.client
     .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${id}`, {
       method: "GET",
       query: {
@@ -46,10 +46,32 @@ export async function retrieveCart(cartId?: string, fields?: string) {
       },
       headers,
       next,
-      cache: "force-cache",
+      cache: "no-store",
     })
     .then(({ cart }: { cart: HttpTypes.StoreCart }) => cart)
     .catch(() => null)
+
+  if (cart && countryCode) {
+    const region = await getRegion(countryCode)
+    if (region && cart.region_id !== region.id) {
+      await sdk.store.cart.update(cart.id, { region_id: region.id }, {}, headers)
+      const cartCacheTag = await getCacheTag("carts")
+      revalidateTag(cartCacheTag)
+
+      cart = await sdk.client
+        .fetch<HttpTypes.StoreCartResponse>(`/store/carts/${id}`, {
+          method: "GET",
+          query: { fields },
+          headers,
+          next,
+          cache: "no-store",
+        })
+        .then(({ cart }: { cart: HttpTypes.StoreCart }) => cart)
+        .catch(() => null)
+    }
+  }
+
+  return cart
 }
 
 export async function getOrSetCart(countryCode: string) {
@@ -59,7 +81,7 @@ export async function getOrSetCart(countryCode: string) {
     throw new Error(`Region not found for country code: ${countryCode}`)
   }
 
-  let cart = await retrieveCart(undefined, "id,region_id")
+  let cart = await retrieveCart(undefined, "id,region_id", countryCode)
 
   const headers = {
     ...(await getAuthHeaders()),
@@ -78,12 +100,16 @@ export async function getOrSetCart(countryCode: string) {
 
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
+
+    cart = await retrieveCart(cart.id, undefined, countryCode)
   }
 
   if (cart && cart?.region_id !== region.id) {
     await sdk.store.cart.update(cart.id, { region_id: region.id }, {}, headers)
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
+
+    cart = await retrieveCart(cart.id, undefined, countryCode)
   }
 
   return cart
