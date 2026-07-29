@@ -157,6 +157,18 @@ services:
     networks:
       - medusa_network
 
+  # Log Saturation Generator (for Scenario 2 Disk Log Saturation POC)
+  log-generator:
+    image: alpine:latest
+    container_name: medusa_log_generator
+    restart: unless-stopped
+    command: ["/bin/sh", "-c", "chmod +x /scripts/log-generator.sh && while true; do /scripts/log-generator.sh; sleep 2; done"]
+    volumes:
+      - ./docker/log-saturation/data:/var/log/poc-app
+      - ./docker/log-saturation/log-generator.sh:/scripts/log-generator.sh:ro
+    networks:
+      - medusa_network
+
   # Load Test Traffic Generator
   # Runs k6 baseline traffic continuously to build realistic historical data.
   # Spike tests are triggered manually via ./load-test/trigger-spike.sh
@@ -202,6 +214,7 @@ services:
       - /proc/:/host/proc/:ro
       - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./docker/log-saturation/data:/var/log/poc-app:ro
     networks:
       - medusa_network
 
