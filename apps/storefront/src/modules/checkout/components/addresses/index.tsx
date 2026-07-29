@@ -14,6 +14,9 @@ import ErrorMessage from "../error-message"
 import ShippingAddress from "../shipping-address"
 import { SubmitButton } from "../submit-button"
 
+import { useParams } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
+
 const Addresses = ({
   cart,
   customer,
@@ -21,6 +24,8 @@ const Addresses = ({
   cart: HttpTypes.StoreCart | null
   customer: HttpTypes.StoreCustomer | null
 }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).checkout
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -46,7 +51,7 @@ const Addresses = ({
           level="h2"
           className="flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-3 items-center"
         >
-          <span>Alamat Pengiriman</span>
+          <span>{t.shippingAddress}</span>
           {!isOpen && <CheckCircleSolid className="text-[#E53946] w-6 h-6" />}
         </Heading>
         {!isOpen && cart?.shipping_address && (
@@ -56,7 +61,7 @@ const Addresses = ({
               className="text-[#E53946] font-semibold hover:underline"
               data-testid="edit-address-button"
             >
-              Ubah
+              {t.edit}
             </button>
           </Text>
         )}

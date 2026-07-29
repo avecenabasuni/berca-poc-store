@@ -164,7 +164,7 @@ const Shipping: React.FC<ShippingProps> = ({
             }
           )}
         >
-          <span>Metode Pengiriman</span>
+          <span>{t.shippingMethod}</span>
           {!isOpen && (cart.shipping_methods?.length ?? 0) > 0 && (
             <CheckCircleSolid className="text-[#E53946] w-6 h-6" />
           )}
@@ -179,7 +179,7 @@ const Shipping: React.FC<ShippingProps> = ({
                 className="text-[#E53946] font-semibold hover:underline"
                 data-testid="edit-delivery-button"
               >
-                Ubah
+                {t.edit}
               </button>
             </Text>
           )}

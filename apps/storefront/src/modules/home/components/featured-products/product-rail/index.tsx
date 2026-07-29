@@ -4,6 +4,7 @@ import { Text } from "@modules/common/components/ui"
 
 import InteractiveLink from "@modules/common/components/interactive-link"
 import ProductPreview from "@modules/products/components/product-preview"
+import { getDictionary } from "@lib/i18n"
 
 export default async function ProductRail({
   collection,
@@ -12,6 +13,9 @@ export default async function ProductRail({
   collection: HttpTypes.StoreCollection
   region: HttpTypes.StoreRegion
 }) {
+  const countryCode = region.countries?.[0]?.iso_2 || "us"
+  const t = getDictionary(countryCode).hero
+
   const {
     response: { products: pricedProducts },
   } = await listProducts({
@@ -31,7 +35,7 @@ export default async function ProductRail({
       <div className="flex justify-between mb-8">
         <Text className="txt-xlarge">{collection.title}</Text>
         <InteractiveLink href={`/collections/${collection.handle}`}>
-          View all
+          {t.viewAll}
         </InteractiveLink>
       </div>
       <ul className="grid grid-cols-2 small:grid-cols-3 gap-x-6 gap-y-24 small:gap-y-36">

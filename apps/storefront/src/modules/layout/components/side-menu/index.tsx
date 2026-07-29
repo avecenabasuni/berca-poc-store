@@ -10,13 +10,8 @@ import { Fragment } from "react"
 import CountrySelect from "../country-select"
 import LanguageSelect from "../language-select"
 import { Locale } from "@lib/data/locales"
-
-const SideMenuItems = {
-  Home: "/",
-  Store: "/store",
-  Account: "/account",
-  Cart: "/cart",
-}
+import { useParams } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
 
 type SideMenuProps = {
   regions: HttpTypes.StoreRegion[] | null
@@ -25,8 +20,17 @@ type SideMenuProps = {
 }
 
 const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode)
   const countryToggleState = useToggleState()
   const languageToggleState = useToggleState()
+
+  const sideMenuItems = [
+    { name: t.nav.home, href: "/", id: "home" },
+    { name: t.nav.store, href: "/store", id: "store" },
+    { name: t.nav.account, href: "/account", id: "account" },
+    { name: t.nav.cart, href: "/cart", id: "cart" },
+  ]
 
   return (
     <div className="h-full">
@@ -40,7 +44,7 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                   className="relative h-full flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#F5F5F7] text-[#1E1F74] hover:text-[#E53946] transition-all ease-out duration-200 focus:outline-none font-medium"
                 >
                   <BarsThree className="w-5 h-5" />
-                  <span className="hidden xsmall:inline text-xs font-semibold uppercase tracking-wider">Menu</span>
+                  <span className="hidden xsmall:inline text-xs font-semibold uppercase tracking-wider">{t.nav.menu}</span>
                 </Popover.Button>
               </div>
 
@@ -82,17 +86,17 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                       </button>
                     </div>
                     <ul className="flex flex-col gap-3 items-start justify-start py-6">
-                      {Object.entries(SideMenuItems).map(([name, href]) => {
+                      {sideMenuItems.map((item) => {
                         return (
-                          <li key={name} className="w-full">
+                          <li key={item.id} className="w-full">
                             <LocalizedClientLink
-                              href={href}
+                              href={item.href}
                               className="text-3xl font-bold leading-10 text-white hover:text-[#E53946] hover:bg-white/10 px-4 py-3 rounded-xl transition-all duration-200 flex items-center justify-between group"
                               style={{ color: "#FFFFFF" }}
                               onClick={close}
-                              data-testid={`${name.toLowerCase()}-link`}
+                              data-testid={`${item.id}-link`}
                             >
-                              <span>{name}</span>
+                              <span>{item.name}</span>
                               <span className="text-xl opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 text-[#E53946]">
                                 →
                               </span>
@@ -143,7 +147,7 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                         />
                       </div>
                       <Text className="flex justify-between text-xs text-white/70 font-medium">
-                        © {new Date().getFullYear()} Berca Store. All rights reserved.
+                        © {new Date().getFullYear()} Berca Store. {t.footer.allRightsReserved}
                       </Text>
                     </div>
                   </div>

@@ -16,7 +16,8 @@ import {
   clx,
 } from "@modules/common/components/ui"
 import { HttpTypes } from "@medusajs/types"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams, useParams } from "next/navigation"
+import { getDictionary } from "@lib/i18n"
 import { useCallback, useEffect, useState } from "react"
 
 const Payment = ({
@@ -26,6 +27,8 @@ const Payment = ({
   cart: HttpTypes.StoreCart
   availablePaymentMethods: { id: string }[]
 }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).checkout
   const activeSession = cart.payment_collection?.payment_sessions?.find(
     (paymentSession) => paymentSession.status === "pending"
   )
@@ -124,7 +127,7 @@ const Payment = ({
             }
           )}
         >
-          <span>Metode Pembayaran</span>
+          <span>{t.payment}</span>
           {!isOpen && paymentReady && (
             <CheckCircleSolid className="text-[#E53946] w-6 h-6" />
           )}
@@ -136,7 +139,7 @@ const Payment = ({
               className="text-[#E53946] font-semibold hover:underline"
               data-testid="edit-payment-button"
             >
-              Ubah
+              {t.edit}
             </button>
           </Text>
         )}

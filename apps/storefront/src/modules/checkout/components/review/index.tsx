@@ -1,12 +1,14 @@
 "use client"
 
 import { Heading, Text, clx } from "@modules/common/components/ui"
-
 import PaymentButton from "../payment-button"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useParams } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
+import { getDictionary } from "@lib/i18n"
 
 const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).checkout
   const searchParams = useSearchParams()
 
   const isOpen = searchParams.get("step") === "review"
@@ -35,7 +37,7 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
             },
           )}
         >
-          <span>Konfirmasi & Buat Pesanan</span>
+          <span>{t.review}</span>
         </Heading>
       </div>
       {isOpen && previousStepsCompleted && (
@@ -43,7 +45,7 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
           <div className="flex items-start gap-x-1 w-full mb-6">
             <div className="w-full bg-[#F5F5F7] p-4 rounded-xl border border-[#CFCFD4]/40">
               <Text className="text-xs text-[#1E1F74]/80 leading-relaxed">
-                Dengan menekan tombol <strong>Buat Pesanan</strong>, Anda mengonfirmasi bahwa Anda telah membaca, memahami, dan menyetujui Syarat & Ketentuan Layanan, Kebijakan Pengembalian, serta Kebijakan Privasi Berca Store.
+                {t.disclaimerPrefix}<strong>{t.placeOrder}</strong>{t.disclaimerSuffix}
               </Text>
             </div>
           </div>

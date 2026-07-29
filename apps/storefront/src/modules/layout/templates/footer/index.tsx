@@ -1,10 +1,11 @@
 import { listCategories } from "@lib/data/categories"
 import { listCollections } from "@lib/data/collections"
 import { Text, clx } from "@modules/common/components/ui"
-
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { getDictionary } from "@lib/i18n"
 
-export default async function Footer() {
+export default async function Footer({ countryCode = "id" }: { countryCode?: string }) {
+  const t = getDictionary(countryCode).footer
   const { collections } = await listCollections({
     fields: "*products",
   })
@@ -22,15 +23,14 @@ export default async function Footer() {
               Berca Store
             </LocalizedClientLink>
             <Text className="text-sm text-[#CFCFD4] leading-relaxed">
-              Belanja lebih mudah, lebih cepat. Temukan produk berkualitas
-              dengan harga terbaik dan pengiriman ke seluruh Indonesia.
+              {t.description}
             </Text>
           </div>
           <div className="text-sm gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-3">
                 <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
-                  Kategori
+                  {t.categories}
                 </span>
                 <ul
                   className="grid grid-cols-1 gap-2.5"
@@ -88,7 +88,7 @@ export default async function Footer() {
             {collections && collections.length > 0 && (
               <div className="flex flex-col gap-y-3">
                 <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
-                  Koleksi
+                  {t.collections}
                 </span>
                 <ul
                   className={clx(
@@ -113,7 +113,7 @@ export default async function Footer() {
             )}
             <div className="flex flex-col gap-y-3">
               <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
-                Tentang Kami
+                {t.aboutUs}
               </span>
               <ul className="grid grid-cols-1 gap-y-2.5 text-[#CFCFD4]">
                 <li>
@@ -121,7 +121,7 @@ export default async function Footer() {
                     className="hover:text-[#E53946] transition-colors"
                     href="#"
                   >
-                    Kebijakan Pengiriman
+                    {t.shippingPolicy}
                   </LocalizedClientLink>
                 </li>
                 <li>
@@ -129,7 +129,7 @@ export default async function Footer() {
                     className="hover:text-[#E53946] transition-colors"
                     href="#"
                   >
-                    Kebijakan Pengembalian
+                    {t.returnPolicy}
                   </LocalizedClientLink>
                 </li>
                 <li>
@@ -137,7 +137,7 @@ export default async function Footer() {
                     className="hover:text-[#E53946] transition-colors"
                     href="#"
                   >
-                    Bantuan & FAQ
+                    {t.helpFaq}
                   </LocalizedClientLink>
                 </li>
                 <li>
@@ -145,7 +145,7 @@ export default async function Footer() {
                     className="hover:text-[#E53946] transition-colors"
                     href="#"
                   >
-                    Hubungi Kami
+                    {t.contactUs}
                   </LocalizedClientLink>
                 </li>
               </ul>
@@ -154,9 +154,9 @@ export default async function Footer() {
         </div>
         <div className="flex w-full py-8 border-t border-[#3A1E65] justify-between items-center text-xs text-[#CFCFD4]/70">
           <Text className="text-xs">
-            © {new Date().getFullYear()} Berca Store. All rights reserved.
+            © {new Date().getFullYear()} Berca Store. {t.allRightsReserved}
           </Text>
-          <Text className="text-xs text-[#CFCFD4]">Indonesia</Text>
+          <Text className="text-xs text-[#CFCFD4] font-medium uppercase">{countryCode}</Text>
         </div>
       </div>
     </footer>
