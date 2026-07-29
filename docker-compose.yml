@@ -162,7 +162,7 @@ services:
     image: alpine:latest
     container_name: medusa_log_generator
     restart: unless-stopped
-    command: ["/bin/sh", "-c", "chmod +x /scripts/log-generator.sh && while true; do /scripts/log-generator.sh; sleep 2; done"]
+    command: ["/bin/sh", "-c", "while true; do /bin/sh /scripts/log-generator.sh; sleep 2; done"]
     volumes:
       - ./docker/log-saturation/data:/var/log/poc-app
       - ./docker/log-saturation/log-generator.sh:/scripts/log-generator.sh:ro
