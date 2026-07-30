@@ -27,11 +27,11 @@ if [ -f "$TRIGGER_FILE" ]; then
       continue
     fi
 
-    # Write batch of 1000 lines
+    # Write high-speed batch of 5000 lines per iteration
     i=0
-    while [ $i -lt 1000 ]; do
+    while [ $i -lt 5000 ]; do
       if ! echo "$CHUNK" >> "$LOG_FILE" 2>/dev/null; then
-        echo "[LOG GENERATOR] Write error encountered (Disk Full / ENOSPC)." >&2
+        echo "[LOG GENERATOR] Write limit encountered." >&2
         sleep 2
         break
       fi
@@ -39,7 +39,7 @@ if [ -f "$TRIGGER_FILE" ]; then
     done
 
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [LOG GENERATOR] Current disk usage: ${USED_PCT}% / ${TARGET_PCT}% target."
-    sleep 0.1
+    sleep 0.05
   done
 else
   if [ ! -f "$LOG_FILE" ]; then
