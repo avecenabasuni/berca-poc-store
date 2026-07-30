@@ -94,9 +94,10 @@ AWX Playbook terhubung ke PgBouncer Admin Console (`postgresql://postgres@pgboun
 ```sql
 SET default_pool_size = 25;
 SET max_db_connections = 25;
-RELOAD;
 ```
-*Validasi oleh AWX*: Mengeksekusi `SHOW POOLS;` dan memverifikasi `cl_waiting = 0`.
+*(Catatan: Jangan jalankan `RELOAD` setelah `SET`, karena `RELOAD` akan membaca ulang `pgbouncer.ini` dari disk dan mengembalikan batas koneksi ke 5).*
+
+*Validasi oleh AWX*: Mengeksekusi `SHOW CONFIG;` untuk memverifikasi `default_pool_size = 25`, serta `SHOW POOLS;` untuk memverifikasi `cl_waiting = 0`.
 
 ### B. Perintah Remediasi Disk Log Saturation
 AWX Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:

@@ -15,10 +15,16 @@ echo "  FULL POC CLEANUP & BASELINE ENVIRONMENT RESET"
 echo "=========================================================================="
 echo ""
 
-# 0. Reset PgBouncer pool settings back to 5/5 baseline
+# 0. Reset PgBouncer pool settings back to 5/5 baseline (SET runtime config without RELOAD)
 echo "-> Resetting PgBouncer pool settings to 5/5 baseline..."
-docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SET default_pool_size=5; SET max_db_connections=5; RELOAD;" >/dev/null 2>&1 || true
-echo "  [OK] PgBouncer pool reset to baseline (5/5)."
+docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SET default_pool_size=5; SET max_db_connections=5;" >/dev/null 2>&1 || true
+
+POOL_SIZE=$(docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -tA -c "SHOW CONFIG;" 2>/dev/null | grep "^default_pool_size" | awk '{print $3}' || true)
+if [ "$POOL_SIZE" = "5" ]; then
+  echo "  [OK] PgBouncer pool reset to baseline (default_pool_size=5)."
+else
+  echo "  [INFO] PgBouncer pool reset query executed (Current default_pool_size: ${POOL_SIZE:-unknown})."
+fi
 
 # 1. Terminate active pgbench load test processes
 echo "-> Terminating active pgbench load test processes..."
@@ -62,9 +68,9 @@ mkdir -p "$LOG_DIR"
 chmod 777 "$LOG_DIR" || true
 echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"medusa-backend\",\"event\":\"service_ready\"}" > "$LOG_FILE" || true
 
-# 7. Restart consumer containers on baseline directory
-echo "-> Restarting log-generator and datadog-agent containers on baseline directory..."
-docker compose up -d log-generator datadog-agent >/dev/null 2>&1 || true
+# 7. Restart consumer containers on baseline directory with --force-recreate
+echo "-> Force-recreating log-generator and datadog-agent containers on baseline directory..."
+docker compose up -d --force-recreate log-generator datadog-agent >/dev/null 2>&1 || true
 
 echo ""
 echo "  Status:           Full cleanup finished. PgBouncer pool (5/5) & disk log reset to baseline."
