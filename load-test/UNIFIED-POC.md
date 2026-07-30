@@ -1,20 +1,20 @@
-# 🚀 Hero Story: Closed-Loop Auto-Remediation (Datadog & Ansible)
+# 🚀 Hero Story: Closed-Loop Auto-Remediation (Datadog & Red Hat AAP / AWX)
 ## POC: Connection Pool Exhaustion & Disk Log Saturation (15-Minute Demo)
 
-Dokumen ini berisi arsitektur lengkap, kontrak integrasi Ansible AWX, alur demo closed-loop 15 menit, serta kriteria pengujian untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation via Ansible Automation Platform**.
+Dokumen ini berisi arsitektur lengkap, kontrak integrasi Red Hat Ansible Automation Platform (AAP) Controller / AWX, alur demo closed-loop 15 menit, serta kriteria pengujian untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation**.
 
 ---
 
 ## 📋 Table of Contents
 1. [Ringkasan Eksekutif & Visi Closed-Loop](#1-ringkasan-eksekutif--visi-closed-loop)
 2. [Alur Demo 15 Menit (Closed-Loop Lifecycle)](#2-alur-demo-15-menit-closed-loop-lifecycle)
-3. [Arsitektur Closed-Loop (Datadog → Ansible AWX)](#3-arsitektur-closed-loop-datadog--ansible-awx)
-4. [Kontrak Remediasi Ansible AWX](#4-kontrak-remediasi-ansible-awx)
-5. [Desain Integrasi Webhook Payload](#5-desain-integrasi-webhook-payload)
+3. [Arsitektur Closed-Loop (Datadog → AAP Controller / AWX)](#3-arsitektur-closed-loop-datadog--aap-controller--awx)
+4. [Kontrak Integrasi REST API Controller & AWX](#4-kontrak-integrasi-rest-api-controller--awx)
+5. [Kontrak Remediasi Playbook Ansible](#5-kontrak-remediasi-playbook-ansible)
 6. [Acceptance Criteria & Bukti Visual Lifecycle](#6-acceptance-criteria--bukti-visual-lifecycle)
 7. [Narasi "Before vs After"](#7-narasi-before-vs-after)
 8. [Translasi Nilai Bisnis ke 7 Vertikal Industri](#8-translasi-nilai-bisnis-ke-7-vertikal-industri)
-9. [Panduan Eksekusi & Test Plan](#9-panduan-eksekusi--test-plan)
+9. [Panduan Eksekusi, Test Plan & Prosedur Reset](#9-panduan-eksekusi-test-plan--prosedur-reset)
 
 ---
 
@@ -24,7 +24,7 @@ Di era digital berkecepatan tinggi, insiden downtime yang diakibatkan oleh **lon
 
 ### 🌟 Visi Hero Story:
 Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Automated Remediation** yang proaktif:
-> **"Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Ansible Automation Platform → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia → Sistem pulih secara mandiri saat beban trafik tetap aktif (Soak Test)."**
+> **"Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Red Hat AAP Controller / AWX via REST API → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia → Sistem pulih secara mandiri saat beban trafik tetap aktif (Soak Test)."**
 
 ---
 
@@ -36,10 +36,10 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
      ├── log-generator mengisi disk volume hingga 85%
      └── Datadog Composite Monitor berubah status menjadi ALERT pada Menit ke-5.
 
-  ⚡ Menit 5 - 6 : CLOSED-LOOP REMEDIATION (ANSIBLE AWX)
-     ├── Datadog Workflow memicu Ansible AWX Job Template via Webhook REST API
-     ├── AWX Playbook mengeksekusi remediasi PgBouncer (SET default_pool_size=25; SET max_db_connections=25)
-     └── AWX Playbook menghentikan log generator (rm .trigger_saturation) & truncate log
+  ⚡ Menit 5 - 6 : CLOSED-LOOP REMEDIATION (RED HAT AAP / AWX)
+     ├── Datadog Workflow memicu Job Template 'remediate_pool_and_disk_saturation' via Controller REST API
+     ├── Playbook mengeksekusi remediasi PgBouncer (SET default_pool_size=25; SET max_db_connections=25)
+     └── Playbook menghentikan log generator (rm .trigger_saturation) & truncate log
      └── Antrean PgBouncer menjadi cl_waiting=0 & disk log kembali < 10% dalam < 1 menit.
 
   📈 Menit 6 - 10 : MONITOR EVALUATION & RECOVERY
@@ -55,7 +55,7 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ---
 
-## 3. Arsitektur Closed-Loop (Datadog → Ansible AWX)
+## 3. Arsitektur Closed-Loop (Datadog → AAP Controller / AWX)
 
 ```text
 +-----------------------+              +--------------------------------+
@@ -71,9 +71,9 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
                                                        | (Trigger Alert)
                                                        v
 +-----------------------+              +---------------+----------------+
-|  Ansible AWX / Tower  | <----------- |   Datadog Workflow Automation  |
-| (Remediation Playbook)|  Webhook /   | (Closed-Loop Action Trigger)   |
-+-----------+-----------+  Rest API    +--------------------------------+
+| AAP Controller / AWX  | <----------- |   Datadog Workflow Automation  |
+| (Job Template Launch) |  REST API    | (Closed-Loop Action Trigger)   |
++-----------+-----------+  Bearer Auth +--------------------------------+
             |
             v (Auto-Remediate: SET pool=25/25 & truncate log)
 +-----------+-----------+
@@ -84,64 +84,59 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ---
 
-## 4. Kontrak Remediasi Ansible AWX
+## 4. Kontrak Integrasi REST API Controller & AWX
 
-- **Prinsip Otonomi**: Datadog Workflow Automation adalah satu-satunya pemicu AWX Job Template. Script runner `run-full-poc.sh` **tidak memanggil Ansible secara langsung**.
-- **Prinsip Idempotensi**: Playbook AWX hanya memproses alert aktif dan aman dieksekusi berulang kali (*retry-safe*).
+- **Endpoint Launch**: `POST /api/v2/job_templates/<JOB_TEMPLATE_ID>/launch/`
+- **Autentikasi**: Bearer Token khusus milik akun `poc-remediator` (Role: *Job Template Exec Executer*).
+- **Pengaturan Job Template Controller**:
+  - Nama Job Template: `remediate_pool_and_disk_saturation`
+  - Playbook: `ansible/playbooks/remediate-pool-and-disk.yml`
+  - Concurrent Jobs: **Disabled** (`allow_simultaneous: false`).
+  - Extra Variables: Dibatasi melalui Survey terpantau (bukan `ask_variables_on_launch`).
+
+### 📩 Webhook REST API Payload (Datadog to AAP Controller)
+```json
+{
+  "extra_vars": {
+    "incident_id": "$EVENT_ID",
+    "monitor_id": "$MONITOR_ID",
+    "alert_status": "$ALERT_STATUS",
+    "environment": "poc",
+    "requested_action": "expand_pool_and_truncate_log"
+  }
+}
+```
+
+---
+
+## 5. Kontrak Remediasi Playbook Ansible
+
+- **Struktur File Artefak**:
+  - `ansible/inventory/hosts.yml` & `group_vars/poc_docker_hosts.yml`: Definisi host terisolasi `poc_docker_hosts`.
+  - `ansible/roles/closed_loop_remediation/`: Role modular mencakup `preflight`, `remediate_pool`, `remediate_disk`, dan `collect_evidence`.
+  - `ansible/playbooks/remediate-pool-and-disk.yml`: Playbook remediasi utama.
+  - `ansible/playbooks/reset-poc-baseline.yml`: Playbook reset darurat / pemulihan baseline.
 
 ### A. Perintah Remediasi Database Connection Pool (PgBouncer Admin Console)
-*Preflight AWX*: AWX Playbook mengeksekusi `SHOW CONFIG;` untuk memastikan kolom `changeable` bernilai `yes` untuk `default_pool_size` dan `max_db_connections`.
+*Preflight*: Playbook mengeksekusi `SHOW CONFIG;` dan memverifikasi kolom `changeable` bernilai `yes` untuk `default_pool_size` dan `max_db_connections`. Jika `changeable=no`, remediasi pool ditandai gagal namun remediasi disk **tetap dijalankan**.
 
-AWX Playbook terhubung ke PgBouncer Admin Console (`postgresql://postgres@pgbouncer:6432/pgbouncer`) dan mengeksekusi perintah runtime tanpa restart:
+AWX/Controller terhubung ke PgBouncer Admin Console (`postgresql://postgres@127.0.0.1:6432/pgbouncer`) dan mengeksekusi:
 ```sql
 SET default_pool_size = 25;
 SET max_db_connections = 25;
 ```
-*(Catatan: Jangan jalankan `RELOAD` setelah `SET`, karena `RELOAD` akan membaca ulang `pgbouncer.ini` dari disk dan mengembalikan batas koneksi ke 5).*
+*(Catatan: Tanpa `RELOAD`, agar setting runtime 25/25 aktif langsung tanpa tertimpa pgbouncer.ini).*
 
-*Validasi oleh AWX*: Mengeksekusi `SHOW CONFIG;` untuk memverifikasi `default_pool_size = 25` dan `max_db_connections = 25`, serta `SHOW POOLS;` untuk memverifikasi `cl_waiting = 0`.
+*Polling Validasi*: Playbook mem-poll `SHOW CONFIG;` hingga bernilai 25/25, dan mem-poll `SHOW POOLS;` hingga `cl_waiting = 0`.
 
 ### B. Perintah Remediasi Disk Log Saturation
-AWX Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:
+Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:
 ```bash
 rm -f ./docker/log-saturation/data/.trigger_saturation
 > ./docker/log-saturation/data/app-saturation.log
 sync
 ```
-*Validasi oleh AWX*: Memverifikasi persentase disk log (`df -P`) kembali di bawah 10%.
-
----
-
-## 5. Desain Integrasi Webhook Payload
-
-### 📩 Webhook Payload JSON (Datadog to Ansible AWX)
-```json
-{
-  "event_type": "DATADOG_CLOSED_LOOP_REMEDIATION",
-  "incident_id": "$EVENT_ID",
-  "monitor_id": "$MONITOR_ID",
-  "monitor_title": "$MONITOR_NAME",
-  "alert_status": "$ALERT_STATUS",
-  "environment": "production",
-  "affected_services": [
-    "medusa-backend",
-    "pgbouncer",
-    "log-storage-volume"
-  ],
-  "metrics": {
-    "pgbouncer_sv_active": "$PG_SV_ACTIVE",
-    "pgbouncer_cl_waiting": "$PG_CL_WAITING",
-    "disk_usage_pct": "$DISK_IN_USE"
-  },
-  "action_required": "EXECUTE_CLOSED_LOOP_REMEDIATION",
-  "ansible_target_job_template": "remediate_pool_and_disk_saturation",
-  "extra_vars": {
-    "target_host": "$HOSTNAME",
-    "target_disk_path": "/var/log/poc-app",
-    "requested_action": "expand_pool_size_and_truncate_log"
-  }
-}
-```
+*Polling Validasi*: Playbook mem-poll `df -P` hingga persentase disk log kembali di bawah 10%.
 
 ---
 
@@ -153,7 +148,7 @@ sync
 
 ### 🏆 Acceptance Criteria Closed-Loop:
 1. **Window Pertama (Menit 0-5)**: Datadog Composite Monitor mendeteksi insiden dan berubah menjadi **`ALERT / CRITICAL`** pada Menit ke-5.
-2. **Eksekusi AWX (Menit 5-6)**: AWX memicu Playbook, memperbesar pool menjadi `25/25` dan membersihkan disk log dalam < 1 menit.
+2. **Eksekusi AAP Controller (Menit 5-6)**: Controller memicu Playbook, memperbesar pool menjadi `25/25` dan membersihkan disk log dalam < 1 menit.
 3. **Recovery Window (Menit 6-10)**: Datadog Composite Monitor mengevaluasi data bersih dan pulih ke status **`OK`** maksimal 1 window evaluasi pasca-remediasi.
 4. **Soak Test (Menit 10-15)**: `pgbench` tetap aktif dengan 25 klien, namun antrean `cl_waiting` tetap **0** dan disk tetap rendah.
 
@@ -196,19 +191,27 @@ sync
 
 ---
 
-## 9. Panduan Eksekusi & Test Plan
+## 9. Panduan Eksekusi, Test Plan & Prosedur Reset
 
-### A. Run POC Test Plan
+### A. Testing Playbook Lokal (Offline Verification)
 ```bash
-# 1. Jalankan Master Unified POC (15 Menit)
-./run-full-poc.sh
+# Sintaks Check Playbook Remediasi
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/remediate-pool-and-disk.yml --syntax-check
 
-# 2. Verifikasi status saat Menit 5 (Datadog Composite Alert terbukti menyala ALERT)
+# Sintaks Check Playbook Baseline Reset
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/reset-poc-baseline.yml --syntax-check
 
-# 3. Verifikasi perbaikan setelah AWX Playbook berjalan (Menit 6):
-docker compose exec postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SHOW POOLS;"
-# (Pastikan cl_waiting = 0 dan cl_active berkapasitas 25)
+# Eksekusi Manual Playbook Remediasi
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/remediate-pool-and-disk.yml \
+  -e "incident_id=TEST_123 monitor_id=MON_456 alert_status=ALERT environment=poc requested_action=expand_pool_and_truncate_log"
 
-# 4. Verifikasi Soak Test (Menit 10-15): pgbench tetap berjalan tanpa antrean.
-# 5. Menit 15: Skenario selesai dan otomatis mereset pool ke 5/5 baseline.
+# Eksekusi Manual Baseline Reset
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/reset-poc-baseline.yml
 ```
+
+### B. Prosedur Reset Darurat (Manual Baseline Restoration)
+Jika koneksi Controller terputus atau membutuhkan reset manual:
+```bash
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/reset-poc-baseline.yml
+```
+*(Perintah ini me-reset runtime pool ke 5/5, menghapus trigger, me-truncate log file, dan memverifikasi SHOW CONFIG).*

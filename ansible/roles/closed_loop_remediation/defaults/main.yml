@@ -1,0 +1,20 @@
+# ansible/roles/closed_loop_remediation/defaults/main.yml
+# Safe defaults for Closed-Loop Remediation Role
+
+# Expected metadata parameters (Passed via Ansible Controller Extra Vars / Survey)
+incident_id: "UNKNOWN_INCIDENT"
+monitor_id: "UNKNOWN_MONITOR"
+alert_status: "ALERT"
+environment: "poc"
+requested_action: "expand_pool_and_truncate_log"
+
+# Thresholds & Limits
+remediation_pool_size: 25
+remediation_max_connections: 25
+baseline_pool_size: 5
+baseline_max_connections: 5
+max_disk_usage_pct: 10
+
+# Poll configuration
+poll_retries: 10
+poll_delay: 2

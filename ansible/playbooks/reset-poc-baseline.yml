@@ -1,0 +1,73 @@
+# ansible/playbooks/reset-poc-baseline.yml
+---
+- name: Reset POC Baseline Environment (PgBouncer 5/5 & Clear Logs)
+  hosts: poc_docker_hosts
+  gather_facts: false
+  tasks:
+    - name: Reset PgBouncer Pool Settings to 5/5 Baseline
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }}
+          -c "SET default_pool_size={{ baseline_pool_size }}; SET max_db_connections={{ baseline_max_connections }};"
+      args:
+        chdir: "{{ docker_project_path }}"
+      register: reset_pool_cmd
+      failed_when: false
+
+    - name: Remove Trigger File
+      ansible.builtin.file:
+        path: "{{ trigger_file_path }}"
+        state: absent
+
+    - name: Truncate Saturation Log File
+      ansible.builtin.shell:
+        cmd: "> '{{ log_file_path }}'"
+      register: truncate_cmd
+      failed_when: false
+
+    - name: Flush Filesystem Buffers
+      ansible.builtin.command:
+        cmd: sync
+      changed_when: false
+
+    - name: Verify PgBouncer Configuration Reset
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW CONFIG;"
+      args:
+        chdir: "{{ docker_project_path }}"
+      register: verify_config_cmd
+      changed_when: false
+      failed_when: false
+
+    - name: Parse Baseline Configuration
+      ansible.builtin.set_fact:
+        reset_pool_size: >-
+          {{ (verify_config_cmd.stdout_lines | default([]))
+             | select('match', '^default_pool_size\\|')
+             | map('split', '|')
+             | map('attribute', 1)
+             | first | default('unknown') | trim }}
+        reset_max_conn: >-
+          {{ (verify_config_cmd.stdout_lines | default([]))
+             | select('match', '^max_db_connections\\|')
+             | map('split', '|')
+             | map('attribute', 1)
+             | first | default('unknown') | trim }}
+
+    - name: Display Baseline Reset Results
+      ansible.builtin.debug:
+        msg:
+          - "Baseline reset executed."
+          - "Current PgBouncer default_pool_size: {{ reset_pool_size }}"
+          - "Current PgBouncer max_db_connections: {{ reset_max_conn }}"
+
+    - name: Assert Baseline Verified
+      ansible.builtin.assert:
+        that:
+          - reset_pool_size == (baseline_pool_size | string)
+          - reset_max_conn == (baseline_max_connections | string)
+        fail_msg: "Baseline reset failed to restore 5/5 pool configuration!"
+        success_msg: "Baseline environment successfully restored to 5/5 pool and clean logs."

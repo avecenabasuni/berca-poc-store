@@ -1,0 +1,59 @@
+# ansible/roles/closed_loop_remediation/tasks/remediate_pool.yml
+---
+- name: Execute PgBouncer Pool Runtime Expansion (SET without RELOAD)
+  block:
+    - name: Assert PgBouncer Pool Remediation Supported
+      ansible.builtin.assert:
+        that:
+          - pool_remediation_supported
+        fail_msg: "PgBouncer configuration does not support runtime parameter mutation (changeable=no)."
+
+    - name: Run SQL SET Commands on PgBouncer Admin Console
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }}
+          -c "SET default_pool_size={{ target_pool_size }}; SET max_db_connections={{ target_max_connections }};"
+      args:
+        chdir: "{{ docker_project_path }}"
+      register: pgbouncer_set_result
+
+    - name: Poll PgBouncer SHOW CONFIG until target pool size (25/25) is active
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW CONFIG;"
+      args:
+        chdir: "{{ docker_project_path }}"
+      register: pgbouncer_config_poll
+      until:
+        - (pgbouncer_config_poll.stdout_lines | select('match', '^default_pool_size\\|') | map('split', '|') | map('attribute', 1) | first | default('') | trim) == (target_pool_size | string)
+        - (pgbouncer_config_poll.stdout_lines | select('match', '^max_db_connections\\|') | map('split', '|') | map('attribute', 1) | first | default('') | trim) == (target_max_connections | string)
+      retries: "{{ poll_retries }}"
+      delay: "{{ poll_delay }}"
+      changed_when: false
+
+    - name: Poll PgBouncer SHOW POOLS until cl_waiting is 0
+      ansible.builtin.command:
+        cmd: >-
+          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW POOLS;"
+      args:
+        chdir: "{{ docker_project_path }}"
+      register: pgbouncer_pools_poll
+      until:
+        - (pgbouncer_pools_poll.stdout_lines | select('match', '^' ~ pgbouncer_target_db ~ '\\|') | map('split', '|') | map('attribute', 4) | first | default('0') | trim | int) == 0
+      retries: "{{ poll_retries }}"
+      delay: "{{ poll_delay }}"
+      changed_when: false
+
+    - name: Record Pool Remediation Success
+      ansible.builtin.set_fact:
+        pool_remediation_success: true
+        pool_remediation_error: ""
+
+  rescue:
+    - name: Record Pool Remediation Failure
+      ansible.builtin.set_fact:
+        pool_remediation_success: false
+        pool_remediation_error: "Pool remediation failed: {{ ansible_failed_result.msg | default('Unknown error during pool expansion') }}"

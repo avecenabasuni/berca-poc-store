@@ -1,0 +1,7 @@
+# ansible/playbooks/remediate-pool-and-disk.yml
+---
+- name: Datadog Closed-Loop Auto-Remediation Playbook
+  hosts: poc_docker_hosts
+  gather_facts: false
+  roles:
+    - role: closed_loop_remediation
