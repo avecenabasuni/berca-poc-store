@@ -8,6 +8,7 @@ LOG_DIR="${SCRIPT_DIR}/docker/log-saturation/data"
 TRIGGER_FILE="${LOG_DIR}/.trigger_saturation"
 LOG_FILE="${LOG_DIR}/app-saturation.log"
 IMG_FILE="/tmp/poc-log-disk.img"
+EXIT_CODE=0
 
 echo ""
 echo "=========================================================================="
@@ -27,7 +28,7 @@ if [ "$POOL_SIZE" = "5" ] && [ "$MAX_CONN" = "5" ]; then
   echo "  [OK] PgBouncer pool verified reset to baseline (default_pool_size=5, max_db_connections=5)."
 else
   echo "  [ERROR] PgBouncer pool reset validation failed! (default_pool_size=${POOL_SIZE:-unknown}, max_db_connections=${MAX_CONN:-unknown})"
-  exit 1
+  EXIT_CODE=1
 fi
 
 # 1. Terminate active pgbench load test processes
@@ -81,3 +82,8 @@ echo "  Status:           Full cleanup finished. PgBouncer pool (5/5) & disk log
 echo "  Datadog Monitor:  Will evaluate and return to OK status within 5 minutes."
 echo "=========================================================================="
 echo ""
+
+if [ "$EXIT_CODE" -ne 0 ]; then
+  echo "  [WARN] Cleanup completed with validation warnings/errors (Exit Code: ${EXIT_CODE})."
+  exit "$EXIT_CODE"
+fi
