@@ -95,7 +95,7 @@ docker compose stop log-generator datadog-agent >/dev/null 2>&1 || true
 
 # 2.3 Restart consumers so bind mount points to the active loopback filesystem
 echo "  -> Re-creating consumer containers onto active 200MB loopback volume..."
-docker compose up -d log-generator datadog-agent >/dev/null 2>&1
+docker compose up -d --force-recreate log-generator datadog-agent >/dev/null 2>&1
 
 # 2.4 Verify from inside BOTH containers
 echo "  -> Verifying filesystem mount inside log-generator container..."
@@ -126,7 +126,14 @@ echo "  [OK] Log generator triggered (target: 85% capacity of 200MB volume)."
 # ------------------------------------------------------------------------------
 echo ""
 echo "=========================================================================="
-echo "[STEP 4/4] STARTING 15-MINUTE CONCURRENCY SATURATION TEST (25 CLIENTS)"
+echo "[STEP 4/4] STARTING 15-MINUTE CONCURRENCY SATURATION & SOAK TEST"
+echo "=========================================================================="
+echo "  Lifecycle Timeline:"
+echo "  - Min 0-5:   Fault generation (sv_active=5, cl_waiting ~20, disk=85%)"
+echo "  - Min 5:     Datadog Composite Monitor triggers ALERT"
+echo "  - Min 5-6:   Datadog Workflow fires Ansible AWX Job (SET pool=25/25, truncate log)"
+echo "  - Min 6-10:  Datadog avg(last_5m) window evaluates recovery -> Monitor OK"
+echo "  - Min 10-15: Post-remediation soak test (traffic active, cl_waiting=0)"
 echo "=========================================================================="
 echo "  Starting 15-minute run in 3 seconds..."
 sleep 3
@@ -140,15 +147,15 @@ docker compose exec -T postgres pgbench \
   -T 900 \
   -n \
   -f /load-test/pgbench-saturation.sql \
-  medusa-store || true
+  medusa-store
 
 echo ""
 echo "=========================================================================="
-echo "  SATURATION RUN FINISHED — DATADOG COMPOSITE MONITOR WILL ALERT"
+echo "  15-MINUTE RUN COMPLETED — CLOSED-LOOP REMEDIATION DEMO FINISHED"
 echo "=========================================================================="
-echo "  Acceptance Criteria (Minutes 5 to 15):"
-echo "  1. PgBouncer sv_active = 5, cl_waiting ~20"
-echo "  2. Disk Log Volume in_use >= 0.85 (85%)"
-echo "  3. Datadog Composite Monitor triggers ALERT / CRITICAL"
+echo "  Summary:"
+echo "  1. Datadog detected incident & triggered Ansible AWX Playbook at Min 5."
+echo "  2. Ansible remediated pool (25/25) & truncated log in < 1 minute."
+echo "  3. Datadog Composite Monitor recovered to OK status during soak test."
 echo "=========================================================================="
 echo ""

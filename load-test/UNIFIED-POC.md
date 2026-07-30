@@ -1,33 +1,61 @@
 # 🚀 Hero Story: Closed-Loop Auto-Remediation (Datadog & Ansible)
-## POC: Connection Pool Exhaustion & Disk Log Saturation
+## POC: Connection Pool Exhaustion & Disk Log Saturation (15-Minute Demo)
 
-Dokumen ini berisi arsitektur lengkap, panduan eksekusi, serta peta translasi nilai bisnis untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation via Ansible Automation Platform**.
+Dokumen ini berisi arsitektur lengkap, kontrak integrasi Ansible AWX, alur demo closed-loop 15 menit, serta kriteria pengujian untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation via Ansible Automation Platform**.
 
 ---
 
 ## 📋 Table of Contents
-1. [Ringkasan Eksekutif & Hero Story](#1-ringkasan-eksekutif--hero-story)
-2. [Arsitektur Closed-Loop (Datadog → Ansible)](#2-arsitektur-closed-loop-datadog--ansible)
-3. [Alur Cerita Technical (Unified Flowchart)](#3-alur-cerita-technical-unified-flowchart)
-4. [Petunjuk Bukti Visual (Before Evidence)](#4-petunjuk-bukti-visual-before-evidence)
-5. [Desain Integrasi Datadog → Ansible Webhook Payload](#5-desain-integrasi-datadog--ansible-webhook-payload)
-6. [Narasi "Before vs After"](#6-narasi-before-vs-after)
-7. [Translasi Nilai Bisnis ke 7 Vertikal Industri](#7-translasi-nilai-bisnis-ke-7-vertikal-industri)
-8. [Panduan Eksekusi POC (15 Menit)](#8-panduan-eksekusi-poc-15-menit)
+1. [Ringkasan Eksekutif & Visi Closed-Loop](#1-ringkasan-eksekutif--visi-closed-loop)
+2. [Alur Demo 15 Menit (Closed-Loop Lifecycle)](#2-alur-demo-15-menit-closed-loop-lifecycle)
+3. [Arsitektur Closed-Loop (Datadog → Ansible AWX)](#3-arsitektur-closed-loop-datadog--ansible-awx)
+4. [Kontrak Remediasi Ansible AWX](#4-kontrak-remediasi-ansible-awx)
+5. [Desain Integrasi Webhook Payload](#5-desain-integrasi-webhook-payload)
+6. [Acceptance Criteria & Bukti Visual Lifecycle](#6-acceptance-criteria--bukti-visual-lifecycle)
+7. [Narasi "Before vs After"](#7-narasi-before-vs-after)
+8. [Translasi Nilai Bisnis ke 7 Vertikal Industri](#8-translasi-nilai-bisnis-ke-7-vertikal-industri)
+9. [Panduan Eksekusi & Test Plan](#9-panduan-eksekusi--test-plan)
 
 ---
 
-## 1. Ringkasan Eksekutif & Hero Story
+## 1. Ringkasan Eksekutif & Visi Closed-Loop
 
 Di era digital berkecepatan tinggi, insiden downtime yang diakibatkan oleh **lonjakan trafik (traffic spike)** tidak hanya memicu kegagalan database pool, tetapi juga **pembengkakan log transaksi (log saturation)** yang berdampak fatal pada sistem.
 
 ### 🌟 Visi Hero Story:
-Mengubah pemantauan tradisional yang bersifat reaktif (*manusia membaca alert -> koordinasi jam kerja -> eksekusi manual*) menjadi **Closed-Loop Automated Remediation** yang bersifat proaktif:
-> **"Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Ansible Automation Platform → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia."**
+Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Automated Remediation** yang proaktif:
+> **"Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Ansible Automation Platform → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia → Sistem pulih secara mandiri saat beban trafik tetap aktif (Soak Test)."**
 
 ---
 
-## 2. Arsitektur Closed-Loop (Datadog → Ansible)
+## 2. Alur Demo 15 Menit (Closed-Loop Lifecycle)
+
+```text
+  ⏱️ Menit 0 - 5 : FAULT GENERATION
+     ├── pgbench memicu 25 klien paralel (pool max=5 -> cl_waiting ~20)
+     ├── log-generator mengisi disk volume hingga 85%
+     └── Datadog Composite Monitor berubah status menjadi ALERT pada Menit ke-5.
+
+  ⚡ Menit 5 - 6 : CLOSED-LOOP REMEDIATION (ANSIBLE AWX)
+     ├── Datadog Workflow memicu Ansible AWX Job Template via Webhook REST API
+     ├── AWX Playbook mengeksekusi remediasi PgBouncer (SET pool=25/25; RELOAD)
+     └── AWX Playbook menghentikan log generator (rm .trigger_saturation) & truncate log
+     └── Antrean PgBouncer menjadi cl_waiting=0 & disk log kembali < 10% dalam < 1 menit.
+
+  📈 Menit 6 - 10 : MONITOR EVALUATION & RECOVERY
+     └── Datadog avg(last_5m) window mengevaluasi data bersih & mengembalikan Composite Monitor ke OK.
+
+  🔄 Menit 10 - 15 : POST-REMEDIATION SOAK TEST
+     └── pgbench TETAP BERJALAN dengan 25 klien, namun cl_waiting tetap 0 & disk tetap rendah
+         karena PgBouncer telah berkapasitas 25/25. Membuktikan remediasi berhasil saat beban aktif!
+
+  🧹 Menit 15 : MASTER RESET
+     └── run-full-poc.sh selesai & memanggil cleanup-full-poc.sh untuk mereset pool ke 5/5 baseline.
+```
+
+---
+
+## 3. Arsitektur Closed-Loop (Datadog → Ansible AWX)
 
 ```text
 +-----------------------+              +--------------------------------+
@@ -47,72 +75,41 @@ Mengubah pemantauan tradisional yang bersifat reaktif (*manusia membaca alert ->
 | (Remediation Playbook)|  Webhook /   | (Closed-Loop Action Trigger)   |
 +-----------+-----------+  Rest API    +--------------------------------+
             |
-            v (Auto-Remediate: Scale Pool / Rotate Log / Purge Temp)
+            v (Auto-Remediate: SET pool=25/25 & truncate log)
 +-----------+-----------+
-|  Sistem Pulih Kembali |
+|  Sistem Pulih Mandiri |
 | (Monitor Kembali OK)  |
 +-----------------------+
 ```
 
 ---
 
-## 3. Alur Cerita Technical (Unified Flowchart)
+## 4. Kontrak Remediasi Ansible AWX
 
-```text
-                        +----------------------------+
-                        |       Trafik Melonjak      |
-                        | (ribuan user akses bersama)|
-                        +--------------+-------------+
-                                       |
-                   +-------------------+-------------------+
-                   |                                       |
-                   v                                       v
-     +---------------------------+           +---------------------------+
-     |   Connection Pool Penuh   |           |      Volume Log Naik      |
-     |  (sv_active=5, cl_wait~20)|           | (log transaksi & error)   |
-     +-------------+-------------+           +-------------+-------------+
-                   |                                       |
-                   v                                       v
-     +---------------------------+           +---------------------------+
-     |       Query Timeout       |           |     Disk Log Penuh 85%    |
-     |   (checkout mulai gagal)  |           | (system.disk.in_use=0.85) |
-     +-------------+-------------+           +-------------+-------------+
-                   |                                       |
-                   +-------------------+-------------------+
-                                       |
-                                       v
-                         +---------------------------+
-                         |  Composite Alert (Menit 5)|
-                         |   Datadog Detect Critical |
-                         +-------------+-------------+
-                                       |
-                                       v
-                         +---------------------------+
-                         | Closed-Loop Remediation   |
-                         |  Ansible Fixes System     |
-                         +---------------------------+
+- **Prinsip Otonomi**: Datadog Workflow Automation adalah satu-satunya pemicu AWX Job Template. Script runner `run-full-poc.sh` **tidak memanggil Ansible secara langsung**.
+- **Prinsip Idempotensi**: Playbook AWX hanya memproses alert aktif dan aman dieksekusi berulang kali (*retry-safe*).
+
+### A. Perintah Remediasi Database Connection Pool (PgBouncer Admin Console)
+AWX Playbook terhubung ke PgBouncer Admin Console (`postgresql://postgres@pgbouncer:6432/pgbouncer`) dan mengeksekusi perintah runtime tanpa restart:
+```sql
+SET default_pool_size = 25;
+SET max_db_connections = 25;
+RELOAD;
 ```
+*Validasi oleh AWX*: Mengeksekusi `SHOW POOLS;` dan memverifikasi `cl_waiting = 0`.
+
+### B. Perintah Remediasi Disk Log Saturation
+AWX Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:
+```bash
+rm -f ./docker/log-saturation/data/.trigger_saturation
+> ./docker/log-saturation/data/app-saturation.log
+sync
+```
+*Validasi oleh AWX*: Memverifikasi persentase disk log (`df -P`) kembali di bawah 10%.
 
 ---
 
-## 4. Petunjuk Bukti Visual (Before Evidence)
-
-Untuk membuktikan keandalan observabilitas Datadog sebelum remediasi otomatis dijalankan, siapkan 3 tangkapan layar/rekaman dari Datadog UI:
-
-1. **Lifecycle Monitor Status**:
-   - Menunjukkan siklus transisi status Composite Monitor: **`OK`** (Menit 0-5) → **`ALERT / CRITICAL`** (Menit 5-15) → **`OK`** (Post-Cleanup).
-2. **Dashboard Grafis Matriks Real-Time (15 Menit Window)**:
-   - **Graph 1**: `pgbouncer.pools.sv_active` (Flat di angka 5 / 100% penuh).
-   - **Graph 2**: `pgbouncer.pools.cl_waiting` (Konsisten di angka ~20 antrean).
-   - **Graph 3**: `system.disk.in_use{device:/var/log/poc-app}` (Progresi dari <10% melonjak hingga menyentuh 85%).
-3. **Database Monitoring (DBM) & Trace Correlation**:
-   - Menunjukkan query bottleneck `pg_sleep` / connection waiting time yang terasosiasi langsung dengan APM Trace ID.
-
----
-
-## 5. Desain Integrasi Datadog → Ansible Webhook Payload
-
-Ketika Datadog Composite Monitor berubah status menjadi **`ALERT`**, **Datadog Workflow Automation** mengeksekusi HTTP Webhook Action ke Ansible Automation Platform (AWX/Tower) dengan struktur payload JSON berikut:
+## 5. Desain Integrasi Webhook Payload
 
 ### 📩 Webhook Payload JSON (Datadog to Ansible AWX)
 ```json
@@ -143,28 +140,35 @@ Ketika Datadog Composite Monitor berubah status menjadi **`ALERT`**, **Datadog W
 }
 ```
 
-### ⚙️ Alur Kerja Datadog Workflow Automation:
-1. **Trigger Condition**: `Monitor Status` changes to `ALERT` on Composite Monitor `[Monitor_1_ID] && [Monitor_2_ID]`.
-2. **Action 1**: Post notification to Slack / Teams channel (`#incident-automation`).
-3. **Action 2**: Trigger Ansible AWX Job Template `remediate_pool_and_disk_saturation` via Rest API webhook.
+---
+
+## 6. Acceptance Criteria & Bukti Visual Lifecycle
+
+### 📊 Klarifikasi Threshold & Fault Target:
+- **Disk Fault Generation**: Target penulisan log berhenti di **85%** kapasitas disk 200MB terisolasi (`system.disk.in_use = 0.85`).
+- **Datadog Disk Monitor**: Peringatan alert disetel pada threshold **80%** (`system.disk.in_use >= 0.80`).
+
+### 🏆 Acceptance Criteria Closed-Loop:
+1. **Window Pertama (Menit 0-5)**: Datadog Composite Monitor mendeteksi insiden dan berubah menjadi **`ALERT / CRITICAL`** pada Menit ke-5.
+2. **Eksekusi AWX (Menit 5-6)**: AWX memicu Playbook, memperbesar pool menjadi `25/25` dan membersihkan disk log dalam < 1 menit.
+3. **Recovery Window (Menit 6-10)**: Datadog Composite Monitor mengevaluasi data bersih dan pulih ke status **`OK`** maksimal 1 window evaluasi pasca-remediasi.
+4. **Soak Test (Menit 10-15)**: `pgbench` tetap aktif dengan 25 klien, namun antrean `cl_waiting` tetap **0** dan disk tetap rendah.
 
 ---
 
-## 6. Narasi "Before vs After"
+## 7. Narasi "Before vs After"
 
 | Parameter | ❌ Before (Tanpa Observabilitas & Auto-Remediation) | ✅ After (Datadog + Ansible Closed-Loop) |
 |---|---|---|
 | **Waktu Deteksi Insiden** | 30–60 menit (menunggu laporan keluhan pengguna/helpdesk). | **< 5 menit** (Datadog Composite Monitor `avg(last_5m)`). |
 | **Penyebab Insiden** | Penanganan parsial (hanya restart app, disk tetap penuh). | Root cause teridentifikasi menyeluruh (DB Pool & Disk Volume). |
 | **Proses Remediasi** | Manual via SSH oleh On-Call Engineer (butuh waktu 15–30 menit). | **Otomatis oleh Ansible Playbook dalam < 1 menit**. |
-| **Total MTTR (Recovery Time)**| **45 – 90 menit downtime**. | **< 6 menit total MTTR**. |
+| **Total MTTR (Recovery Time)**| **45 – 90 menit downtime**. | **< 6 menit total MTTR** (Sistem pulih mandiri). |
 | **Dampak Bisnis** | Kerugian transaksi masif, breach SLA OJK/BI, penurunan reputasi brand. | **Zero Human Intervention**, kelangsungan bisnis terjaga 100%. |
 
 ---
 
-## 7. Translasi Nilai Bisnis ke 7 Vertikal Industri
-
-POC ini relevan secara universal untuk 7 sektor vertikal bisnis utama di Indonesia:
+## 8. Translasi Nilai Bisnis ke 7 Vertikal Industri
 
 1. **💳 BFSI (Perbankan & Keuangan)**:
    > *"Mencegah kegagalan otorisasi transaksi transfer & QRIS serta menghindari sanksi penalti breach SLA dari regulasi Bank Indonesia/OJK saat lonjakan transaksi akhir bulan (payroll spike)."*
@@ -189,24 +193,19 @@ POC ini relevan secara universal untuk 7 sektor vertikal bisnis utama di Indones
 
 ---
 
-## 8. Panduan Eksekusi POC (15 Menit)
+## 9. Panduan Eksekusi & Test Plan
 
-### A. Setup Monitor di Datadog UI
-1. **Monitor 1 (PgBouncer Pool)**: `avg(last_5m):avg:pgbouncer.pools.sv_active{service:pgbouncer} >= 5`
-2. **Monitor 2 (Disk Log Saturation)**: `avg(last_5m):avg:system.disk.in_use{device:/var/log/poc-app} >= 0.80` *(catatan: menggunakan `device:` sesuai `use_mount: yes`)*.
-3. **Composite Monitor 3**: `[Monitor_1_ID] && [Monitor_2_ID]`
-
-### B. Eksekusi Simulasi di VM Linux Ubuntu
+### A. Run POC Test Plan
 ```bash
-# 1. Tarik update terbaru
-git pull origin main
-
-# 2. Restart container & Datadog Agent
-docker compose up -d --build
-
-# 3. Jalankan Master Unified POC (15 Menit)
+# 1. Jalankan Master Unified POC (15 Menit)
 ./run-full-poc.sh
-```
 
-### C. Penghentian Darurat (Emergency Stop & Reset)
-Tekan **`Ctrl + C`** pada terminal kapan saja. Script trap handler akan secara otomatis mematikan beban `pgbench`, menghentikan penulisan log, mengosongkan log file, dan mengembalikan lingkungan 100% ke kondisi baseline.
+# 2. Verifikasi status saat Menit 5 (Datadog Composite Alert terbukti menyala ALERT)
+
+# 3. Verifikasi perbaikan setelah AWX Playbook berjalan (Menit 6):
+docker compose exec postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SHOW POOLS;"
+# (Pastikan cl_waiting = 0 dan cl_active berkapasitas 25)
+
+# 4. Verifikasi Soak Test (Menit 10-15): pgbench tetap berjalan tanpa antrean.
+# 5. Menit 15: Skenario selesai dan otomatis mereset pool ke 5/5 baseline.
+```

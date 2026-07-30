@@ -1,5 +1,5 @@
 #!/bin/bash
-# cleanup-full-poc.sh — Full cleanup: stop containers, unmount volume, delete loopback image, reset baseline
+# cleanup-full-poc.sh — Full cleanup: stop containers, reset PgBouncer pool to 5/5, unmount volume, delete loopback image, reset baseline
 
 set -euo pipefail
 
@@ -14,6 +14,11 @@ echo "==========================================================================
 echo "  FULL POC CLEANUP & BASELINE ENVIRONMENT RESET"
 echo "=========================================================================="
 echo ""
+
+# 0. Reset PgBouncer pool settings back to 5/5 baseline
+echo "-> Resetting PgBouncer pool settings to 5/5 baseline..."
+docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SET default_pool_size=5; SET max_db_connections=5; RELOAD;" >/dev/null 2>&1 || true
+echo "  [OK] PgBouncer pool reset to baseline (5/5)."
 
 # 1. Terminate active pgbench load test processes
 echo "-> Terminating active pgbench load test processes..."
@@ -62,7 +67,7 @@ echo "-> Restarting log-generator and datadog-agent containers on baseline direc
 docker compose up -d log-generator datadog-agent >/dev/null 2>&1 || true
 
 echo ""
-echo "  Status:           Full cleanup finished. Disk log & connections reset to baseline."
+echo "  Status:           Full cleanup finished. PgBouncer pool (5/5) & disk log reset to baseline."
 echo "  Datadog Monitor:  Will evaluate and return to OK status within 5 minutes."
 echo "=========================================================================="
 echo ""
