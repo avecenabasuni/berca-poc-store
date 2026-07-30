@@ -19,11 +19,15 @@ echo ""
 echo "-> Resetting PgBouncer pool settings to 5/5 baseline..."
 docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -c "SET default_pool_size=5; SET max_db_connections=5;" >/dev/null 2>&1 || true
 
-POOL_SIZE=$(docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -tA -c "SHOW CONFIG;" 2>/dev/null | grep "^default_pool_size" | awk '{print $3}' || true)
-if [ "$POOL_SIZE" = "5" ]; then
-  echo "  [OK] PgBouncer pool reset to baseline (default_pool_size=5)."
+CONFIG_OUT=$(docker compose exec -T postgres psql -h pgbouncer -p 6432 -U postgres pgbouncer -tA -c "SHOW CONFIG;" 2>/dev/null || true)
+POOL_SIZE=$(echo "$CONFIG_OUT" | awk -F '|' '$1 == "default_pool_size" { print $2 }' | tr -d '\r\n')
+MAX_CONN=$(echo "$CONFIG_OUT" | awk -F '|' '$1 == "max_db_connections" { print $2 }' | tr -d '\r\n')
+
+if [ "$POOL_SIZE" = "5" ] && [ "$MAX_CONN" = "5" ]; then
+  echo "  [OK] PgBouncer pool verified reset to baseline (default_pool_size=5, max_db_connections=5)."
 else
-  echo "  [INFO] PgBouncer pool reset query executed (Current default_pool_size: ${POOL_SIZE:-unknown})."
+  echo "  [ERROR] PgBouncer pool reset validation failed! (default_pool_size=${POOL_SIZE:-unknown}, max_db_connections=${MAX_CONN:-unknown})"
+  exit 1
 fi
 
 # 1. Terminate active pgbench load test processes

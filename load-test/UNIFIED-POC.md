@@ -38,7 +38,7 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
   ⚡ Menit 5 - 6 : CLOSED-LOOP REMEDIATION (ANSIBLE AWX)
      ├── Datadog Workflow memicu Ansible AWX Job Template via Webhook REST API
-     ├── AWX Playbook mengeksekusi remediasi PgBouncer (SET pool=25/25; RELOAD)
+     ├── AWX Playbook mengeksekusi remediasi PgBouncer (SET default_pool_size=25; SET max_db_connections=25)
      └── AWX Playbook menghentikan log generator (rm .trigger_saturation) & truncate log
      └── Antrean PgBouncer menjadi cl_waiting=0 & disk log kembali < 10% dalam < 1 menit.
 
@@ -90,6 +90,8 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 - **Prinsip Idempotensi**: Playbook AWX hanya memproses alert aktif dan aman dieksekusi berulang kali (*retry-safe*).
 
 ### A. Perintah Remediasi Database Connection Pool (PgBouncer Admin Console)
+*Preflight AWX*: AWX Playbook mengeksekusi `SHOW CONFIG;` untuk memastikan kolom `changeable` bernilai `yes` untuk `default_pool_size` dan `max_db_connections`.
+
 AWX Playbook terhubung ke PgBouncer Admin Console (`postgresql://postgres@pgbouncer:6432/pgbouncer`) dan mengeksekusi perintah runtime tanpa restart:
 ```sql
 SET default_pool_size = 25;
@@ -97,7 +99,7 @@ SET max_db_connections = 25;
 ```
 *(Catatan: Jangan jalankan `RELOAD` setelah `SET`, karena `RELOAD` akan membaca ulang `pgbouncer.ini` dari disk dan mengembalikan batas koneksi ke 5).*
 
-*Validasi oleh AWX*: Mengeksekusi `SHOW CONFIG;` untuk memverifikasi `default_pool_size = 25`, serta `SHOW POOLS;` untuk memverifikasi `cl_waiting = 0`.
+*Validasi oleh AWX*: Mengeksekusi `SHOW CONFIG;` untuk memverifikasi `default_pool_size = 25` dan `max_db_connections = 25`, serta `SHOW POOLS;` untuk memverifikasi `cl_waiting = 0`.
 
 ### B. Perintah Remediasi Disk Log Saturation
 AWX Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:
