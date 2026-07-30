@@ -15,7 +15,7 @@ cleanup() {
   echo "=========================================================================="
   echo "  STOP SIGNAL / EXIT DETECTED — RUNNING AUTOMATIC CLEANUP & ENVIRONMENT RESET"
   echo "=========================================================================="
-  "${SCRIPT_DIR}/cleanup-full-poc.sh"
+  "${SCRIPT_DIR}/cleanup-pgbouncer-poc.sh"
 }
 trap cleanup INT TERM EXIT
 

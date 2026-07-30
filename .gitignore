@@ -55,3 +55,7 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 **/.DS_Store
+
+# POC Runtime Artifacts
+docker/log-saturation/data/
+*.log
