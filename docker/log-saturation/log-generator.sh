@@ -2,24 +2,28 @@
 # docker/log-saturation/log-generator.sh
 # Container script to simulate high-rate application & transaction log saturation
 
-LOG_FILE="/var/log/poc-app/app-saturation.log"
-TARGET_MB=170  # Target log file size in MB (85% of 200MB volume)
+LOG_DIR="/var/log/poc-app"
+LOG_FILE="${LOG_DIR}/app-saturation.log"
 
-mkdir -p /var/log/poc-app
+mkdir -p "$LOG_DIR"
 
 # If trigger file exists, run saturation log generation
-if [ -f "/var/log/poc-app/.trigger_saturation" ]; then
+if [ -f "${LOG_DIR}/.trigger_saturation" ]; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting log saturation generation..."
 
-  # Generate 100KB chunks of JSON log lines rapidly
+  # Calculate target dynamically: 85% of actual usable filesystem capacity (in KB)
+  TOTAL_KB=$(df -k "$LOG_DIR" 2>/dev/null | tail -1 | awk '{print $2}')
+  TOTAL_KB=${TOTAL_KB:-200000}
+  TARGET_KB=$(( TOTAL_KB * 85 / 100 ))
+
+  # Chunk of JSON log line
   CHUNK="{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"ERROR\",\"service\":\"medusa-backend\",\"event\":\"transaction_retry_failed\",\"error_code\":\"ERR_DB_POOL_EXHAUSTED\",\"details\":\"Connection acquire timeout after 10000ms waiting for pgbouncer slot. Retrying operation...\"}"
 
-  count=0
-  while [ -f "/var/log/poc-app/.trigger_saturation" ]; do
-    CURRENT_SIZE_MB=$(du -m "$LOG_FILE" 2>/dev/null | awk '{print $1}')
-    CURRENT_SIZE_MB=${CURRENT_SIZE_MB:-0}
+  while [ -f "${LOG_DIR}/.trigger_saturation" ]; do
+    CURRENT_SIZE_KB=$(du -k "$LOG_FILE" 2>/dev/null | awk '{print $1}')
+    CURRENT_SIZE_KB=${CURRENT_SIZE_KB:-0}
 
-    if [ "$CURRENT_SIZE_MB" -ge "$TARGET_MB" ]; then
+    if [ "$CURRENT_SIZE_KB" -ge "$TARGET_KB" ]; then
       # Hold at 85% capacity for the remainder of the test
       sleep 5
       continue
