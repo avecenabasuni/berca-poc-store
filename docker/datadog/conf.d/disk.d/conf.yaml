@@ -1,0 +1,10 @@
+# Datadog Agent Disk Check Configuration for POC
+init_config:
+
+instances:
+  - use_mount: yes
+    file_system_include:
+      - ext4
+      - ext3
+      - xfs
+      - overlay

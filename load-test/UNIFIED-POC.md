@@ -58,7 +58,8 @@ Datadog Agent → PostgreSQL (Port 5432) + PgBouncer (Port 6432) + Disk Log Volu
 ### File & Service Terkait:
 - **PgBouncer Config**: `docker/pgbouncer/pgbouncer.ini` (`default_pool_size=5`, `max_db_connections=5`, `pool_mode=transaction`).
 - **Medusa Config**: `apps/backend/medusa-config.ts` (`pool.max = 25`).
-- **Log Saturation Volume**: `./docker/log-saturation/data` terisolasi (max target 85%).
+- **Datadog Disk Config**: `docker/datadog/conf.d/disk.d/conf.yaml` (`use_mount: yes`).
+- **Volume Terisolasi**: `setup-disk-volume.sh` (membuat partition ext4 terisolasi 200MB di `./docker/log-saturation/data`, target 170MB = 85%).
 - **Runner Script**: `./run-full-poc.sh`
 - **Cleanup Script**: `./cleanup-full-poc.sh`
 
@@ -74,7 +75,8 @@ Buat **Composite Monitor** di Datadog (`datadoghq.com` -> **Monitors** -> **New 
 - **Metric Antrean**: `pgbouncer.pools.cl_waiting{service:pgbouncer}` >= 10
 
 ### 📊 Metric Monitor 2: Disk Log Saturation
-- **Metric**: `system.disk.in_use{path:/var/log/poc-app}`
+- **Metric**: `system.disk.in_use{device:/var/log/poc-app}`
+- **Catatan Tag**: Datadog Agent dipasangi `use_mount: yes` pada `conf.d/disk.d/conf.yaml`, sehingga nama tag yang dipakai adalah `device:<MOUNT_POINT>`, bukan `path`.
 - **Evaluasi**: `avg(last_5m) >= 0.80` (80% disk log terpakai)
 
 ### 🔀 Datadog Composite Monitor (Critical Alert)
@@ -89,7 +91,7 @@ Saat pengujian memasuki **menit ke-5 hingga menit ke-15**:
 
 1. **`sv_active = 5`** (Koneksi backend PgBouncer 100% penuh).
 2. **`cl_waiting ≈ 20`** (Klien mengantre stabil).
-3. **`system.disk.in_use >= 0.85`** (Penggunaan disk log menyentuh 85%).
+3. **`system.disk.in_use{device:/var/log/poc-app} >= 0.85`** (Penggunaan disk log terisolasi 200MB menyentuh 85% / 170MB).
 4. **Datadog Composite Monitor** berubah status dari `OK` menjadi **`ALERT / CRITICAL`** pada menit ke-5 dan stabil hingga menit ke-15.
 5. **PostgreSQL Direct Connections** dari PgBouncer tidak pernah melebihi 5.
 

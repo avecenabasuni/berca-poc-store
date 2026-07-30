@@ -3,7 +3,7 @@
 # Container script to simulate high-rate application & transaction log saturation
 
 LOG_FILE="/var/log/poc-app/app-saturation.log"
-TARGET_MB=850  # Target log file size in MB (85% saturation)
+TARGET_MB=170  # Target log file size in MB (85% of 200MB volume)
 
 mkdir -p /var/log/poc-app
 

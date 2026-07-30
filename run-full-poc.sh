@@ -47,12 +47,13 @@ if [ -n "$API_KEY" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 2: TRIGGER LOG SATURATION GENERATOR
+# STEP 2: TRIGGER LOG SATURATION GENERATOR ON ISOLATED 200MB VOLUME
 # ------------------------------------------------------------------------------
 echo ""
 echo "[STEP 2/3] Activating Disk Log Saturation Generator..."
+"${SCRIPT_DIR}/setup-disk-volume.sh" || true
 touch "$TRIGGER_FILE"
-echo "  [OK] Log generator triggered (target: 85% disk log capacity)."
+echo "  [OK] Log generator triggered (target: 85% disk log capacity on 200MB volume)."
 
 # ------------------------------------------------------------------------------
 # STEP 3: EXECUTE 15-MINUTE PGBOUNCER SATURATION (25 CLIENTS)

@@ -215,6 +215,7 @@ services:
       - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./docker/log-saturation/data:/var/log/poc-app:ro
+      - ./docker/datadog/conf.d/disk.d/conf.yaml:/etc/datadog-agent/conf.d/disk.d/conf.yaml:ro
     networks:
       - medusa_network
 
