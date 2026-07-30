@@ -1,0 +1,18 @@
+[Unit]
+Description=Berca Medusa DTC Daily 15-Minute POC Simulation
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory={{ poc_project_path }}
+EnvironmentFile=/etc/default/{{ poc_service_name }}
+ExecStart=/usr/bin/flock -n {{ poc_flock_lockfile }} /bin/bash -c 'cd {{ poc_project_path }} && docker compose up -d && ./run-full-poc.sh'
+TimeoutStartSec=20m
+KillMode=control-group
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,7 @@
+# ansible/roles/poc_scheduler/defaults/main.yml
+poc_project_path: "/home/ave/berca-poc-store"
+poc_schedule_time: "10:00:00"
+poc_schedule_timezone: "Asia/Jakarta"
+poc_service_name: "berca-poc-simulation"
+poc_flock_lockfile: "/var/run/berca-poc-simulation.lock"
+datadog_api_key: "{{ lookup('env', 'DD_API_KEY') | default('') }}"

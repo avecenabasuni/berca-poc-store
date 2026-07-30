@@ -11,20 +11,20 @@
     - name: Run SQL SET Commands on PgBouncer Admin Console
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
           -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }}
           -c "SET default_pool_size={{ target_pool_size }}; SET max_db_connections={{ target_max_connections }};"
       args:
-        chdir: "{{ docker_project_path }}"
+        chdir: "{{ poc_project_path }}"
       register: pgbouncer_set_result
 
     - name: Poll PgBouncer SHOW CONFIG until target pool size (25/25) is active
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
           -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW CONFIG;"
       args:
-        chdir: "{{ docker_project_path }}"
+        chdir: "{{ poc_project_path }}"
       register: pgbouncer_config_poll
       until:
         - (pgbouncer_config_poll.stdout_lines | select('match', '^default_pool_size\\|') | map('split', '|') | map('attribute', 1) | first | default('') | trim) == (target_pool_size | string)
@@ -33,16 +33,16 @@
       delay: "{{ poll_delay }}"
       changed_when: false
 
-    - name: Poll PgBouncer SHOW POOLS until cl_waiting is 0
+    - name: Poll PgBouncer SHOW POOLS until cl_waiting for medusa-store/postgres is 0
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
           -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW POOLS;"
       args:
-        chdir: "{{ docker_project_path }}"
+        chdir: "{{ poc_project_path }}"
       register: pgbouncer_pools_poll
       until:
-        - (pgbouncer_pools_poll.stdout_lines | select('match', '^' ~ pgbouncer_target_db ~ '\\|') | map('split', '|') | map('attribute', 4) | first | default('0') | trim | int) == 0
+        - (pgbouncer_pools_poll.stdout_lines | select('match', '^' ~ pgbouncer_target_db ~ '\\|' ~ pgbouncer_admin_user ~ '\\|') | map('split', '|') | map('attribute', 3) | first | default('0') | trim | int) == 0
       retries: "{{ poll_retries }}"
       delay: "{{ poll_delay }}"
       changed_when: false

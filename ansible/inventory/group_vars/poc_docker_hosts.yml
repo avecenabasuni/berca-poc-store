@@ -1,12 +1,12 @@
 # ansible/inventory/group_vars/poc_docker_hosts.yml
 # Variables for POC Docker Hosts
 
-docker_project_path: "{{ playbook_dir }}/.."
-log_dir_path: "{{ docker_project_path }}/docker/log-saturation/data"
+poc_project_path: "/home/ave/berca-poc-store"
+log_dir_path: "{{ poc_project_path }}/docker/log-saturation/data"
 log_file_path: "{{ log_dir_path }}/app-saturation.log"
 trigger_file_path: "{{ log_dir_path }}/.trigger_saturation"
 
-pgbouncer_host: "127.0.0.1"
+pgbouncer_host: "pgbouncer"
 pgbouncer_port: 6432
 pgbouncer_admin_user: "postgres"
 pgbouncer_db: "pgbouncer"

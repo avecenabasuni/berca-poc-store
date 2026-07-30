@@ -7,11 +7,11 @@
     - name: Reset PgBouncer Pool Settings to 5/5 Baseline
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
           -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }}
           -c "SET default_pool_size={{ baseline_pool_size }}; SET max_db_connections={{ baseline_max_connections }};"
       args:
-        chdir: "{{ docker_project_path }}"
+        chdir: "{{ poc_project_path }}"
       register: reset_pool_cmd
       failed_when: false
 
@@ -34,10 +34,10 @@
     - name: Verify PgBouncer Configuration Reset
       ansible.builtin.command:
         cmd: >-
-          docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
           -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW CONFIG;"
       args:
-        chdir: "{{ docker_project_path }}"
+        chdir: "{{ poc_project_path }}"
       register: verify_config_cmd
       changed_when: false
       failed_when: false

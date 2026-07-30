@@ -3,10 +3,10 @@
 - name: Query Final PgBouncer Pool Status
   ansible.builtin.command:
     cmd: >-
-      docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+      docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
       -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW CONFIG;"
   args:
-    chdir: "{{ docker_project_path }}"
+    chdir: "{{ poc_project_path }}"
   register: final_config_query
   changed_when: false
   failed_when: false
@@ -14,10 +14,10 @@
 - name: Query Final PgBouncer Waiting Clients
   ansible.builtin.command:
     cmd: >-
-      docker compose exec -T postgres psql -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
+      docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h {{ pgbouncer_host }} -p {{ pgbouncer_port }}
       -U {{ pgbouncer_admin_user }} {{ pgbouncer_db }} -tA -F '|' -c "SHOW POOLS;"
   args:
-    chdir: "{{ docker_project_path }}"
+    chdir: "{{ poc_project_path }}"
   register: final_pools_query
   changed_when: false
   failed_when: false
@@ -38,9 +38,9 @@
          | first | default('unknown') | trim }}
     final_cl_waiting: >-
       {{ (final_pools_query.stdout_lines | default([]))
-         | select('match', '^' ~ pgbouncer_target_db ~ '\\|')
+         | select('match', '^' ~ pgbouncer_target_db ~ '\\|' ~ pgbouncer_admin_user ~ '\\|')
          | map('split', '|')
-         | map('attribute', 4)
+         | map('attribute', 3)
          | first | default('unknown') | trim }}
 
 - name: Query Final Disk Usage Percentage

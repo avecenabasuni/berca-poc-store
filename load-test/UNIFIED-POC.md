@@ -1,7 +1,7 @@
 # 🚀 Hero Story: Closed-Loop Auto-Remediation (Datadog & Red Hat AAP / AWX)
-## POC: Connection Pool Exhaustion & Disk Log Saturation (15-Minute Demo)
+## POC: Connection Pool Exhaustion & Disk Log Saturation (Scheduled Daily 10:00 WIB)
 
-Dokumen ini berisi arsitektur lengkap, kontrak integrasi Red Hat Ansible Automation Platform (AAP) Controller / AWX, alur demo closed-loop 15 menit, serta kriteria pengujian untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation**.
+Dokumen ini berisi arsitektur lengkap, kontrak integrasi Red Hat Ansible Automation Platform (AAP) Controller / AWX, alur demo closed-loop 15 menit, serta panduan pengolahan jadwal otomatis `systemd` timer untuk **POC Hero Story: Datadog Closed-Loop Auto-Remediation**.
 
 ---
 
@@ -9,12 +9,13 @@ Dokumen ini berisi arsitektur lengkap, kontrak integrasi Red Hat Ansible Automat
 1. [Ringkasan Eksekutif & Visi Closed-Loop](#1-ringkasan-eksekutif--visi-closed-loop)
 2. [Alur Demo 15 Menit (Closed-Loop Lifecycle)](#2-alur-demo-15-menit-closed-loop-lifecycle)
 3. [Arsitektur Closed-Loop (Datadog → AAP Controller / AWX)](#3-arsitektur-closed-loop-datadog--aap-controller--awx)
-4. [Kontrak Integrasi REST API Controller & AWX](#4-kontrak-integrasi-rest-api-controller--awx)
-5. [Kontrak Remediasi Playbook Ansible](#5-kontrak-remediasi-playbook-ansible)
-6. [Acceptance Criteria & Bukti Visual Lifecycle](#6-acceptance-criteria--bukti-visual-lifecycle)
-7. [Narasi "Before vs After"](#7-narasi-before-vs-after)
-8. [Translasi Nilai Bisnis ke 7 Vertikal Industri](#8-translasi-nilai-bisnis-ke-7-vertikal-industri)
-9. [Panduan Eksekusi, Test Plan & Prosedur Reset](#9-panduan-eksekusi-test-plan--prosedur-reset)
+4. [Jadwal Otomatis Harian (Systemd Timer 10:00 WIB)](#4-jadwal-otomatis-harian-systemd-timer-1000-wib)
+5. [Kontrak Integrasi REST API Controller & AWX](#5-kontrak-integrasi-rest-api-controller--awx)
+6. [Kontrak Remediation Playbook Ansible](#6-kontrak-remediation-playbook-ansible)
+7. [Acceptance Criteria & Bukti Visual Lifecycle](#7-acceptance-criteria--bukti-visual-lifecycle)
+8. [Narasi "Before vs After"](#8-narasi-before-vs-after)
+9. [Translasi Nilai Bisnis ke 7 Vertikal Industri](#9-translasi-nilai-bisnis-ke-7-vertikal-industri)
+10. [Panduan Eksekusi, Test Plan & Prosedur Reset](#10-panduan-eksekusi-test-plan--prosedur-reset)
 
 ---
 
@@ -24,7 +25,7 @@ Di era digital berkecepatan tinggi, insiden downtime yang diakibatkan oleh **lon
 
 ### 🌟 Visi Hero Story:
 Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Automated Remediation** yang proaktif:
-> **"Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Red Hat AAP Controller / AWX via REST API → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia → Sistem pulih secara mandiri saat beban trafik tetap aktif (Soak Test)."**
+> **"Host Linux menjalankan simulasi otomatis harian pukul 10:00 WIB → Datadog mendeteksi insiden ganda secara real-time dalam < 5 menit → Datadog Workflow Automation memicu Red Hat AAP Controller / AWX via REST API → Playbook Remediasi mengeksekusi perbaikan otomatis dalam < 1 menit TANPA campur tangan manusia → Sistem pulih secara mandiri saat beban trafik tetap aktif (Soak Test)."**
 
 ---
 
@@ -32,6 +33,7 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ```text
   ⏱️ Menit 0 - 5 : FAULT GENERATION
+     ├── Systemd timer (10:00 WIB) memicu run-full-poc.sh
      ├── pgbench memicu 25 klien paralel (pool max=5 -> cl_waiting ~20)
      ├── log-generator mengisi disk volume hingga 85%
      └── Datadog Composite Monitor berubah status menjadi ALERT pada Menit ke-5.
@@ -59,10 +61,10 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ```text
 +-----------------------+              +--------------------------------+
-|   Pelanggan Akses     |              |     Datadog Agent & DBM        |
-|  (Flash Sale / Spike) |              |  (Metrics, Logs, Traces, DBM)  |
+| Host Systemd Timer    |              |     Datadog Agent & DBM        |
+| (10:00 WIB Daily)     |              |  (Metrics, Logs, Traces, DBM)  |
 +-----------+-----------+              +---------------+----------------+
-            |                                          |
+            | (flock lock)                             |
             v                                          v
 +-----------+-----------+              +---------------+----------------+
 |  Medusa & PgBouncer   | ------------>|   Datadog Composite Monitor    |
@@ -84,7 +86,39 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ---
 
-## 4. Kontrak Integrasi REST API Controller & AWX
+## 4. Jadwal Otomatis Harian (Systemd Timer 10:00 WIB)
+
+Simulasi fault-injection 15 menit dikelola di tingkat host menggunakan **`systemd` timer & service** (`poc_scheduler` role). Ini memberikan pengelolaan lifecycle proses, locking (`flock`), timezone `Asia/Jakarta`, serta audit log `journald` yang lebih andal dibanding cron.
+
+### ⚙️ Komponen Systemd Scheduler:
+1. **Service Unit**: `/etc/systemd/system/berca-poc-simulation.service`
+   - Berjalan sebagai `root` dengan `Type=oneshot`.
+   - Menggunakan `/usr/bin/flock -n /var/run/berca-poc-simulation.lock` untuk mencegah eksekusi tumpang-tindih.
+   - Memuat `DD_API_KEY` dari file rahasia `/etc/default/berca-poc-simulation` (mode `0600`).
+2. **Timer Unit**: `/etc/systemd/system/berca-poc-simulation.timer`
+   - `OnCalendar=*-*-* 10:00:00 Asia/Jakarta`
+   - `Persistent=false` (Mencegah catch-up run tak terduga jika host sempat mati pada jam jadwal).
+
+### 🚀 Cara Deploy Scheduler via Ansible:
+```bash
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-poc-scheduler.yml --tags poc_schedule
+```
+
+### 🔍 Perintah Manajemen & Audit Log Scheduler:
+```bash
+# Verifikasi Jadwal Eksekusi Berikutnya
+systemctl list-timers berca-poc-simulation.timer
+
+# Uji Eksekusi Manual Tanpa Menunggu Jam 10:00
+systemctl start berca-poc-simulation.service
+
+# Monitoring Log Eksekusi Real-Time
+journalctl -u berca-poc-simulation.service -f
+```
+
+---
+
+## 5. Kontrak Integrasi REST API Controller & AWX
 
 - **Endpoint Launch**: `POST /api/v2/job_templates/<JOB_TEMPLATE_ID>/launch/`
 - **Autentikasi**: Bearer Token khusus milik akun `poc-remediator` (Role: *Job Template Exec Executer*).
@@ -109,25 +143,27 @@ Mengubah pemantauan tradisional yang bersifat reaktif menjadi **Closed-Loop Auto
 
 ---
 
-## 5. Kontrak Remediasi Playbook Ansible
+## 6. Kontrak Remediation Playbook Ansible
 
 - **Struktur File Artefak**:
-  - `ansible/inventory/hosts.yml` & `group_vars/poc_docker_hosts.yml`: Definisi host terisolasi `poc_docker_hosts`.
-  - `ansible/roles/closed_loop_remediation/`: Role modular mencakup `preflight`, `remediate_pool`, `remediate_disk`, dan `collect_evidence`.
+  - `ansible/inventory/hosts.yml` & `group_vars/poc_docker_hosts.yml`: Definisi host terisolasi `poc_docker_hosts` & variable `poc_project_path`.
+  - `ansible/roles/closed_loop_remediation/`: Role modular (`preflight`, `remediate_pool`, `remediate_disk`, `collect_evidence`).
+  - `ansible/roles/poc_scheduler/`: Role pemasang systemd timer & service (tag: `poc_schedule`).
   - `ansible/playbooks/remediate-pool-and-disk.yml`: Playbook remediasi utama.
   - `ansible/playbooks/reset-poc-baseline.yml`: Playbook reset darurat / pemulihan baseline.
+  - `ansible/playbooks/deploy-poc-scheduler.yml`: Playbook deployment timer.
 
 ### A. Perintah Remediasi Database Connection Pool (PgBouncer Admin Console)
 *Preflight*: Playbook mengeksekusi `SHOW CONFIG;` dan memverifikasi kolom `changeable` bernilai `yes` untuk `default_pool_size` dan `max_db_connections`. Jika `changeable=no`, remediasi pool ditandai gagal namun remediasi disk **tetap dijalankan**.
 
-AWX/Controller terhubung ke PgBouncer Admin Console (`postgresql://postgres@127.0.0.1:6432/pgbouncer`) dan mengeksekusi:
+AWX/Controller terhubung ke PgBouncer Admin Console (`postgresql://postgres@pgbouncer:6432/pgbouncer`) dan mengeksekusi:
 ```sql
 SET default_pool_size = 25;
 SET max_db_connections = 25;
 ```
-*(Catatan: Tanpa `RELOAD`, agar setting runtime 25/25 aktif langsung tanpa tertimpa pgbouncer.ini).*
+*(Catatan: Menggunakan `-v ON_ERROR_STOP=1` tanpa `RELOAD`, agar setting runtime 25/25 aktif langsung).*
 
-*Polling Validasi*: Playbook mem-poll `SHOW CONFIG;` hingga bernilai 25/25, dan mem-poll `SHOW POOLS;` hingga `cl_waiting = 0`.
+*Polling Validasi*: Playbook mem-poll `SHOW CONFIG;` hingga bernilai 25/25, dan mem-poll `SHOW POOLS;` hingga `cl_waiting = 0` untuk `medusa-store/postgres`.
 
 ### B. Perintah Remediasi Disk Log Saturation
 Playbook menghapus file trigger dan membersihkan log tanpa mematikan beban `pgbench`:
@@ -140,7 +176,7 @@ sync
 
 ---
 
-## 6. Acceptance Criteria & Bukti Visual Lifecycle
+## 7. Acceptance Criteria & Bukti Visual Lifecycle
 
 ### 📊 Klarifikasi Threshold & Fault Target:
 - **Disk Fault Generation**: Target penulisan log berhenti di **85%** kapasitas disk 200MB terisolasi (`system.disk.in_use = 0.85`).
@@ -154,19 +190,19 @@ sync
 
 ---
 
-## 7. Narasi "Before vs After"
+## 8. Narasi "Before vs After"
 
 | Parameter | ❌ Before (Tanpa Observabilitas & Auto-Remediation) | ✅ After (Datadog + Ansible Closed-Loop) |
 |---|---|---|
 | **Waktu Deteksi Insiden** | 30–60 menit (menunggu laporan keluhan pengguna/helpdesk). | **< 5 menit** (Datadog Composite Monitor `avg(last_5m)`). |
 | **Penyebab Insiden** | Penanganan parsial (hanya restart app, disk tetap penuh). | Root cause teridentifikasi menyeluruh (DB Pool & Disk Volume). |
-| **Proses Remediasi** | Manual via SSH oleh On-Call Engineer (butuh waktu 15–30 menit). | **Otomatis oleh Ansible Playbook dalam < 1 menit**. |
+| **Proses Remediation** | Manual via SSH oleh On-Call Engineer (butuh waktu 15–30 menit). | **Otomatis oleh Ansible Playbook dalam < 1 menit**. |
 | **Total MTTR (Recovery Time)**| **45 – 90 menit downtime**. | **< 6 menit total MTTR** (Sistem pulih mandiri). |
 | **Dampak Bisnis** | Kerugian transaksi masif, breach SLA OJK/BI, penurunan reputasi brand. | **Zero Human Intervention**, kelangsungan bisnis terjaga 100%. |
 
 ---
 
-## 8. Translasi Nilai Bisnis ke 7 Vertikal Industri
+## 9. Translasi Nilai Bisnis ke 7 Vertikal Industri
 
 1. **💳 BFSI (Perbankan & Keuangan)**:
    > *"Mencegah kegagalan otorisasi transaksi transfer & QRIS serta menghindari sanksi penalti breach SLA dari regulasi Bank Indonesia/OJK saat lonjakan transaksi akhir bulan (payroll spike)."*
@@ -191,21 +227,18 @@ sync
 
 ---
 
-## 9. Panduan Eksekusi, Test Plan & Prosedur Reset
+## 10. Panduan Eksekusi, Test Plan & Prosedur Reset
 
-### A. Testing Playbook Lokal (Offline Verification)
+### A. Testing Playbook & Scheduler Deployment
 ```bash
-# Sintaks Check Playbook Remediasi
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/remediate-pool-and-disk.yml --syntax-check
+# Deploy Systemd Timer Harian (10:00 WIB)
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-poc-scheduler.yml --tags poc_schedule
 
-# Sintaks Check Playbook Baseline Reset
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/reset-poc-baseline.yml --syntax-check
-
-# Eksekusi Manual Playbook Remediasi
+# Uji Eksekusi Playbook Remediasi Manual
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/remediate-pool-and-disk.yml \
   -e "incident_id=TEST_123 monitor_id=MON_456 alert_status=ALERT environment=poc requested_action=expand_pool_and_truncate_log"
 
-# Eksekusi Manual Baseline Reset
+# Uji Eksekusi Baseline Reset Manual
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/reset-poc-baseline.yml
 ```
 

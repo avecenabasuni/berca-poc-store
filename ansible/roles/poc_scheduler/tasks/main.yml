@@ -1,0 +1,36 @@
+# ansible/roles/poc_scheduler/tasks/main.yml
+---
+- name: Deploy Secure Environment File for POC Service
+  ansible.builtin.template:
+    src: berca-poc-simulation.env.j2
+    dest: "/etc/default/{{ poc_service_name }}"
+    owner: root
+    group: root
+    mode: '0600'
+  tags: [poc_schedule]
+
+- name: Deploy Systemd Service Unit
+  ansible.builtin.template:
+    src: berca-poc-simulation.service.j2
+    dest: "/etc/systemd/system/{{ poc_service_name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [poc_schedule]
+
+- name: Deploy Systemd Timer Unit
+  ansible.builtin.template:
+    src: berca-poc-simulation.timer.j2
+    dest: "/etc/systemd/system/{{ poc_service_name }}.timer"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [poc_schedule]
+
+- name: Enable and Start Systemd POC Timer Unit
+  ansible.builtin.systemd_service:
+    name: "{{ poc_service_name }}.timer"
+    daemon_reload: true
+    enabled: true
+    state: started
+  tags: [poc_schedule]
