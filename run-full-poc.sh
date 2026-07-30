@@ -9,6 +9,19 @@ TRIGGER_FILE="${LOG_DIR}/.trigger_saturation"
 
 mkdir -p "$LOG_DIR"
 
+# ------------------------------------------------------------------------------
+# SIGNAL TRAP HANDLER FOR CLEAN CONTROLLED STOP (CTRL+C / SIGINT / SIGTERM / EXIT)
+# ------------------------------------------------------------------------------
+cleanup() {
+  trap - INT TERM EXIT
+  echo ""
+  echo "=========================================================================="
+  echo "  STOP SIGNAL / EXIT DETECTED — RUNNING AUTOMATIC CLEANUP & ENVIRONMENT RESET"
+  echo "=========================================================================="
+  "${SCRIPT_DIR}/cleanup-full-poc.sh"
+}
+trap cleanup INT TERM EXIT
+
 echo ""
 echo "=========================================================================="
 echo "  UNIFIED POC RUNNER: PGBOUNCER POOL & DISK LOG SATURATION (15 MINUTES)"
@@ -18,6 +31,8 @@ echo "  1. Traffic Spike    --> High concurrency load test"
 echo "  2. Pool Saturation  --> PgBouncer 5 backend connections max (sv_active = 5, cl_waiting ~20)"
 echo "  3. Log Saturation   --> Transaction & error log explosion -> Disk Log 85% Full"
 echo "  4. Service Impact   --> Downtime / Query Timeout -> Datadog Alert (avg(last_5m))"
+echo "=========================================================================="
+echo "  Press Ctrl+C at any time to immediately stop simulation & reset baseline."
 echo "=========================================================================="
 echo ""
 
@@ -86,6 +101,3 @@ echo "  2. Disk Log Volume in_use >= 0.85 (85%)"
 echo "  3. Datadog Composite Monitor triggers ALERT / CRITICAL"
 echo "=========================================================================="
 echo ""
-echo "  Auto-cleaning log files in 10 seconds..."
-sleep 10
-"${SCRIPT_DIR}/cleanup-full-poc.sh"

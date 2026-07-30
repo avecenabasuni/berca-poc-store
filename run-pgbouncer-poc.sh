@@ -3,7 +3,21 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MEDUSA_BASE_URL="${MEDUSA_BASE_URL:-http://medusa:9000}"
+
+# ------------------------------------------------------------------------------
+# SIGNAL TRAP HANDLER FOR CLEAN CONTROLLED STOP (CTRL+C / SIGINT / SIGTERM / EXIT)
+# ------------------------------------------------------------------------------
+cleanup() {
+  trap - INT TERM EXIT
+  echo ""
+  echo "=========================================================================="
+  echo "  STOP SIGNAL / EXIT DETECTED — RUNNING AUTOMATIC CLEANUP & ENVIRONMENT RESET"
+  echo "=========================================================================="
+  "${SCRIPT_DIR}/cleanup-full-poc.sh"
+}
+trap cleanup INT TERM EXIT
 
 echo ""
 echo "=========================================================================="
@@ -14,6 +28,8 @@ echo "  Target Pooler:    PgBouncer (max 5 backend connections)"
 echo "  Duration:         900 seconds (15 minutes)"
 echo "  Transaction:      BEGIN; SELECT pg_sleep(30); COMMIT;"
 echo "=========================================================================="
+echo "  Press Ctrl+C at any time to immediately stop simulation & reset baseline."
+echo "=========================================================================="
 echo ""
 
 # ------------------------------------------------------------------------------
@@ -21,13 +37,11 @@ echo ""
 # ------------------------------------------------------------------------------
 echo "[STEP 1/2] Running Medusa Smoke Test via PgBouncer..."
 
-# Extract Publishable API Key if present
 API_KEY="${MEDUSA_PUBLISHABLE_KEY:-}"
 if [ -z "$API_KEY" ] && [ -f "apps/storefront/.env" ]; then
   API_KEY=$(grep "NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY" apps/storefront/.env | cut -d '=' -f2 | tr -d '\r\n"') || true
 fi
 
-# 1. Health check
 echo "  -> Checking Medusa /health endpoint..."
 docker compose exec -T postgres wget -q --spider http://medusa:9000/health || {
   echo "[ERROR] Medusa backend is not healthy! Please ensure 'docker compose up -d' is running."
@@ -35,7 +49,6 @@ docker compose exec -T postgres wget -q --spider http://medusa:9000/health || {
 }
 echo "  [OK] Medusa backend health check passed."
 
-# 2. Store API query test
 if [ -n "$API_KEY" ]; then
   echo "  -> Testing Store Products API (/store/products) via PgBouncer connection..."
   HTTP_CODE=$(docker compose exec -T postgres wget -q -S --header="x-publishable-api-key: ${API_KEY}" -O /dev/null http://medusa:9000/store/products 2>&1 | grep "HTTP/" | tail -n1 | awk '{print $2}')
@@ -64,7 +77,7 @@ docker compose exec -T postgres pgbench \
   -T 900 \
   -n \
   -f /load-test/pgbench-saturation.sql \
-  medusa-store
+  medusa-store || true
 
 echo ""
 echo "=========================================================================="

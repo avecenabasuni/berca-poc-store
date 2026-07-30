@@ -1,5 +1,5 @@
 #!/bin/bash
-# cleanup-full-poc.sh — Clean up test logs and reset POC environment to baseline state
+# cleanup-full-poc.sh — Stop active POC tasks, clean up test logs, and reset environment to baseline
 
 set -euo pipefail
 
@@ -10,24 +10,29 @@ LOG_FILE="${LOG_DIR}/app-saturation.log"
 
 echo ""
 echo "=========================================================================="
-echo "  CLEANING UP UNIFIED POC LOG FILES & RESETTING BASELINE"
+echo "  STOPPING POC SIMULATION & RESETTING BASELINE ENVIRONMENT"
 echo "=========================================================================="
 echo ""
 
-# Remove trigger file to stop generator loop
+# 1. Stop active pgbench saturation processes inside postgres container if running
+echo "-> Terminating active pgbench load test processes..."
+docker compose exec -T postgres pkill -9 -f pgbench >/dev/null 2>&1 || true
+echo "  [OK] Terminated active pgbench sessions."
+
+# 2. Remove trigger file to stop log generator loop
 if [ -f "$TRIGGER_FILE" ]; then
   rm -f "$TRIGGER_FILE"
   echo "  [OK] Removed log saturation trigger file."
 fi
 
-# Truncate log file
+# 3. Truncate log file to 0 bytes
 if [ -f "$LOG_FILE" ]; then
   > "$LOG_FILE"
-  echo "  [OK] Truncated log file: app-saturation.log."
+  echo "  [OK] Truncated app-saturation.log to 0 bytes."
 fi
 
 echo ""
-echo "  Status:           Disk log space returned to baseline (< 5%)."
+echo "  Status:           Simulation stopped cleanly. Disk log & connections reset to baseline."
 echo "  Datadog Monitor:  Will evaluate and return to OK status within 5 minutes."
 echo "=========================================================================="
 echo ""
