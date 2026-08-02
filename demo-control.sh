@@ -12,6 +12,7 @@ DISK_LOG_FILE="${LOG_DIR}/app-saturation.log"
 STATE_DIR="${SCRIPT_DIR}/docker/demo-state"
 DISK_IMPACT_MARKER="${STATE_DIR}/disk-degraded"
 DISK_IMAGE_FILE="/tmp/poc-log-disk.img"
+POOL_PARSER_FILE="${SCRIPT_DIR}/tools/parse-pgbouncer-pools.awk"
 PGBOUNCER_TARGET_DB="medusa-store"
 PGBOUNCER_TARGET_USER="postgres"
 BASELINE_POOL_SIZE=5
@@ -73,6 +74,7 @@ preflight() {
   require_command findmnt
   require_command mountpoint
   require_command stat
+  [ -r "$POOL_PARSER_FILE" ] || fail "PgBouncer pool parser is unavailable."
 
   docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required."
   if [ "$ACTION" != "status" ]; then
@@ -105,6 +107,20 @@ pgbouncer_query() {
     -c "$sql"
 }
 
+pgbouncer_query_with_header() {
+  local sql="$1"
+  docker compose exec -T postgres psql \
+    -v ON_ERROR_STOP=1 \
+    -h pgbouncer \
+    -p 6432 \
+    -U postgres \
+    pgbouncer \
+    -A \
+    -F '|' \
+    -P footer=off \
+    -c "$sql"
+}
+
 ensure_pgbouncer_ready() {
   docker compose up -d postgres pgbouncer >/dev/null
   wait_for "PgBouncer admin console" "$WAIT_TIMEOUT_SECONDS" \
@@ -122,28 +138,22 @@ read_pool_config() {
 }
 
 read_pool_metrics() {
-  local pools_out
-  if ! pools_out=$(pgbouncer_query "SHOW POOLS;"); then
+  local pools_out parsed_metrics
+  if ! pools_out=$(pgbouncer_query_with_header "SHOW POOLS;"); then
     return 1
   fi
-  POOL_ROW_COUNT=$(printf '%s\n' "$pools_out" | awk -F '|' \
-    -v db="$PGBOUNCER_TARGET_DB" -v user="$PGBOUNCER_TARGET_USER" \
-    '$1 == db && $2 == user { count++ } END { print count+0 }')
 
-  if [ "$POOL_ROW_COUNT" -eq 1 ]; then
-    CL_WAITING=$(printf '%s\n' "$pools_out" | awk -F '|' \
-      -v db="$PGBOUNCER_TARGET_DB" -v user="$PGBOUNCER_TARGET_USER" \
-      '$1 == db && $2 == user { print $4 }')
-    SV_ACTIVE=$(printf '%s\n' "$pools_out" | awk -F '|' \
-      -v db="$PGBOUNCER_TARGET_DB" -v user="$PGBOUNCER_TARGET_USER" \
-      '$1 == db && $2 == user { print $5 }')
-  elif [ "$POOL_ROW_COUNT" -eq 0 ]; then
-    CL_WAITING=0
-    SV_ACTIVE=0
-  else
-    CL_WAITING=-1
-    SV_ACTIVE=-1
+  if ! parsed_metrics=$(printf '%s\n' "$pools_out" | awk \
+    -v target_db="$PGBOUNCER_TARGET_DB" \
+    -v target_user="$PGBOUNCER_TARGET_USER" \
+    -f "$POOL_PARSER_FILE"); then
+    return 1
   fi
+
+  IFS='|' read -r POOL_ROW_COUNT CL_WAITING SV_ACTIVE <<< "$parsed_metrics"
+  [[ "$POOL_ROW_COUNT" =~ ^[0-9]+$ ]] && \
+    [[ "$CL_WAITING" =~ ^-?[0-9]+$ ]] && \
+    [[ "$SV_ACTIVE" =~ ^-?[0-9]+$ ]]
 }
 
 pool_config_is_baseline() {
@@ -325,6 +335,8 @@ start_pool_fault() {
   if ! wait_for "PgBouncer saturation (sv_active>=5 and cl_waiting>0)" \
     "$WAIT_TIMEOUT_SECONDS" pool_fault_is_observed; then
     echo "[ERROR] Pool fault did not reach the required state; returning to baseline." >&2
+    echo "[INFO] Last pool-hog logs:" >&2
+    docker logs --tail 50 "$POOL_HOG_CONTAINER" >&2 || true
     stop_pool_hog || true
     wait_for "PgBouncer queue recovery" "$WAIT_TIMEOUT_SECONDS" pool_is_recovered || true
     exit 1
