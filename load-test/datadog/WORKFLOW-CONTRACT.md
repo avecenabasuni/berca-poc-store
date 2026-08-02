@@ -165,11 +165,16 @@ Pool conditions:
 
 ```text
 max(last_30s):pgbouncer.pools.cl_waiting{env:poc,resource_id:pgbouncer-demo} = 0
-PgBouncer runtime configuration = 5/5
 checkout latency is below the calibrated threshold
 checkout error rate < 10%
 checkout health check is OK
 ```
+
+`demo-control.sh recover-pool` also refuses to report command success unless
+the runtime configuration remains `default_pool_size=5` and
+`max_db_connections=5`. That check is a safety invariant and execution
+evidence; it is not a substitute for the Datadog service-recovery conditions
+above.
 
 Disk conditions:
 
