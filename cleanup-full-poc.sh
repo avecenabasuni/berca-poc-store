@@ -69,8 +69,20 @@ echo "==========================================================================
 echo "-> Ensuring PostgreSQL and PgBouncer are available for runtime reset..."
 if docker compose up -d postgres pgbouncer >/dev/null 2>&1 && \
    wait_for 60 docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h pgbouncer -p 6432 -U postgres pgbouncer -c "SHOW VERSION;"; then
-  if ! docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -h pgbouncer -p 6432 -U postgres pgbouncer \
-    -c "SET default_pool_size=5; SET max_db_connections=5;" >/dev/null 2>&1; then
+  BASELINE_CONFIG=$(docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+    -h pgbouncer -p 6432 -U postgres pgbouncer -tA -F '|' \
+    -c "SHOW CONFIG;" 2>/dev/null || true)
+  CURRENT_POOL_SIZE=$(printf '%s\n' "$BASELINE_CONFIG" | \
+    awk -F '|' '$1 == "default_pool_size" { print $2 }')
+  CURRENT_MAX_CONN=$(printf '%s\n' "$BASELINE_CONFIG" | \
+    awk -F '|' '$1 == "max_db_connections" { print $2 }')
+
+  if [ "$CURRENT_POOL_SIZE" = "5" ] && [ "$CURRENT_MAX_CONN" = "5" ]; then
+    echo "  [OK] PgBouncer runtime configuration is already at the 5/5 baseline."
+  elif ! docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+    -h pgbouncer -p 6432 -U postgres pgbouncer \
+    -c "SET default_pool_size=5;" \
+    -c "SET max_db_connections=5;" >/dev/null; then
     record_error "PgBouncer runtime reset command failed."
   fi
 else
