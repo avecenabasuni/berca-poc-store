@@ -7,6 +7,7 @@ on:
       - "load-test/**"
       - "*.sh"
       - "docker-compose.yml"
+      - ".dockerignore"
       - "tools/**"
       - "ops/**"
       - "apps/backend/src/api/demo/**"
@@ -19,6 +20,7 @@ on:
       - "load-test/**"
       - "*.sh"
       - "docker-compose.yml"
+      - ".dockerignore"
       - "tools/**"
       - "ops/**"
       - "apps/backend/src/api/demo/**"
@@ -56,6 +58,9 @@ jobs:
           shellcheck demo-control.sh cleanup-full-poc.sh setup-disk-volume.sh \
             docker/log-saturation/log-generator.sh
           docker compose config --quiet
+          grep -Fxq '**/node_modules/' .dockerignore
+          grep -Fxq 'docker/log-saturation/data/' .dockerignore
+          grep -Fxq '**/.env' .dockerignore
 
       - name: Validate bounded classifier and control API
         run: |
