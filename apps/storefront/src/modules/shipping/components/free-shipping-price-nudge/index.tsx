@@ -149,7 +149,7 @@ function FreeShippingInline({
             {price.target_reached ? (
               <div className="flex items-center gap-1.5">
                 {" "}
-                <CheckCircleSolid className="text-green-500 inline-block" />{" "}
+                <CheckCircleSolid className="text-green-500 inline-block" aria-hidden="true" />{" "}
                 Free Shipping unlocked!
               </div>
             ) : (
@@ -209,12 +209,21 @@ function FreeShippingPopup({
         }
       )}
     >
+      <p className="sr-only" role="status" aria-atomic="true">
+        {price.target_reached
+          ? "Free shipping unlocked"
+          : `Spend ${convertToLocale({
+              amount: price.target_remaining,
+              currency_code: cart.currency_code,
+            })} more to unlock free shipping`}
+      </p>
       <div>
         <Button
-          className="rounded-full bg-neutral-900 shadow-none outline-none border-none text-[15px] p-2"
+          className="rounded-full bg-neutral-900 shadow-none outline-none border-none text-[15px] p-2 focus-visible:ring-2 focus-visible:ring-white"
           onClick={() => setIsClosed(true)}
+          aria-label="Close free shipping notification"
         >
-          <XMark />
+          <XMark aria-hidden="true" />
         </Button>
       </div>
 
@@ -225,7 +234,7 @@ function FreeShippingPopup({
               <div>
                 {price.target_reached ? (
                   <div className="flex items-center gap-1.5">
-                    <CheckCircleSolid className="text-green-500 inline-block" />{" "}
+                    <CheckCircleSolid className="text-green-500 inline-block" aria-hidden="true" />{" "}
                     Free Shipping unlocked!
                   </div>
                 ) : (
@@ -265,14 +274,14 @@ function FreeShippingPopup({
 
         <div className="flex gap-3">
           <LocalizedClientLink
-            className="rounded-2xl bg-transparent shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4"
+            className="rounded-2xl bg-transparent shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4 focus-visible:ring-2 focus-visible:ring-white"
             href="/cart"
           >
             View cart
           </LocalizedClientLink>
 
           <LocalizedClientLink
-            className="flex-grow rounded-2xl bg-white text-neutral-950 shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4 text-center"
+            className="flex-grow rounded-2xl bg-white text-neutral-950 shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4 text-center focus-visible:ring-2 focus-visible:ring-white"
             href="/store"
           >
             View products

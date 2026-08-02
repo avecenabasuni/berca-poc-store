@@ -1,4 +1,4 @@
-import { Button, Heading, Text } from "@modules/common/components/ui"
+import { Heading, Text } from "@modules/common/components/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 
 const SignInPrompt = () => {
@@ -13,10 +13,12 @@ const SignInPrompt = () => {
         </Text>
       </div>
       <div>
-        <LocalizedClientLink href="/account">
-          <Button variant="secondary" className="h-10" data-testid="sign-in-button">
-            Sign in
-          </Button>
+        <LocalizedClientLink
+          href="/account"
+          className="inline-flex h-10 items-center justify-center rounded-md bg-[#1E1F74] px-4 font-medium text-white hover:bg-[#3A1E65] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          data-testid="sign-in-button"
+        >
+          Sign in
         </LocalizedClientLink>
       </div>
     </div>

@@ -39,11 +39,11 @@ export default function TransferRequestForm() {
           className="flex flex-col gap-y-1 sm:items-end"
         >
           <div className="flex flex-col gap-y-2 w-full">
-            <Input className="w-full" name="order_id" placeholder="Order ID" />
+            <Input className="w-full" name="order_id" label="Order ID" placeholder="Order ID" />
             <SubmitButton
               variant="secondary"
               size="small"
-              className="w-fit whitespace-nowrap self-end"
+              className="w-fit whitespace-nowrap self-end focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive"
             >
               Request transfer
             </SubmitButton>
@@ -51,7 +51,7 @@ export default function TransferRequestForm() {
         </form>
       </div>
       {!state.success && state.error && (
-        <Text className="text-base-regular text-rose-500 text-right">
+        <Text className="text-base-regular text-rose-500 text-right" role="alert">
           {state.error}
         </Text>
       )}
@@ -71,6 +71,7 @@ export default function TransferRequestForm() {
           <IconButton
             className="h-fit"
             onClick={() => setShowSuccess(false)}
+            aria-label="Dismiss transfer confirmation"
           >
             <XCircleSolid className="w-4 h-4 text-neutral-500" />
           </IconButton>

@@ -1,8 +1,0 @@
-# ansible/playbooks/deploy-poc-scheduler.yml
----
-- name: Deploy Systemd Daily Timer Scheduler for 15-Minute POC Simulation
-  hosts: poc_docker_hosts
-  become: true
-  roles:
-    - role: poc_scheduler
-      tags: [poc_schedule]

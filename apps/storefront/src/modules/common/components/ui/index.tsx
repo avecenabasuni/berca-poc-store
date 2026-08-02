@@ -1,6 +1,7 @@
 import clsx from "clsx"
 import {
   ButtonHTMLAttributes,
+  FieldsetHTMLAttributes,
   forwardRef,
   HTMLAttributes,
   InputHTMLAttributes,
@@ -8,6 +9,7 @@ import {
   TableHTMLAttributes,
   TdHTMLAttributes,
   ThHTMLAttributes,
+  useId,
 } from "react"
 
 // TODO: Add Toaster component back when needed for notifications
@@ -81,6 +83,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
         className={clsx(
           "inline-flex gap-2 items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
           variant === "primary" && "bg-[#E53946] text-white hover:bg-[#9F2335]",
@@ -94,7 +97,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         {...props}
       >
-        {isLoading ? "Loading..." : children}
+        {isLoading && <span aria-hidden="true">Loading</span>}
+        <span>{children}</span>
       </button>
     )
   }
@@ -179,6 +183,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         className={clsx(
           "inline-flex items-center justify-center rounded-md p-2 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2",
+          "min-h-10 min-w-10",
           className
         )}
         {...props}
@@ -215,11 +220,15 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, ...props }, ref) => {
+    const generatedId = useId()
+    const inputId = props.id ?? generatedId
+
     return (
       <div className="flex flex-col gap-1">
-        {label && <Label>{label}</Label>}
+        {label && <Label htmlFor={inputId}>{label}</Label>}
         <input
           ref={ref}
+          id={inputId}
           className={clsx(
             "flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
             className
@@ -354,18 +363,18 @@ export const Table = Object.assign(TableRoot, {
 })
 
 // RadioGroup Components
-type RadioGroupProps = HTMLAttributes<HTMLDivElement>
+type RadioGroupProps = FieldsetHTMLAttributes<HTMLFieldSetElement>
 
-const RadioGroupRoot = forwardRef<HTMLDivElement, RadioGroupProps>(
+const RadioGroupRoot = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <div
+      <fieldset
         ref={ref}
-        className={clsx("flex flex-col gap-2", className)}
+        className={clsx("m-0 flex flex-col gap-2 border-0 p-0", className)}
         {...props}
       >
         {children}
-      </div>
+      </fieldset>
     )
   }
 )

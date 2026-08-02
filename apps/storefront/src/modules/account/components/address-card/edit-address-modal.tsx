@@ -101,19 +101,21 @@ const EditAddress: React.FC<EditAddressProps> = ({
         </div>
         <div className="flex items-center gap-x-4">
           <button
-            className="text-small-regular text-ui-fg-base flex items-center gap-x-2"
+            className="text-small-regular text-ui-fg-base flex items-center gap-x-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
             onClick={open}
             data-testid="address-edit-button"
           >
-            <Edit />
+            <Edit aria-hidden="true" />
             Edit
           </button>
           <button
-            className="text-small-regular text-ui-fg-base flex items-center gap-x-2"
+            className="text-small-regular text-ui-fg-base flex items-center gap-x-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm disabled:opacity-50"
             onClick={removeAddress}
+            disabled={removing}
+            aria-disabled={removing}
             data-testid="address-delete-button"
           >
-            {removing ? <Spinner /> : <Trash />}
+            {removing ? <Spinner aria-hidden="true" /> : <Trash aria-hidden="true" />}
             Remove
           </button>
         </div>

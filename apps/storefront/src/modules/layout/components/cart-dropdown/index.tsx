@@ -9,7 +9,6 @@ import {
 import { ShoppingBag } from "@medusajs/icons"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
-import { Button } from "@modules/common/components/ui"
 import DeleteButton from "@modules/common/components/delete-button"
 import LineItemOptions from "@modules/common/components/line-item-options"
 import LineItemPrice from "@modules/common/components/line-item-price"
@@ -27,9 +26,6 @@ const CartDropdown = ({
   const { countryCode } = useParams()
   const t = getDictionary(countryCode).cart
 
-  const [activeTimer, setActiveTimer] = useState<NodeJS.Timer | undefined>(
-    undefined
-  )
   const [cartDropdownOpen, setCartDropdownOpen] = useState(false)
 
   const open = () => setCartDropdownOpen(true)
@@ -43,37 +39,13 @@ const CartDropdown = ({
   const subtotal = cartState?.subtotal ?? 0
   const itemRef = useRef<number>(totalItems || 0)
 
-  const timedOpen = () => {
-    open()
-
-    const timer = setTimeout(close, 5000)
-
-    setActiveTimer(timer)
-  }
-
-  const openAndCancel = () => {
-    if (activeTimer) {
-      clearTimeout(activeTimer)
-    }
-
-    open()
-  }
-
-  // Clean up the timer when the component unmounts
-  useEffect(() => {
-    return () => {
-      if (activeTimer) {
-        clearTimeout(activeTimer)
-      }
-    }
-  }, [activeTimer])
-
   const pathname = usePathname()
 
   // open cart dropdown when modifying the cart items, but only if we're not on the cart page
   useEffect(() => {
     if (itemRef.current !== totalItems && !pathname.includes("/cart")) {
-      timedOpen()
+      open()
+      itemRef.current = totalItems
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalItems, itemRef.current])
@@ -81,28 +53,27 @@ const CartDropdown = ({
   return (
     <div
       className="h-full z-50 flex items-center"
-      onMouseEnter={openAndCancel}
+      onMouseEnter={open}
       onMouseLeave={close}
     >
       <Popover className="relative h-full flex items-center">
-        <PopoverButton className="h-full flex items-center">
-          <LocalizedClientLink
-            className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center relative p-2.5 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
-            href="/cart"
-            data-testid="nav-cart-link"
-            title={`Shopping Bag (${totalItems})`}
-          >
-            <ShoppingBag className="w-5 h-5" />
-            {totalItems > 0 ? (
-              <span className="absolute -top-0.5 -right-0.5 bg-[#E53946] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                {totalItems}
-              </span>
-            ) : (
-              <span className="absolute -top-0.5 -right-0.5 bg-[#1E1F74] text-white text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                0
-              </span>
-            )}
-          </LocalizedClientLink>
+        <PopoverButton
+          className="h-full relative flex items-center justify-center rounded-full p-2.5 text-[#1E1F74] hover:bg-[#F5F5F7] hover:text-[#E53946] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive"
+          data-testid="nav-cart-button"
+          aria-label={`Open shopping bag, ${totalItems} items`}
+          onClick={() => setCartDropdownOpen((isOpen) => !isOpen)}
+          onFocus={open}
+        >
+          <ShoppingBag className="w-5 h-5" aria-hidden="true" />
+          {totalItems > 0 ? (
+            <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 bg-[#E53946] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+              {totalItems}
+            </span>
+          ) : (
+            <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 bg-[#1E1F74] text-white text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-white">
+              0
+            </span>
+          )}
         </PopoverButton>
         <Transition
           show={cartDropdownOpen}
@@ -207,14 +178,12 @@ const CartDropdown = ({
                       })}
                     </span>
                   </div>
-                  <LocalizedClientLink href="/cart" passHref>
-                    <Button
-                      className="w-full"
-                      size="large"
-                      data-testid="go-to-cart-button"
-                    >
-                      {t.viewCart}
-                    </Button>
+                  <LocalizedClientLink
+                    href="/cart"
+                    className="inline-flex h-12 w-full items-center justify-center rounded-md bg-[#E53946] px-6 text-lg font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                    data-testid="go-to-cart-button"
+                  >
+                    {t.viewCart}
                   </LocalizedClientLink>
                 </div>
               </>
@@ -226,11 +195,12 @@ const CartDropdown = ({
                   </div>
                   <span className="text-sm font-medium text-[#1E1F74]/80">{t.empty}</span>
                   <div>
-                    <LocalizedClientLink href="/store">
-                      <>
-                        <span className="sr-only">Halaman semua produk</span>
-                        <Button onClick={close}>{t.explore}</Button>
-                      </>
+                    <LocalizedClientLink
+                      href="/store"
+                      className="inline-flex h-10 items-center justify-center rounded-md bg-[#E53946] px-4 font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                      onClick={close}
+                    >
+                      {t.explore}
                     </LocalizedClientLink>
                   </div>
                 </div>

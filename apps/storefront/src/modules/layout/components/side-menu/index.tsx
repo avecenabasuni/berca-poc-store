@@ -41,9 +41,9 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
               <div className="relative flex h-full">
                 <Popover.Button
                   data-testid="nav-menu-button"
-                  className="relative h-full flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#F5F5F7] text-[#1E1F74] hover:text-[#E53946] transition-all ease-out duration-200 focus:outline-none font-medium"
+                  className="relative h-full flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#F5F5F7] text-[#1E1F74] hover:text-[#E53946] transition-all ease-out duration-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E1F74] font-medium"
                 >
-                  <BarsThree className="w-5 h-5" />
+                  <BarsThree className="w-5 h-5" aria-hidden="true" />
                   <span className="hidden xsmall:inline text-xs font-semibold uppercase tracking-wider">{t.nav.menu}</span>
                 </Popover.Button>
               </div>
@@ -79,10 +79,11 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                       <button
                         data-testid="close-menu-button"
                         onClick={close}
-                        className="p-2 rounded-full hover:bg-white/10 text-white transition-colors"
+                        aria-label="Close menu"
+                        className="p-2 rounded-full hover:bg-white/10 text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
                         style={{ color: "#FFFFFF" }}
                       >
-                        <XMark />
+                        <XMark aria-hidden="true" />
                       </button>
                     </div>
                     <ul className="flex flex-col gap-3 items-start justify-start py-6">

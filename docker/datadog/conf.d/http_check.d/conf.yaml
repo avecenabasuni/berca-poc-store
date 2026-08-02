@@ -1,0 +1,11 @@
+init_config:
+
+instances:
+  - name: poc-berca-checkout-health
+    url: http://medusa:9000/demo/checkout-health
+    timeout: 3
+    min_collection_interval: 5
+    tags:
+      - env:poc
+      - service:berca-checkout
+      - capability:checkout

@@ -34,7 +34,7 @@ const AccountNav = ({
             data-testid="account-main-link"
           >
             <>
-              <ChevronDown className="transform rotate-90" />
+              <ChevronDown className="transform rotate-90" aria-hidden="true" />
               <span>Account</span>
             </>
           </LocalizedClientLink>
@@ -53,10 +53,10 @@ const AccountNav = ({
                   >
                     <>
                       <div className="flex items-center gap-x-2">
-                        <User size={20} />
+                        <User size={20} aria-hidden="true" />
                         <span>Profile</span>
                       </div>
-                      <ChevronDown className="transform -rotate-90" />
+                      <ChevronDown className="transform -rotate-90" aria-hidden="true" />
                     </>
                   </LocalizedClientLink>
                 </li>
@@ -68,10 +68,10 @@ const AccountNav = ({
                   >
                     <>
                       <div className="flex items-center gap-x-2">
-                        <MapPin size={20} />
+                        <MapPin size={20} aria-hidden="true" />
                         <span>Addresses</span>
                       </div>
-                      <ChevronDown className="transform -rotate-90" />
+                      <ChevronDown className="transform -rotate-90" aria-hidden="true" />
                     </>
                   </LocalizedClientLink>
                 </li>
@@ -82,10 +82,10 @@ const AccountNav = ({
                     data-testid="orders-link"
                   >
                     <div className="flex items-center gap-x-2">
-                      <Package size={20} />
+                      <Package size={20} aria-hidden="true" />
                       <span>Orders</span>
                     </div>
-                    <ChevronDown className="transform -rotate-90" />
+                    <ChevronDown className="transform -rotate-90" aria-hidden="true" />
                   </LocalizedClientLink>
                 </li>
                 <li>
@@ -96,10 +96,10 @@ const AccountNav = ({
                     data-testid="logout-button"
                   >
                     <div className="flex items-center gap-x-2">
-                      <ArrowRightOnRectangle />
+                      <ArrowRightOnRectangle aria-hidden="true" />
                       <span>Log out</span>
                     </div>
-                    <ChevronDown className="transform -rotate-90" />
+                    <ChevronDown className="transform -rotate-90" aria-hidden="true" />
                   </button>
                 </li>
               </ul>

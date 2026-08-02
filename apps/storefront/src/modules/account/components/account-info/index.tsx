@@ -1,5 +1,4 @@
-import { Disclosure } from "@headlessui/react"
-import { Badge, Button, clx } from "@modules/common/components/ui"
+import { Badge, Button } from "@modules/common/components/ui"
 import { useEffect } from "react"
 
 import useToggleState from "@lib/hooks/use-toggle-state"
@@ -69,54 +68,25 @@ const AccountInfo = ({
       </div>
 
       {/* Success state */}
-      <Disclosure>
-        <Disclosure.Panel
-          static
-          className={clx(
-            "transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden",
-            {
-              "max-h-[1000px] opacity-100": isSuccess,
-              "max-h-0 opacity-0": !isSuccess,
-            }
-          )}
-          data-testid="success-message"
-        >
-          <Badge className="p-2 my-4" color="green">
+      {isSuccess && (
+        <div className="motion-reduce:transition-none" data-testid="success-message">
+          <Badge className="p-2 my-4" color="green" role="status">
             <span>{label} updated succesfully</span>
           </Badge>
-        </Disclosure.Panel>
-      </Disclosure>
+        </div>
+      )}
 
       {/* Error state  */}
-      <Disclosure>
-        <Disclosure.Panel
-          static
-          className={clx(
-            "transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden",
-            {
-              "max-h-[1000px] opacity-100": isError,
-              "max-h-0 opacity-0": !isError,
-            }
-          )}
-          data-testid="error-message"
-        >
-          <Badge className="p-2 my-4" color="red">
+      {isError && (
+        <div className="motion-reduce:transition-none" data-testid="error-message">
+          <Badge className="p-2 my-4" color="red" role="alert">
             <span>{errorMessage}</span>
           </Badge>
-        </Disclosure.Panel>
-      </Disclosure>
+        </div>
+      )}
 
-      <Disclosure>
-        <Disclosure.Panel
-          static
-          className={clx(
-            "transition-[max-height,opacity] duration-300 ease-in-out overflow-visible",
-            {
-              "max-h-[1000px] opacity-100": state,
-              "max-h-0 opacity-0": !state,
-            }
-          )}
-        >
+      {state && (
+        <div className="motion-reduce:transition-none">
           <div className="flex flex-col gap-y-2 py-4">
             <div>{children}</div>
             <div className="flex items-center justify-end mt-2">
@@ -130,8 +100,8 @@ const AccountInfo = ({
               </Button>
             </div>
           </div>
-        </Disclosure.Panel>
-      </Disclosure>
+        </div>
+      )}
     </div>
   )
 }

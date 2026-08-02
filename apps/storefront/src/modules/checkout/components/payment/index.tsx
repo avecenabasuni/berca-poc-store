@@ -129,14 +129,14 @@ const Payment = ({
         >
           <span>{t.payment}</span>
           {!isOpen && paymentReady && (
-            <CheckCircleSolid className="text-[#E53946] w-6 h-6" />
+            <CheckCircleSolid className="text-[#E53946] w-6 h-6" aria-hidden="true" />
           )}
         </Heading>
         {!isOpen && paymentReady && (
           <Text>
             <button
               onClick={handleEdit}
-              className="text-[#E53946] font-semibold hover:underline"
+              className="text-[#E53946] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
               data-testid="edit-payment-button"
             >
               {t.edit}

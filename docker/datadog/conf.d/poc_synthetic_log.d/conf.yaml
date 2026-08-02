@@ -1,0 +1,19 @@
+init_config:
+
+instances:
+  - log_path: /var/log/poc-app/app-saturation.log
+    trigger_path: /var/log/poc-app/.trigger_saturation
+    min_collection_interval: 5
+    tags:
+      - env:poc
+      - service:berca-checkout
+      - resource_id:synthetic-log-volume
+
+logs:
+  - type: file
+    path: /var/log/poc-app/app-saturation.log
+    service: berca-checkout
+    source: poc-synthetic-log
+    tags:
+      - env:poc
+      - resource_id:synthetic-log-volume

@@ -1,6 +1,6 @@
 "use client"
 
-import { Button, Heading } from "@modules/common/components/ui"
+import { Heading } from "@modules/common/components/ui"
 import CartTotals from "@modules/common/components/cart-totals"
 import Divider from "@modules/common/components/divider"
 import DiscountCode from "@modules/checkout/components/discount-code"
@@ -39,8 +39,9 @@ const Summary = ({ cart }: SummaryProps) => {
       <LocalizedClientLink
         href={"/checkout?step=" + step}
         data-testid="checkout-button"
+        className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#E53946] px-4 font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
       >
-        <Button className="w-full h-10">{t.goToCheckout}</Button>
+        {t.goToCheckout}
       </LocalizedClientLink>
     </div>
   )

@@ -1,7 +1,5 @@
 "use client"
 
-import { Button } from "@modules/common/components/ui"
-
 import OrderCard from "../order-card"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { HttpTypes } from "@medusajs/types"
@@ -32,10 +30,12 @@ const OrderOverview = ({ orders }: { orders: HttpTypes.StoreOrder[] }) => {
         You don&apos;t have any orders yet, let us change that {":)"}
       </p>
       <div className="mt-4">
-        <LocalizedClientLink href="/" passHref>
-          <Button data-testid="continue-shopping-button">
-            Continue shopping
-          </Button>
+        <LocalizedClientLink
+          href="/"
+          className="inline-flex h-10 items-center justify-center rounded-md bg-[#E53946] px-4 font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          data-testid="continue-shopping-button"
+        >
+          Continue shopping
         </LocalizedClientLink>
       </div>
     </div>

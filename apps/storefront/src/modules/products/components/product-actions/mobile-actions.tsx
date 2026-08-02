@@ -113,7 +113,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                       ? Object.values(options).join(" / ")
                       : "Select Options"}
                   </span>
-                  <ChevronDown />
+                  <ChevronDown aria-hidden="true" />
                 </div>
               </Button>}
               <Button
@@ -165,10 +165,11 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   <div className="w-full flex justify-end pr-6">
                     <button
                       onClick={close}
-                      className="bg-white w-12 h-12 rounded-full text-ui-fg-base flex justify-center items-center"
+                      className="bg-white w-12 h-12 rounded-full text-ui-fg-base flex justify-center items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive"
                       data-testid="close-modal-button"
+                      aria-label="Close"
                     >
-                      <X />
+                      <X aria-hidden="true" />
                     </button>
                   </div>
                   <div className="bg-white px-6 py-12">

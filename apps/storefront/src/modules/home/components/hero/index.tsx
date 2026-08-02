@@ -1,6 +1,6 @@
 "use client"
 
-import { Button, Heading, Text } from "@modules/common/components/ui"
+import { Heading, Text } from "@modules/common/components/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { useParams } from "next/navigation"
 import { getDictionary } from "@lib/i18n"
@@ -15,7 +15,8 @@ const Hero = () => {
       <div className="absolute inset-0">
         <img
           src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80"
-          alt="Berca Store"
+          alt=""
+          aria-hidden="true"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#1E1F74]/95 via-[#3A1E65]/80 to-[#782046]/50" />
@@ -38,18 +39,17 @@ const Hero = () => {
             {t.description}
           </Text>
           <div className="flex gap-4 mt-4">
-            <LocalizedClientLink href="/store">
-              <Button variant="primary" className="w-fit font-semibold px-6 py-3 shadow-lg shadow-[#E53946]/30">
-                {t.shopNow}
-              </Button>
+            <LocalizedClientLink
+              href="/store"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md bg-[#E53946] px-6 py-3 font-semibold text-white shadow-lg shadow-[#E53946]/30 hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            >
+              {t.shopNow}
             </LocalizedClientLink>
-            <LocalizedClientLink href="/collections">
-              <Button
-                variant="transparent"
-                className="w-fit bg-white/10 border border-white/30 text-white hover:bg-white/20 font-medium"
-              >
-                {t.exploreCollection}
-              </Button>
+            <LocalizedClientLink
+              href="/collections"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-white/30 bg-white/10 px-4 font-medium text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            >
+              {t.exploreCollection}
             </LocalizedClientLink>
           </div>
         </div>

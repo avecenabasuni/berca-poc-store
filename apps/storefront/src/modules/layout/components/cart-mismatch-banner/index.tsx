@@ -30,10 +30,10 @@ function CartMismatchBanner(props: {
   }
 
   return (
-    <div className="flex items-center justify-center small:p-4 p-2 text-center bg-orange-300 small:gap-2 gap-1 text-sm mt-2 text-orange-800">
+    <div className="flex items-center justify-center small:p-4 p-2 text-center bg-orange-300 small:gap-2 gap-1 text-sm mt-2 text-orange-800" role="alert">
       <div className="flex flex-col small:flex-row small:gap-2 gap-1 items-center">
         <span className="flex items-center gap-1">
-          <ExclamationCircleSolid className="inline" />
+          <ExclamationCircleSolid className="inline" aria-hidden="true" />
           Something went wrong when we tried to transfer your cart
         </span>
 

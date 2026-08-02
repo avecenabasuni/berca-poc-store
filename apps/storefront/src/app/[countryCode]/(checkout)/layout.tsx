@@ -2,6 +2,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import ChevronDown from "@modules/common/icons/chevron-down"
 import { Text } from "@modules/common/components/ui"
 import { getDictionary } from "@lib/i18n"
+import LocaleDocumentLanguage from "@modules/common/components/locale-document-language"
 
 export default async function CheckoutLayout({
   children,
@@ -14,7 +15,17 @@ export default async function CheckoutLayout({
   const t = getDictionary(countryCode).checkout
 
   return (
-    <div className="w-full bg-[#F5F5F7] relative min-h-screen">
+    <div
+      className="w-full bg-[#F5F5F7] relative min-h-screen"
+      lang={countryCode === "id" ? "id" : "en"}
+    >
+      <LocaleDocumentLanguage language={countryCode === "id" ? "id" : "en"} />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       <div className="h-16 bg-[#1E1F74] border-b border-[#3A1E65]">
         <nav className="flex h-full items-center content-container justify-between">
           <LocalizedClientLink
@@ -45,9 +56,14 @@ export default async function CheckoutLayout({
           </div>
         </nav>
       </div>
-      <div className="relative" data-testid="checkout-container">
+      <main
+        id="main-content"
+        className="relative"
+        data-testid="checkout-container"
+        tabIndex={-1}
+      >
         {children}
-      </div>
+      </main>
       <div className="py-6 w-full flex items-center justify-center border-t border-[#CFCFD4]/40 bg-white mt-12">
         <Text className="text-xs text-[#1E1F74]/70 font-medium">
           © {new Date().getFullYear()} Berca Store. {countryCode === "id" ? "Hak Cipta Dilindungi Undang-Undang." : "All Rights Reserved."}

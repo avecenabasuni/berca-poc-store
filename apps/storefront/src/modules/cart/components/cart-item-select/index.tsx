@@ -42,7 +42,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
           onFocus={() => innerRef.current?.focus()}
           onBlur={() => innerRef.current?.blur()}
           className={clx(
-            "relative flex items-center txt-compact-small border text-ui-fg-base group",
+            "relative flex items-center txt-compact-small border text-ui-fg-base group focus-within:ring-2 focus-within:ring-ui-border-interactive",
             className,
             {
               "text-ui-fg-subtle": isPlaceholder,
@@ -51,8 +51,9 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
         >
           <select
             ref={innerRef}
+            aria-label={props["aria-label"] || "Select quantity"}
             {...props}
-            className="appearance-none bg-transparent border-none px-4 transition-colors duration-150 focus:border-gray-700 outline-none w-16 h-16 items-center justify-center"
+            className="appearance-none bg-transparent border-none px-4 transition-colors duration-150 focus:border-gray-700 outline-none w-16 h-16 items-center justify-center focus:outline-none"
           >
             <option disabled value="">
               {placeholder}
@@ -60,7 +61,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
             {children}
           </select>
           <span className="absolute flex pointer-events-none justify-end w-8 group-hover:animate-pulse">
-            <ChevronDown />
+            <ChevronDown aria-hidden="true" />
           </span>
         </IconBadge>
       </div>

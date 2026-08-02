@@ -52,13 +52,13 @@ const Addresses = ({
           className="flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-3 items-center"
         >
           <span>{t.shippingAddress}</span>
-          {!isOpen && <CheckCircleSolid className="text-[#E53946] w-6 h-6" />}
+          {!isOpen && <CheckCircleSolid className="text-[#E53946] w-6 h-6" aria-hidden="true" />}
         </Heading>
         {!isOpen && cart?.shipping_address && (
           <Text>
             <button
               onClick={handleEdit}
-              className="text-[#E53946] font-semibold hover:underline"
+              className="text-[#E53946] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
               data-testid="edit-address-button"
             >
               {t.edit}

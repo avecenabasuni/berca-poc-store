@@ -16,8 +16,8 @@ services:
     ports:
       - "5432:5432"
     labels:
-      com.datadoghq.tags.env: "production"
-      com.datadoghq.tags.service: "medusa-postgres"
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-postgres"
       com.datadoghq.tags.version: "1.0.0"
       com.datadoghq.ad.check_names: '["postgres"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -28,34 +28,45 @@ services:
         "username": "datadog",
         "password": "datadog",
         "dbname": "medusa-store",
-        "service": "medusa-postgres",
+          "service": "berca-postgres",
         "tags": [
           "dbinstanceidentifier:medusa-postgres-db",
-          "service:medusa-postgres",
-          "env:production"
+            "service:berca-postgres",
+            "env:poc"
         ]
       }]'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init/01-datadog-dbm.sql:/docker-entrypoint-initdb.d/01-datadog-dbm.sql:ro
       - ./load-test:/load-test:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medusa-store"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - medusa_network
 
   # PgBouncer Connection Pooler (for 5-Minute Datadog Monitor Saturation POC)
   pgbouncer:
-    image: edoburu/pgbouncer:latest
+    image: edoburu/pgbouncer:v1.25.2-p0
     container_name: medusa_pgbouncer
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "6432:6432"
     volumes:
       - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U postgres -d pgbouncer"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     labels:
-      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.env: "poc"
       com.datadoghq.tags.service: "pgbouncer"
       com.datadoghq.tags.version: "1.0.0"
       com.datadoghq.ad.check_names: '["pgbouncer"]'
@@ -66,7 +77,7 @@ services:
         "username": "datadog",
         "password": "datadog",
         "database_url": "postgresql://datadog:datadog@%%host%%:6432/pgbouncer",
-        "tags": ["service:pgbouncer", "env:production"]
+        "tags": ["service:pgbouncer", "env:poc", "resource_id:pgbouncer-demo"]
       }]'
     networks:
       - medusa_network
@@ -78,6 +89,11 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - medusa_network
 
@@ -103,17 +119,20 @@ services:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_URL=http://datadog-agent:8126
       - DD_TRACE_STARTUP_LOGS=true
-      - DD_SERVICE=medusa-backend
-      - DD_ENV=production
+      - DD_SERVICE=berca-checkout
+      - DD_ENV=poc
       - DD_VERSION=1.0.0
       - DD_LOGS_INJECTION=true
       - DD_DBM_PROPAGATION_MODE=full
+      - POC_DEMO_MODE=true
+      - POC_DISK_IMPACT_MARKER=/var/run/berca-poc/disk-degraded
     env_file:
       - apps/backend/.env
     volumes:
       - .:/server
       - /server/node_modules
       - /server/apps/backend/node_modules
+      - ./docker/demo-state:/var/run/berca-poc:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health"]
       interval: 10s
@@ -140,8 +159,8 @@ services:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_URL=http://datadog-agent:8126
       - DD_TRACE_STARTUP_LOGS=true
-      - DD_SERVICE=medusa-storefront
-      - DD_ENV=production
+      - DD_SERVICE=berca-storefront
+      - DD_ENV=poc
       - DD_VERSION=1.0.0
       - DD_LOGS_INJECTION=true
       - DD_DBM_PROPAGATION_MODE=full
@@ -159,21 +178,56 @@ services:
 
   # Log Saturation Generator (for Scenario 2 Disk Log Saturation POC)
   log-generator:
-    image: alpine:latest
+    image: alpine:3.22
     container_name: medusa_log_generator
     restart: unless-stopped
     command: ["/bin/sh", "-c", "while true; do /bin/sh /scripts/log-generator.sh; sleep 2; done"]
     volumes:
       - ./docker/log-saturation/data:/var/log/poc-app
       - ./docker/log-saturation/log-generator.sh:/scripts/log-generator.sh:ro
+      - ./docker/demo-state:/var/run/berca-poc
+    labels:
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-checkout"
+      com.datadoghq.tags.resource_id: "synthetic-log-volume"
+    networks:
+      - medusa_network
+
+  # Dedicated, opt-in PgBouncer fault generator for the hero demo.
+  # It is never started by the default Compose lifecycle.
+  pool-hog:
+    image: postgres:15-alpine
+    container_name: berca_poc_pool_hog
+    profiles: ["demo-fault"]
+    restart: "no"
+    stop_grace_period: 10s
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        exec pgbench
+        -h pgbouncer
+        -p 6432
+        -U postgres
+        -c 25
+        -j 5
+        -T 600
+        -n
+        -f /load-test/pgbench-saturation.sql
+        medusa-store
+    volumes:
+      - ./load-test:/load-test:ro
     networks:
       - medusa_network
 
   # Load Test Traffic Generator
   # Runs k6 baseline traffic continuously to build realistic historical data.
-  # Spike tests are triggered manually via ./load-test/trigger-spike.sh
   traffic-generator:
-    image: grafana/k6:latest
+    image: grafana/k6:1.0.0
     container_name: medusa_traffic_generator
     restart: unless-stopped
     depends_on:
@@ -198,7 +252,7 @@ services:
     environment:
       - DD_API_KEY=${DD_API_KEY}
       - DD_SITE=${DD_SITE:-datadoghq.com}
-      - DD_ENV=production
+      - DD_ENV=poc
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
       - DD_APM_ENABLED=true
       - DD_APM_NON_LOCAL_TRAFFIC=true
@@ -208,6 +262,12 @@ services:
       - DD_LOGS_CONFIG_AUTO_MULTI_LINE_DETECTION=true
       - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
       - DD_CONTAINER_EXCLUDE_LOGS=name:dd-agent
+    healthcheck:
+      test: ["CMD", "agent", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
     volumes:
       - /var/run/datadog:/var/run/datadog
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -216,6 +276,9 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ./docker/log-saturation/data:/var/log/poc-app:ro
       - ./docker/datadog/conf.d/disk.d/conf.yaml:/etc/datadog-agent/conf.d/disk.d/conf.yaml:ro
+      - ./docker/datadog/conf.d/http_check.d/conf.yaml:/etc/datadog-agent/conf.d/http_check.d/conf.yaml:ro
+      - ./docker/datadog/conf.d/poc_synthetic_log.d/conf.yaml:/etc/datadog-agent/conf.d/poc_synthetic_log.d/conf.yaml:ro
+      - ./docker/datadog/checks.d/poc_synthetic_log.py:/etc/datadog-agent/checks.d/poc_synthetic_log.py:ro
     networks:
       - medusa_network
 

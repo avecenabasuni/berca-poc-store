@@ -37,6 +37,7 @@ const AddressSelect = ({
       <div className="relative">
         <Listbox.Button
           className="relative w-full flex justify-between items-center px-4 py-[10px] text-left bg-white cursor-default focus:outline-none border rounded-rounded focus-visible:ring-2 focus-visible:ring-opacity-75 focus-visible:ring-white focus-visible:ring-offset-gray-300 focus-visible:ring-offset-2 focus-visible:border-gray-300 text-base-regular"
+          aria-label="Select saved address"
           data-testid="shipping-address-select"
         >
           {({ open }) => (
@@ -50,6 +51,7 @@ const AddressSelect = ({
                 className={clx("transition-rotate duration-200", {
                   "transform rotate-180": open,
                 })}
+                aria-hidden="true"
               />
             </>
           )}

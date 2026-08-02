@@ -15,6 +15,9 @@ node_modules
 
 # Testing
 coverage
+**/__pycache__/
+*.py[cod]
+*.tsbuildinfo
 
 # Next.js
 **/.next/
@@ -58,4 +61,4 @@ Thumbs.db
 
 # POC Runtime Artifacts
 docker/log-saturation/data/
-*.log
+*.log

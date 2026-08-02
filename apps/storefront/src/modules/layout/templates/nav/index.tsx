@@ -47,33 +47,33 @@ export default async function Nav() {
 
           <div className="flex items-center gap-x-2 small:gap-x-3 h-full flex-1 basis-0 justify-end">
             <LocalizedClientLink
-              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
+              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E1F74]"
               href="/store"
               title="Cari Produk"
             >
-              <MagnifyingGlass className="w-5 h-5" />
+              <MagnifyingGlass className="w-5 h-5" aria-hidden="true" />
               <span className="sr-only">Search</span>
             </LocalizedClientLink>
 
             <LocalizedClientLink
-              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
+              className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E1F74]"
               href="/account"
               data-testid="nav-account-link"
               title="Akun Saya"
             >
-              <User className="w-5 h-5" />
+              <User className="w-5 h-5" aria-hidden="true" />
               <span className="sr-only">Account</span>
             </LocalizedClientLink>
 
             <Suspense
               fallback={
                 <LocalizedClientLink
-                  className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center relative p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200"
+                  className="hover:text-[#E53946] text-[#1E1F74] flex items-center justify-center relative p-2 rounded-full hover:bg-[#F5F5F7] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E1F74]"
                   href="/cart"
                   data-testid="nav-cart-link"
                   title="Shopping Bag"
                 >
-                  <ShoppingBag className="w-5 h-5" />
+                  <ShoppingBag className="w-5 h-5" aria-hidden="true" />
                   <span className="absolute -top-0.5 -right-0.5 bg-[#1E1F74] text-white text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-white">
                     0
                   </span>

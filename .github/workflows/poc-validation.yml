@@ -1,0 +1,76 @@
+name: POC static validation
+
+on:
+  pull_request:
+    paths:
+      - "docker/**"
+      - "load-test/**"
+      - "*.sh"
+      - "docker-compose.yml"
+      - "tools/**"
+      - "ops/**"
+      - "apps/backend/src/api/demo/**"
+      - ".yamllint.yml"
+      - ".github/workflows/poc-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docker/**"
+      - "load-test/**"
+      - "*.sh"
+      - "docker-compose.yml"
+      - "tools/**"
+      - "ops/**"
+      - "apps/backend/src/api/demo/**"
+      - ".yamllint.yml"
+      - ".github/workflows/poc-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          python -m pip install --disable-pip-version-check yamllint==1.35.1
+
+      - name: Prepare non-secret Compose inputs
+        run: |
+          cp apps/backend/.env.template apps/backend/.env
+          cp apps/storefront/.env.template apps/storefront/.env
+
+      - name: Validate shell and Compose configuration
+        env:
+          DD_API_KEY: ci-placeholder-not-a-real-key
+        run: |
+          bash -n demo-control.sh cleanup-full-poc.sh setup-disk-volume.sh \
+            docker/log-saturation/log-generator.sh
+          shellcheck demo-control.sh cleanup-full-poc.sh setup-disk-volume.sh \
+            docker/log-saturation/log-generator.sh
+          docker compose config --quiet
+
+      - name: Validate bounded classifier and control API
+        run: |
+          node --test load-test/datadog/classify-conclusions.test.mjs
+          python -m py_compile tools/demo-control-api.py docker/datadog/checks.d/poc_synthetic_log.py
+          python -m unittest discover -s tools/tests -p 'test_*.py'
+
+      - name: Validate YAML
+        run: |
+          yamllint -c .yamllint.yml docker docker-compose.yml .github/workflows/poc-validation.yml
+
+      - name: Validate API service unit and patch hygiene
+        run: |
+          sed 's#@POC_PROJECT_PATH@#/opt/berca-poc-store#g' \
+            ops/demo-control-api.service.example \
+            > /tmp/berca-poc-demo-control.service
+          systemd-analyze verify /tmp/berca-poc-demo-control.service
+          git diff --check

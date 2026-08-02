@@ -25,6 +25,7 @@ const Login = ({ setCurrentView }: Props) => {
         <div
           className="w-full mb-6 text-center text-base-regular text-ui-fg-base bg-ui-bg-subtle border border-ui-border-base rounded-rounded p-4"
           data-testid="login-verification-message"
+          role="status"
         >
           We sent a verification link to <strong>{message.email}</strong>.
           Please verify your email, then sign in.

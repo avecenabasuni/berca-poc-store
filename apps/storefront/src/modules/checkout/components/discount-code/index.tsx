@@ -65,7 +65,8 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
-              className="text-xs font-semibold text-[#1E1F74] hover:text-[#E53946]"
+              aria-expanded={isOpen}
+              className="text-xs font-semibold text-[#1E1F74] hover:text-[#E53946] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
               data-testid="add-discount-button"
             >
               + {countryCode === "id" ? "Tambahkan Kode Diskon" : "Add Discount Code"}
@@ -78,6 +79,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                 <Input
                   className="size-full"
                   id="promotion-input"
+                  label={countryCode === "id" ? "Kode diskon" : "Discount code"}
                   name="code"
                   type="text"
                   autoFocus={false}
@@ -146,7 +148,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     </Text>
                     {!promotion.is_automatic && (
                       <button
-                        className="flex items-center"
+                        className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
                         onClick={() => {
                           if (!promotion.code) {
                             return
@@ -156,7 +158,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                         }}
                         data-testid="remove-discount-button"
                       >
-                        <Trash size={14} />
+                        <Trash size={14} aria-hidden="true" />
                         <span className="sr-only">
                           Remove discount code from order
                         </span>

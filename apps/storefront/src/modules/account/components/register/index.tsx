@@ -31,6 +31,7 @@ const Register = ({ setCurrentView }: Props) => {
         <div
           className="w-full mb-4 text-center text-base-regular text-ui-fg-base bg-ui-bg-subtle border border-ui-border-base rounded-rounded p-4"
           data-testid="register-verification-message"
+          role="status"
         >
           We sent a verification link to <strong>{message.email}</strong>.
           Please check your inbox to verify your email, then sign in.
@@ -81,7 +82,7 @@ const Register = ({ setCurrentView }: Props) => {
           data-testid="register-error"
         />
         <span className="text-center text-ui-fg-base text-small-regular mt-6">
-          By creating an account, you agree to Berca Store's{" "}
+          By creating an account, you agree to Berca Store&apos;s{" "}
           <LocalizedClientLink
             href="/content/privacy-policy"
             className="underline"

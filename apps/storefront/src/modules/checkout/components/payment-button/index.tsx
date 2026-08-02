@@ -75,16 +75,61 @@ const StripePaymentButton = ({
 
   const stripe = useStripe()
   const elements = useElements()
+  const card = elements?.getElement("card")
+
+  const session = cart.payment_collection?.payment_sessions?.find(
+    (paymentSession) => paymentSession.status === "pending"
+  )
+
+  const disabled = !stripe || !elements
 
   const handlePayment = async () => {
     setSubmitting(true)
 
+    if (!stripe || !elements || !card || !cart) {
+      setSubmitting(false)
+      return
+    }
+
+    await stripe
+      .confirmCardPayment(session?.data.client_secret as string, {
+        payment_method: {
+          card,
+          billing_details: {
+            name: `${cart.billing_address?.first_name ?? ""} ${
+              cart.billing_address?.last_name ?? ""
+            }`.trim(),
+            address: {
+              city: cart.billing_address?.city ?? undefined,
+              country: cart.billing_address?.country_code ?? undefined,
+              line1: cart.billing_address?.address_1 ?? undefined,
+              line2: cart.billing_address?.address_2 ?? undefined,
+              postal_code: cart.billing_address?.postal_code ?? undefined,
+              state: cart.billing_address?.province ?? undefined,
+            },
+            email: cart.email,
+            phone: cart.billing_address?.phone ?? undefined,
+          },
+        },
+      })
+      .then(({ error, paymentIntent }) => {
+        if (error) {
+          const paymentIntentFromError = error.payment_intent
+
+          if (
+            paymentIntentFromError?.status === "requires_capture" ||
+            paymentIntentFromError?.status === "succeeded"
+          ) {
+            return onPaymentCompleted()
+          }
+
+          setErrorMessage(error.message || null)
           return
         }
 
         if (
-          (paymentIntent && paymentIntent.status === "requires_capture") ||
-          paymentIntent.status === "succeeded"
+          paymentIntent?.status === "requires_capture" ||
+          paymentIntent?.status === "succeeded"
         ) {
           return onPaymentCompleted()
         }

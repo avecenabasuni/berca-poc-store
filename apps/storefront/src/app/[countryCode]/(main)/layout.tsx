@@ -8,6 +8,7 @@ import CartMismatchBanner from "@modules/layout/components/cart-mismatch-banner"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
+import LocaleDocumentLanguage from "@modules/common/components/locale-document-language"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
@@ -29,7 +30,14 @@ export default async function PageLayout(props: {
   }
 
   return (
-    <>
+    <div lang={countryCode === "id" ? "id" : "en"}>
+      <LocaleDocumentLanguage language={countryCode === "id" ? "id" : "en"} />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
+      >
+        Skip to content
+      </a>
       <Nav />
       {customer && cart && (
         <CartMismatchBanner customer={customer} cart={cart} />
@@ -42,8 +50,10 @@ export default async function PageLayout(props: {
           shippingOptions={shippingOptions}
         />
       )}
-      {props.children}
+      <main id="main-content" className="relative" tabIndex={-1}>
+        {props.children}
+      </main>
       <Footer countryCode={countryCode} />
-    </>
+    </div>
   )
 }

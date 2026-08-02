@@ -3,6 +3,10 @@ init_config:
 
 instances:
   - use_mount: yes
+    tags:
+      - env:poc
+      - service:berca-checkout
+      - resource_id:synthetic-log-volume
     file_system_include:
       - ext4
       - ext3

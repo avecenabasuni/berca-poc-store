@@ -15,7 +15,7 @@ const InteractiveLink = ({
 }: InteractiveLinkProps) => {
   return (
     <LocalizedClientLink
-      className="flex gap-x-1 items-center group"
+      className="flex gap-x-1 items-center group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
       href={href}
       onClick={onClick}
       {...props}
@@ -24,6 +24,7 @@ const InteractiveLink = ({
       <ArrowUpRightMini
         className="group-hover:rotate-45 ease-in-out duration-150"
         color="var(--fg-interactive)"
+        aria-hidden="true"
       />
     </LocalizedClientLink>
   )

@@ -2,7 +2,6 @@
 
 import { sdk } from "@lib/config"
 import { HttpTypes } from "@medusajs/types"
-import { getCacheOptions } from "./cookies"
 
 export const listRegions = async () => {
   return await sdk.client
