@@ -119,7 +119,20 @@ Token scopes:
 | Workflow 2 direct remediation | `recover-pool`, `recover-disk` |
 
 The API rejects additional JSON fields, query-string commands, arbitrary
-arguments, and cross-scope actions.
+arguments, and cross-scope actions. `POST /v1/demo/action` returns HTTP `202`
+with a generated `job_id`; the fixed command runs asynchronously. Only one job
+may be `accepted` or `running`, and a concurrent request receives HTTP `409`.
+
+Authenticated `GET /v1/demo/status` returns the current action, bounded job
+state (`accepted`, `running`, `succeeded`, or `failed`), and observed demo
+state. Command stdout/stderr is written to the bounded rotating log:
+
+```text
+/var/log/berca-poc/demo-control-jobs.log
+```
+
+API job success remains execution evidence only. Workflow success still
+requires Datadog telemetry recovery.
 
 ## Datadog configuration
 

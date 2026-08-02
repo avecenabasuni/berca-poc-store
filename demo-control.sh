@@ -445,6 +445,11 @@ esac
 
 preflight
 
+if [ "$ACTION" = "status" ]; then
+  print_status
+  exit 0
+fi
+
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   fail "Another demo-control action is already running."
@@ -465,8 +470,5 @@ case "$ACTION" in
     ;;
   reset)
     reset_demo
-    ;;
-  status)
-    print_status
     ;;
 esac

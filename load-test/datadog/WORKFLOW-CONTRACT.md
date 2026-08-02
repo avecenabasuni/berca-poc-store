@@ -54,8 +54,11 @@ Steps:
    `<POC_FAULT_CONTROL_CONNECTION>`.
 4. Use the fault-control token. The Connection owns the token; it is never an
    input or workflow variable.
-5. Accept HTTP 200 only and display the bounded response.
-6. Optionally GET `/v1/demo/status` for presenter evidence.
+5. Require HTTP `202`, store the returned `job_id`, and display the bounded
+   accepted response.
+6. Poll authenticated `GET /v1/demo/status` every five seconds until the same
+   `job_id` reaches `succeeded` or `failed`, with a five-minute workflow limit.
+7. Optionally display `demo_state` for presenter evidence.
 
 Request:
 
@@ -64,8 +67,9 @@ Request:
 ```
 
 The API independently enforces that this token can call only `pool`, `disk`,
-and `reset`. Workflow 1 does not call Workflow 2 and does not pass its scenario
-to the monitor or investigation.
+and `reset`. A second action receives HTTP `409` while the first job is
+`accepted` or `running`. Workflow 1 does not call Workflow 2 and does not pass
+its scenario to the monitor or investigation.
 
 ## 3. Generic checkout degradation monitor
 
@@ -144,7 +148,24 @@ Connection uses the remediation-only token.
 {"action":"<approved direct_script_action>"}
 ```
 
+Require HTTP `202`, store `job_id`, then poll authenticated
+`GET /v1/demo/status` every five seconds. Continue only when the response
+contains the same `job_id` and `job_state=succeeded`. A `failed` state,
+different job ID, five-minute timeout, or HTTP `409` goes to escalation.
+
 The API independently prevents this token from calling fault or reset actions.
+Its bounded job states are `accepted`, `running`, `succeeded`, and `failed`.
+`succeeded` proves only that the deterministic command exited successfully; it
+does not prove service recovery.
+
+Example accepted response:
+
+```json
+{"ok":true,"action":"recover-pool","state":"accepted","job_id":"<JOB_ID>"}
+```
+
+Status exposes `current_action`, `job_id`, `job_state`, the latest bounded job
+record, and the separately observed `demo_state`.
 
 ### eda adapter
 
@@ -154,7 +175,7 @@ accepted; it is not recovery evidence.
 
 ## 5. Shared verification
 
-After either dispatch adapter:
+After the selected adapter reports execution completion:
 
 1. Wait 30 seconds.
 2. Query Datadog telemetry up to three times with a 15-second interval.
