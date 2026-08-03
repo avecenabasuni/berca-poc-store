@@ -119,7 +119,7 @@ services:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_URL=http://datadog-agent:8126
       - DD_TRACE_STARTUP_LOGS=true
-      - DD_SERVICE=berca-checkout
+      - DD_SERVICE=berca-backend
       - DD_ENV=poc
       - DD_VERSION=1.0.0
       - DD_LOGS_INJECTION=true
@@ -188,7 +188,7 @@ services:
       - ./docker/demo-state:/var/run/berca-poc
     labels:
       com.datadoghq.tags.env: "poc"
-      com.datadoghq.tags.service: "berca-checkout"
+      com.datadoghq.tags.service: "berca-backend"
       com.datadoghq.tags.resource_id: "synthetic-log-volume"
     networks:
       - medusa_network

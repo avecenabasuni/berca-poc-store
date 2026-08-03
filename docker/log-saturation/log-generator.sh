@@ -17,7 +17,7 @@ mkdir -p "$STATE_DIR"
 if [ -f "$TRIGGER_FILE" ]; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] [LOG GENERATOR] Saturation trigger detected. Starting log explosion..."
 
-  CHUNK="{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"ERROR\",\"service\":\"berca-checkout\",\"event\":\"synthetic_log_storage_pressure\",\"error_code\":\"ERR_LOG_VOLUME_SATURATION\",\"details\":\"Synthetic transaction log volume is approaching its configured capacity.\"}"
+  CHUNK="{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"ERROR\",\"service\":\"berca-backend\",\"event\":\"synthetic_log_storage_pressure\",\"error_code\":\"ERR_LOG_VOLUME_SATURATION\",\"details\":\"Synthetic transaction log volume is approaching its configured capacity.\"}"
 
   while [ -f "$TRIGGER_FILE" ]; do
     # Extract current percentage used from df output
@@ -48,6 +48,6 @@ if [ -f "$TRIGGER_FILE" ]; then
 else
   rm -f "$IMPACT_MARKER"
   if [ ! -f "$LOG_FILE" ]; then
-    echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"berca-checkout\",\"event\":\"service_ready\"}" > "$LOG_FILE"
+    echo "{\"timestamp\":\"$(date -Iseconds)\",\"level\":\"INFO\",\"service\":\"berca-backend\",\"event\":\"service_ready\"}" > "$LOG_FILE"
   fi
 fi

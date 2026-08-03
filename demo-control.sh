@@ -295,7 +295,7 @@ start_disk_fault() {
   fi
 
   read_disk_usage
-  echo "[OK] Disk fault active: usage=${DISK_USAGE_PCT}%, checkout health impact marker present."
+  echo "[OK] Disk fault active: usage=${DISK_USAGE_PCT}%, backend health impact marker present."
 }
 
 recover_disk() {

@@ -6,7 +6,7 @@ POC, not a production availability design.
 ## Hero story
 
 ```text
-Checkout Service Degraded
+Backend Service Degraded
   -> Datadog generic service monitor ALERT
   -> Bits Investigation
   -> bounded POOL / DISK / UNKNOWN classification
@@ -23,7 +23,7 @@ random fault, scheduler, or production soak test.
 
 ```text
 Storefront :8000
-  -> Berca checkout backend :9000
+  -> Berca backend :9000
   -> PgBouncer :6432 (5/5 baseline)
   -> PostgreSQL :5432
 
@@ -57,7 +57,7 @@ Pool fault acceptance:
 PgBouncer remains configured 5/5
 sv_active >= 5
 cl_waiting > 0
-checkout latency/error increases
+backend request latency/error increases
 ```
 
 Pool recovery acceptance:
@@ -74,7 +74,7 @@ Disk fault acceptance:
 /var/log/poc-app is the /tmp/poc-log-disk.img loopback ext4 volume
 disk usage reaches about 85%
 poc.synthetic_log.growth_bytes_per_second is positive during growth
-checkout health endpoint becomes 503
+backend health endpoint becomes 503
 ```
 
 Disk recovery acceptance:
@@ -84,7 +84,7 @@ trigger and impact marker removed
 only the synthetic POC log is truncated
 disk usage < 20%
 log growth stops
-checkout health returns 200
+backend health returns 200
 ```
 
 ## Demo Control API installation
@@ -170,12 +170,12 @@ docker compose up -d postgres redis pgbouncer medusa storefront \
 
 Pool presentation:
 
-1. Show baseline dashboard and healthy checkout.
+1. Show baseline dashboard and healthy backend service.
 2. Run Workflow 1 with `scenario=pool`.
-3. Show only the generic checkout degradation alert to the audience.
+3. Show only the generic backend degradation alert to the audience.
 4. Show Bits investigation and bounded `POOL` conclusion.
 5. Show Workflow 2 dispatch through the configured transport.
-6. Show `cl_waiting=0`, normal checkout telemetry, and Workflow success.
+6. Show `cl_waiting=0`, normal backend telemetry, and Workflow success.
 7. Run reset before another scenario.
 
 Disk presentation:
@@ -184,7 +184,7 @@ Disk presentation:
 2. Run Workflow 1 with `scenario=disk`.
 3. Show generic degradation, disk growth, storage-specific logs, and Bits.
 4. Show bounded `DISK` conclusion and approved recovery dispatch.
-5. Show disk below 20%, zero growth, healthy checkout, and Workflow success.
+5. Show disk below 20%, zero growth, healthy backend, and Workflow success.
 6. Run reset.
 
 UNKNOWN presentation:

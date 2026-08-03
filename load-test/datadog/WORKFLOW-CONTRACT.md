@@ -71,15 +71,15 @@ and `reset`. A second action receives HTTP `409` while the first job is
 `accepted` or `running`. Workflow 1 does not call Workflow 2 and does not pass
 its scenario to the monitor or investigation.
 
-## 3. Generic checkout degradation monitor
+## 3. Generic backend degradation monitor
 
 Create these service-impact leaf monitors after capturing the real APM resource
 and tag names in Datadog:
 
 ```text
-A: checkout p95 latency > max(2 * measured baseline p95, 2 seconds)
-B: checkout error rate > 10% over last 1 minute
-C: http.can_connect for poc-berca-checkout-health is CRITICAL twice consecutively
+A: backend p95 latency > max(2 * measured baseline p95, 2 seconds)
+B: backend error rate > 10% over last 1 minute
+C: http.can_connect for poc-berca-backend-health is CRITICAL twice consecutively
 ```
 
 Create one top-level composite:
@@ -88,15 +88,15 @@ Create one top-level composite:
 A || B || C
 ```
 
-Name it `POC - Berca Checkout Service Degraded`. Its title and message must not
+Name it `POC - Berca Backend Service Degraded`. Its title and message must not
 name PgBouncer, disk, filesystem, or the active fault. Trigger Workflow 2 only
 on the `ALERT` transition.
 
 UI values that must be captured rather than guessed:
 
 ```text
-<CHECKOUT_APM_SERVICE>
-<CHECKOUT_RESOURCE_NAME>
+<BACKEND_APM_SERVICE>
+<BACKEND_IMPACT_RESOURCE_NAMES>
 <LATENCY_MONITOR_ID>
 <ERROR_MONITOR_ID>
 <HEALTH_MONITOR_ID>
@@ -186,9 +186,9 @@ Pool conditions:
 
 ```text
 max(last_30s):pgbouncer.pools.cl_waiting{env:poc,resource_id:pgbouncer-demo} = 0
-checkout latency is below the calibrated threshold
-checkout error rate < 10%
-checkout health check is OK
+backend latency is below the calibrated threshold
+backend error rate < 10%
+backend health check is OK
 ```
 
 `demo-control.sh recover-pool` also refuses to report command success unless
@@ -202,9 +202,9 @@ Disk conditions:
 ```text
 max(last_30s):system.disk.in_use{env:poc,resource_id:synthetic-log-volume} < 0.20
 max(last_30s):poc.synthetic_log.growth_bytes_per_second{env:poc} = 0
-checkout latency is below the calibrated threshold
-checkout error rate < 10%
-checkout health check is OK
+backend latency is below the calibrated threshold
+backend error rate < 10%
+backend health check is OK
 ```
 
 Use Query Scalar actions where available. Confirm the real metric tags and

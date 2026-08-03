@@ -17,7 +17,7 @@ POOL:
 ```yaml
 schema_version: "1.0"
 environment: poc
-service: berca-checkout
+service: berca-backend
 classification: POOL
 resource_id: pgbouncer-demo
 requested_action: recover_pool
@@ -31,7 +31,7 @@ DISK:
 ```yaml
 schema_version: "1.0"
 environment: poc
-service: berca-checkout
+service: berca-backend
 classification: DISK
 resource_id: synthetic-log-volume
 requested_action: recover_disk
@@ -72,7 +72,7 @@ synthetic trigger removed
 only app-saturation.log truncated
 disk usage < 20%
 synthetic log growth stopped
-checkout impact marker removed
+backend impact marker removed
 ```
 
 Ansible job success is execution evidence only. Datadog Workflow performs the

@@ -161,7 +161,7 @@ if [ "$SAFE_DISK_TARGET" = true ]; then
   if ! mkdir -p "$LOG_DIR" || ! chmod 0775 "$LOG_DIR"; then
     record_error "Unable to create the baseline log directory."
   fi
-  if ! printf '{"timestamp":"%s","level":"INFO","service":"berca-checkout","event":"service_ready"}\n' \
+  if ! printf '{"timestamp":"%s","level":"INFO","service":"berca-backend","event":"service_ready"}\n' \
     "$(date -Iseconds)" > "$LOG_FILE"; then
     record_error "Unable to write the baseline readiness log."
   fi

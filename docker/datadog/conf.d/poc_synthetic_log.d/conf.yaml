@@ -6,13 +6,13 @@ instances:
     min_collection_interval: 5
     tags:
       - env:poc
-      - service:berca-checkout
+      - service:berca-backend
       - resource_id:synthetic-log-volume
 
 logs:
   - type: file
     path: /var/log/poc-app/app-saturation.log
-    service: berca-checkout
+    service: berca-backend
     source: poc-synthetic-log
     tags:
       - env:poc
