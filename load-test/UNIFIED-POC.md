@@ -27,12 +27,77 @@ Storefront :8000
   -> PgBouncer :6432 (5/5 baseline)
   -> PostgreSQL :5432
 
-traffic-generator -> real store/cart/checkout requests
+traffic-generator -> organic storefront visits and real guest orders
 pool-hog          -> opt-in 25-client PgBouncer saturation
 log-generator     -> opt-in 200 MB loopback synthetic log saturation
 Datadog Agent     -> APM, logs, PgBouncer, disk, HTTP health, custom log metrics
 Demo Control API  -> authenticated fixed action adapter on the Linux VM
 ```
+
+## Organic traffic and storefront access
+
+The continuous traffic generator is a hybrid workload. It requests real
+storefront pages through `berca-storefront` and performs deterministic cart and
+checkout mutations through the Medusa Store API. It does not run Chromium.
+
+Organic sessions follow a bounded distribution:
+
+| Outcome | Share |
+|---|---:|
+| Homepage bounce | 30% |
+| Catalog/product browse | 25% |
+| Add cart then abandon | 20% |
+| Update/remove cart then abandon | 10% |
+| Address-stage abandonment | 8% |
+| Shipping/payment abandonment | 3% |
+| Completed guest order | 2% |
+| Expected invalid user request | 2% |
+
+A separate journey guarantees one completed guest checkout every five minutes.
+Checkout is successful only when Medusa returns `type=order` with an order ID;
+HTTP `400` and payment-collection creation are never treated as completion.
+This produces about 288 guaranteed POC orders per day when the generator runs
+continuously, plus the 2% organic completions.
+
+Traffic intensity uses WIB and is recalculated at the start of each six-hour
+k6 cycle: 1 session/minute overnight, 3 during business hours, 6 at evening
+peak, and 2 at late night. Expected invalid requests are tracked independently
+from unexpected errors and remain below the generic backend alert threshold.
+
+Generated carts and orders use bounded Indonesian guest profiles and email
+addresses under `example.invalid`. They are retained so that the presenter can
+show real orders in Medusa Admin. `demo-control.sh reset` deliberately does not
+delete commerce data. Stop continuous data generation with:
+
+```bash
+docker compose stop traffic-generator
+```
+
+On the Linux VM, create an ignored root `.env` from `.env.example` and replace
+the placeholders:
+
+```text
+STOREFRONT_PUBLIC_URL=http://<VM_IP>:8000
+MEDUSA_PUBLIC_URL=http://<VM_IP>:9000
+```
+
+Also add `http://<VM_IP>:8000` to `STORE_CORS` and `AUTH_CORS` in the VM's
+ignored `apps/backend/.env`. Keep ports 8000 and 9000 restricted to the trusted
+Lab network. Server-side storefront requests use `http://medusa:9000`; only a
+user's browser uses the public backend URL.
+
+Human storefront validation from another Lab machine:
+
+1. Open `http://<VM_IP>:8000/id`.
+2. Browse a product, add it to the cart, and continue as a guest.
+3. Use the Manual Payment provider and place the order.
+4. Confirm that the order-confirmation page loads and the order appears in
+   Medusa Admin.
+
+Traffic logs use `service:berca-traffic-generator` and include journey type,
+outcome, cart/order IDs, duration, failed step, and HTTP status. Checkout
+remains a business workload; the hero service and generic monitor remain
+`berca-backend` and `Berca Backend Service Degraded`.
 
 ## Repository control interface
 
@@ -162,11 +227,28 @@ Preflight:
 
 ```bash
 export DD_API_KEY='<INJECTED_ON_VM>'
+cp -n .env.example .env
+# Set MEDUSA_PUBLISHABLE_KEY, STOREFRONT_PUBLIC_URL, and MEDUSA_PUBLIC_URL.
+# Add the Lab storefront origin to apps/backend/.env CORS values.
 docker compose up -d postgres redis pgbouncer medusa storefront \
   traffic-generator log-generator datadog-agent
 ./demo-control.sh reset
 ./demo-control.sh status
 ```
+
+Verify organic traffic before injecting a fault:
+
+```bash
+docker compose run --rm --no-deps --entrypoint k6 traffic-generator \
+  inspect /scripts/baseline-traffic.js
+docker compose ps medusa storefront traffic-generator
+docker compose logs --since 6m traffic-generator | grep 'order_completed'
+```
+
+The `k6 inspect` command must succeed before starting the continuous generator.
+If no completed order appears within six minutes, inspect the structured
+`failed_step` value and verify the Indonesia region, Standard/Express shipping
+options, and `pp_system_default` payment provider in Medusa Admin.
 
 Pool presentation:
 

@@ -15,9 +15,10 @@ separately through the repository control interface:
 
 Active files in this directory:
 
-- `baseline-traffic.js`: continuous Berca store/cart/checkout traffic used by
-  the `traffic-generator` Compose service.
-- `entrypoint.sh`: resolves the publishable key and starts baseline k6 traffic.
+- `baseline-traffic.js`: continuous hybrid storefront traffic, bounded organic
+  user behavior, and a real guest order every five minutes.
+- `entrypoint.sh`: validates the publishable key, waits for the backend and
+  storefront, and starts the six-hour k6 traffic cycle.
 - `pgbench-saturation.sql`: bounded `pg_sleep` workload used only by the
   opt-in `pool-hog` Compose profile.
 - `datadog/WORKFLOW-CONTRACT.md`: Datadog UI workflow, monitor, classifier,

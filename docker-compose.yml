@@ -149,11 +149,15 @@ services:
     container_name: medusa_storefront
     restart: unless-stopped
     depends_on:
-      - medusa
+      medusa:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
-      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=http://medusa:9000
+      - MEDUSA_BACKEND_URL_INTERNAL=http://medusa:9000
+      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=${MEDUSA_PUBLIC_URL:-http://localhost:9000}
+      - NEXT_PUBLIC_BASE_URL=${STOREFRONT_PUBLIC_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}}
       - NEXT_PUBLIC_DEFAULT_REGION=id
       - NODE_OPTIONS=--import dd-trace/initialize.mjs
       - DD_AGENT_HOST=datadog-agent
@@ -173,6 +177,12 @@ services:
       - /server/apps/storefront/node_modules
       - /server/apps/storefront/.next
     entrypoint: ["./start-storefront.sh"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/id"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
     networks:
       - medusa_network
 
@@ -233,11 +243,18 @@ services:
     depends_on:
       medusa:
         condition: service_healthy
+      storefront:
+        condition: service_healthy
     env_file:
       - apps/storefront/.env
     environment:
       - MEDUSA_BASE_URL=http://medusa:9000
+      - STOREFRONT_BASE_URL=http://storefront:8000
       - MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}}
+    labels:
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-traffic-generator"
+      com.datadoghq.tags.version: "1.0.0"
     volumes:
       - ./load-test:/scripts
     entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]

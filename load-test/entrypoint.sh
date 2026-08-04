@@ -6,12 +6,19 @@
 set -e
 
 MEDUSA_BASE_URL="${MEDUSA_BASE_URL:-http://medusa:9000}"
+STOREFRONT_BASE_URL="${STOREFRONT_BASE_URL:-http://storefront:8000}"
 MAX_RETRIES=60
 RETRY_INTERVAL=5
+
+if [ -z "${MEDUSA_PUBLISHABLE_KEY:-}" ]; then
+  echo "[ERROR] MEDUSA_PUBLISHABLE_KEY is required."
+  exit 1
+fi
 
 echo ""
 echo "=== Traffic Generator ==="
 echo "Backend URL: ${MEDUSA_BASE_URL}"
+echo "Storefront URL: ${STOREFRONT_BASE_URL}"
 echo "Waiting for backend to be ready..."
 echo ""
 
@@ -35,6 +42,25 @@ if [ $attempt -ge $MAX_RETRIES ]; then
   exit 1
 fi
 
+echo "Waiting for storefront to be ready..."
+attempt=0
+while [ $attempt -lt $MAX_RETRIES ]; do
+  attempt=$((attempt + 1))
+
+  if wget -q --spider "${STOREFRONT_BASE_URL}/id" 2>/dev/null; then
+    echo "[OK] Storefront is healthy (attempt ${attempt}/${MAX_RETRIES})"
+    break
+  fi
+
+  echo "[WAIT] Storefront not ready yet (attempt ${attempt}/${MAX_RETRIES}), retrying in ${RETRY_INTERVAL}s..."
+  sleep $RETRY_INTERVAL
+done
+
+if [ $attempt -ge $MAX_RETRIES ]; then
+  echo "[ERROR] Storefront did not become healthy after ${MAX_RETRIES} attempts. Exiting."
+  exit 1
+fi
+
 echo ""
 echo "Starting baseline traffic generator (continuous loop)..."
 echo ""
@@ -47,7 +73,10 @@ while true; do
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting new traffic cycle..."
 
   k6 run \
+    --log-format raw \
+    --log-output stdout \
     -e MEDUSA_BASE_URL="${MEDUSA_BASE_URL}" \
+    -e STOREFRONT_BASE_URL="${STOREFRONT_BASE_URL}" \
     -e MEDUSA_PUBLISHABLE_KEY="${MEDUSA_PUBLISHABLE_KEY:-}" \
     /scripts/baseline-traffic.js \
     || echo "[WARN] k6 cycle ended with non-zero exit (threshold violation) — restarting..."
