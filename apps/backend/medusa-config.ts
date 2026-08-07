@@ -26,6 +26,10 @@ module.exports = defineConfig({
   },
   admin: {
     vite: () => {
+      if (process.env.NODE_ENV === 'production') {
+        return {}
+      }
+
       return {
         server: {
           host: '0.0.0.0',

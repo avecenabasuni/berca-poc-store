@@ -76,7 +76,11 @@ export default async function initial_data_seed({
         }
       }
     } catch (err) {
-      logger.warn("Store supported currencies update skipped:", err);
+      logger.warn(
+        `Store supported currencies update skipped: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
 
     // 2. Ensure Indonesia region exists
@@ -109,7 +113,11 @@ export default async function initial_data_seed({
           ],
         });
       } catch (err) {
-        logger.warn("Tax region 'id' skipped:", err);
+        logger.warn(
+          `Tax region 'id' skipped: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
       }
 
       logger.info("Successfully added Indonesia region!");
@@ -155,7 +163,11 @@ export default async function initial_data_seed({
         }
       }
     } catch (err) {
-      logger.warn("Updating variant IDR prices skipped:", err);
+      logger.warn(
+        `Updating variant IDR prices skipped: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
     }
 
     return;

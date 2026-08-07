@@ -99,20 +99,22 @@ services:
 
   # Medusa Server
   # This service runs the Medusa backend application
-  # and the admin dashboard.
+  # and its prebuilt production admin dashboard.
   medusa:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: medusa_backend
     restart: unless-stopped
+    init: true
     depends_on:
       - postgres
       - redis
       - pgbouncer
     ports:
       - "9000:9000"
-      - "5173:5173"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - DATABASE_URL=postgres://postgres:postgres@pgbouncer:6432/medusa-store
       - REDIS_URL=redis://redis:6379
       - NODE_OPTIONS=--import dd-trace/initialize.mjs
@@ -129,9 +131,6 @@ services:
     env_file:
       - apps/backend/.env
     volumes:
-      - .:/server
-      - /server/node_modules
-      - /server/apps/backend/node_modules
       - ./docker/demo-state:/var/run/berca-poc:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health"]

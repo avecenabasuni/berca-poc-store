@@ -1,11 +1,10 @@
 #!/bin/sh
+set -eu
+
 cd /server/apps/backend
 
 echo "Running database migrations..."
-pnpm medusa db:migrate
+./node_modules/.bin/medusa db:migrate
 
-echo "Seeding database..."
-pnpm seed || echo "Seeding failed, continuing..."
-
-echo "Starting Medusa development server..."
-exec pnpm dev
+echo "Starting Medusa production server..."
+exec ./node_modules/.bin/medusa start
