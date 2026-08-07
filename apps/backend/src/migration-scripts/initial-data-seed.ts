@@ -1,6 +1,7 @@
 import { MedusaContainer } from "@medusajs/framework";
 import {
   ContainerRegistrationKeys,
+  MedusaError,
   ModuleRegistrationName,
   Modules,
   ProductStatus,
@@ -14,6 +15,7 @@ import {
   createProductsWorkflow,
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
+  createServiceZonesWorkflow,
   createShippingOptionsWorkflow,
   createShippingProfilesWorkflow,
   createStockLocationsWorkflow,
@@ -24,6 +26,151 @@ import {
   updateProductVariantsWorkflow,
   updateStoresWorkflow,
 } from "@medusajs/medusa/core-flows";
+
+const POC_INDONESIA_SERVICE_ZONE = "Berca Indonesia POC";
+const STANDARD_SHIPPING_AMOUNT_IDR = 25_000;
+const EXPRESS_SHIPPING_AMOUNT_IDR = 50_000;
+
+async function ensureIndonesiaShippingOptions(
+  container: MedusaContainer,
+  regionId: string
+) {
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
+  const fulfillmentModuleService = container.resolve(
+    ModuleRegistrationName.FULFILLMENT
+  );
+
+  const fulfillmentSets = await fulfillmentModuleService.listFulfillmentSets(
+    { type: "shipping" },
+    {
+      relations: ["service_zones", "service_zones.geo_zones"],
+      take: 100,
+    }
+  );
+  const fulfillmentSet =
+    fulfillmentSets.find(
+      (candidate) => candidate.name === "European Warehouse delivery"
+    ) || fulfillmentSets[0];
+
+  if (!fulfillmentSet) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      "Cannot configure Indonesia shipping: no shipping fulfillment set exists."
+    );
+  }
+
+  let indonesiaServiceZone = fulfillmentSet.service_zones?.find(
+    (serviceZone) => serviceZone.name === POC_INDONESIA_SERVICE_ZONE
+  );
+
+  if (!indonesiaServiceZone) {
+    logger.info(`Creating ${POC_INDONESIA_SERVICE_ZONE} service zone...`);
+    const { result } = await createServiceZonesWorkflow(container).run({
+      input: {
+        data: [
+          {
+            name: POC_INDONESIA_SERVICE_ZONE,
+            fulfillment_set_id: fulfillmentSet.id,
+            geo_zones: [
+              {
+                type: "country",
+                country_code: "id",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    indonesiaServiceZone = result[0];
+  }
+
+  if (!indonesiaServiceZone) {
+    throw new MedusaError(
+      MedusaError.Types.UNEXPECTED_STATE,
+      "Failed to create the Indonesia POC service zone."
+    );
+  }
+
+  const shippingProfiles =
+    await fulfillmentModuleService.listShippingProfiles({}, { take: 100 });
+  const shippingProfile = shippingProfiles[0];
+
+  if (!shippingProfile) {
+    throw new MedusaError(
+      MedusaError.Types.NOT_FOUND,
+      "Cannot configure Indonesia shipping: no shipping profile exists."
+    );
+  }
+
+  const existingShippingOptions =
+    await fulfillmentModuleService.listShippingOptions(
+      {
+        service_zone: {
+          id: indonesiaServiceZone.id,
+        },
+      },
+      { take: 100 }
+    );
+  const existingNames = new Set(
+    existingShippingOptions.map((shippingOption) => shippingOption.name)
+  );
+  const shippingOptionDefinitions = [
+    {
+      name: "Standard Shipping",
+      label: "Standard",
+      description: "Pengiriman standar untuk demo Berca.",
+      code: "berca-id-standard",
+      amount: STANDARD_SHIPPING_AMOUNT_IDR,
+    },
+    {
+      name: "Express Shipping",
+      label: "Express",
+      description: "Pengiriman ekspres untuk demo Berca.",
+      code: "berca-id-express",
+      amount: EXPRESS_SHIPPING_AMOUNT_IDR,
+    },
+  ].filter((definition) => !existingNames.has(definition.name));
+
+  if (!shippingOptionDefinitions.length) {
+    logger.info("Indonesia POC shipping options already exist.");
+    return;
+  }
+
+  await createShippingOptionsWorkflow(container).run({
+    input: shippingOptionDefinitions.map((definition) => ({
+      name: definition.name,
+      price_type: "flat",
+      provider_id: "manual_manual",
+      service_zone_id: indonesiaServiceZone.id,
+      shipping_profile_id: shippingProfile.id,
+      type: {
+        label: definition.label,
+        description: definition.description,
+        code: definition.code,
+      },
+      prices: [
+        {
+          region_id: regionId,
+          amount: definition.amount,
+        },
+      ],
+      rules: [
+        {
+          attribute: "enabled_in_store",
+          value: "true",
+          operator: "eq",
+        },
+        {
+          attribute: "is_return",
+          value: "false",
+          operator: "eq",
+        },
+      ],
+    })),
+  });
+
+  logger.info("Indonesia POC shipping options are ready.");
+}
 
 export default async function initial_data_seed({
   container,
@@ -84,13 +231,15 @@ export default async function initial_data_seed({
     }
 
     // 2. Ensure Indonesia region exists
-    const hasIndonesia = existingRegions.some((r: any) =>
-      r.name === "Indonesia" || r.countries?.some((c: any) => c.iso_2 === "id")
-    );
+    let indonesiaRegionId = existingRegions.find(
+      (r: any) =>
+        r.name === "Indonesia" ||
+        r.countries?.some((c: any) => c.iso_2 === "id")
+    )?.id;
 
-    if (!hasIndonesia) {
+    if (!indonesiaRegionId) {
       logger.info("Adding Indonesia region to existing database...");
-      await createRegionsWorkflow(container).run({
+      const { result } = await createRegionsWorkflow(container).run({
         input: {
           regions: [
             {
@@ -102,6 +251,7 @@ export default async function initial_data_seed({
           ],
         },
       });
+      indonesiaRegionId = result[0]?.id;
 
       try {
         await createTaxRegionsWorkflow(container).run({
@@ -169,6 +319,15 @@ export default async function initial_data_seed({
         }`
       );
     }
+
+    if (!indonesiaRegionId) {
+      throw new MedusaError(
+        MedusaError.Types.UNEXPECTED_STATE,
+        "Indonesia region could not be resolved after setup."
+      );
+    }
+
+    await ensureIndonesiaShippingOptions(container, indonesiaRegionId);
 
     return;
   }

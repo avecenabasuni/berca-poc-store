@@ -148,7 +148,6 @@ services:
       context: .
       dockerfile: Dockerfile.storefront
       args:
-        MEDUSA_PUBLIC_URL: ${MEDUSA_PUBLIC_URL:?MEDUSA_PUBLIC_URL must be set}
         STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:?STOREFRONT_PUBLIC_URL must be set}
         MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?MEDUSA_PUBLISHABLE_KEY must be set}
     container_name: medusa_storefront
@@ -161,7 +160,6 @@ services:
     environment:
       - NODE_ENV=production
       - MEDUSA_BACKEND_URL_INTERNAL=http://medusa:9000
-      - NEXT_PUBLIC_MEDUSA_BACKEND_URL=${MEDUSA_PUBLIC_URL}
       - NEXT_PUBLIC_BASE_URL=${STOREFRONT_PUBLIC_URL}
       - NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY}
       - NEXT_PUBLIC_DEFAULT_REGION=id

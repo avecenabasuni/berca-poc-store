@@ -24,7 +24,7 @@ export default async function CheckoutForm({
     listCartPaymentMethods(cart.region?.id ?? "").catch(() => null),
   ])
 
-  if (!shippingMethods || !paymentMethods) {
+  if (!shippingMethods?.length || !paymentMethods?.length) {
     const t = getDictionary().checkout
 
     return (

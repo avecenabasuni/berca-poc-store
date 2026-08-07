@@ -77,22 +77,31 @@ On the Linux VM, create an ignored root `.env` from `.env.example` and replace
 the placeholders:
 
 ```text
-STOREFRONT_PUBLIC_URL=http://<VM_IP>:8000
-MEDUSA_PUBLIC_URL=http://<VM_IP>:9000
+STOREFRONT_PUBLIC_URL=https://store.bercalab.my.id
 ```
 
-Also add `http://<VM_IP>:8000` to `STORE_CORS` and `AUTH_CORS` in the VM's
-ignored `apps/backend/.env`. Keep ports 8000 and 9000 restricted to the trusted
-Lab network. Server-side storefront requests use `http://medusa:9000`; only a
-user's browser uses the public backend URL.
+Also add `https://store.bercalab.my.id` to `STORE_CORS` and `AUTH_CORS` in the
+VM's ignored `apps/backend/.env`. Server-side storefront requests and the
+same-origin `/api/medusa` browser proxy use `http://medusa:9000` on the Docker
+network. The browser must never call the VM's private HTTP backend directly.
 
-The Docker storefront is a production-only Next.js server. Its public URLs and
-publishable key are compiled into the browser bundle, so changing any of the
-three values above requires rebuilding the storefront image:
+The Docker storefront is a production-only Next.js server. Its public URL and
+publishable key are compiled into the browser bundle, so changing either value
+requires rebuilding the storefront image:
 
 ```bash
 docker compose build storefront
 docker compose up -d storefront
+```
+
+For an existing POC database, run the idempotent data repair once after
+deploying a new backend image. It ensures the Indonesia service zone and its
+approved Standard and Express shipping options exist without reseeding products
+or deleting commerce data:
+
+```bash
+docker compose exec medusa ./node_modules/.bin/medusa exec \
+  src/migration-scripts/initial-data-seed.js
 ```
 
 The container runs `next start`, has no source or build-output bind mounts, and
@@ -260,7 +269,7 @@ Preflight:
 ```bash
 export DD_API_KEY='<INJECTED_ON_VM>'
 cp -n .env.example .env
-# Set MEDUSA_PUBLISHABLE_KEY, STOREFRONT_PUBLIC_URL, and MEDUSA_PUBLIC_URL.
+# Set MEDUSA_PUBLISHABLE_KEY and STOREFRONT_PUBLIC_URL.
 # Add the Lab storefront origin to apps/backend/.env CORS values.
 docker compose up -d --build postgres redis pgbouncer medusa storefront \
   traffic-generator log-generator datadog-agent
