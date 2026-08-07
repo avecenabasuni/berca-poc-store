@@ -1,17 +1,17 @@
 "use client"
 
-import { Popover, PopoverPanel, Transition } from "@headlessui/react"
-import useToggleState from "@lib/hooks/use-toggle-state"
-import { ArrowRightMini, XMark, BarsThree } from "@medusajs/icons"
+import { Dialog, Transition } from "@headlessui/react"
+import { ArrowRight, BarsThree, XMark } from "@medusajs/icons"
 import { HttpTypes } from "@medusajs/types"
+import { Fragment, useState } from "react"
+import { useParams } from "next/navigation"
+
+import { getDictionary } from "@lib/i18n"
+import { Locale } from "@lib/data/locales"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
-import { Text, clx } from "@modules/common/components/ui"
-import { Fragment } from "react"
+import { Text } from "@modules/common/components/ui"
 import CountrySelect from "../country-select"
 import LanguageSelect from "../language-select"
-import { Locale } from "@lib/data/locales"
-import { useParams } from "next/navigation"
-import { getDictionary } from "@lib/i18n"
 
 type SideMenuProps = {
   regions: HttpTypes.StoreRegion[] | null
@@ -22,8 +22,9 @@ type SideMenuProps = {
 const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
   const { countryCode } = useParams()
   const t = getDictionary(countryCode)
-  const countryToggleState = useToggleState()
-  const languageToggleState = useToggleState()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const close = () => setIsOpen(false)
 
   const sideMenuItems = [
     { name: t.nav.home, href: "/", id: "home" },
@@ -33,131 +34,113 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
   ]
 
   return (
-    <div className="h-full">
-      <div className="flex items-center h-full">
-        <Popover className="h-full flex">
-          {({ open, close }) => (
-            <>
-              <div className="relative flex h-full">
-                <Popover.Button
-                  data-testid="nav-menu-button"
-                  className="relative h-full flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#F5F5F7] text-[#1E1F74] hover:text-[#E53946] transition-all ease-out duration-200 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E1F74] font-medium"
-                >
-                  <BarsThree className="w-5 h-5" aria-hidden="true" />
-                  <span className="hidden xsmall:inline text-xs font-semibold uppercase tracking-wider">{t.nav.menu}</span>
-                </Popover.Button>
-              </div>
+    <div className="flex h-full items-center">
+      <button
+        type="button"
+        data-testid="nav-menu-button"
+        onClick={() => setIsOpen(true)}
+        className="relative flex h-full min-h-11 min-w-11 touch-manipulation items-center gap-2 rounded-full px-3 py-1.5 font-medium text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+      >
+        <BarsThree className="h-5 w-5" aria-hidden="true" />
+        <span className="hidden text-xs font-semibold uppercase tracking-wider xsmall:inline">
+          {t.nav.menu}
+        </span>
+        <span className="sr-only xsmall:hidden">{t.nav.menu}</span>
+      </button>
 
-              {open && (
-                <div
-                  className="fixed inset-0 z-[50] bg-black/60 pointer-events-auto"
-                  onClick={close}
-                  data-testid="side-menu-backdrop"
-                />
-              )}
+      <Transition appear show={isOpen} as={Fragment}>
+        <Dialog className="relative z-[75]" onClose={close}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-out duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div
+              className="fixed inset-0 bg-black/60"
+              aria-hidden="true"
+              data-testid="side-menu-backdrop"
+            />
+          </Transition.Child>
 
-              <Transition
-                show={open}
-                as={Fragment}
-                enter="transition ease-out duration-250"
-                enterFrom="opacity-0 -translate-x-full"
-                enterTo="opacity-100 translate-x-0"
-                leave="transition ease-in duration-200"
-                leaveFrom="opacity-100 translate-x-0"
-                leaveTo="opacity-0 -translate-x-full"
+          <div className="fixed inset-0 overflow-hidden">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 -translate-x-full"
+              enterTo="opacity-100 translate-x-0"
+            leave="ease-out duration-150"
+              leaveFrom="opacity-100 translate-x-0"
+              leaveTo="opacity-0 -translate-x-full"
+            >
+              <Dialog.Panel
+                className="fixed inset-y-0 left-0 flex h-full w-full max-w-[400px] flex-col overflow-y-auto overscroll-contain bg-surface-inverse text-sm text-content-inverse shadow-2xl"
+                data-testid="nav-menu-popup"
               >
-                <PopoverPanel className="flex flex-col fixed w-full sm:w-[400px] h-full z-[51] inset-y-0 left-0 text-sm shadow-2xl bg-[#1E1F74]">
-                  <div
-                    data-testid="nav-menu-popup"
-                    className="flex flex-col h-full justify-between p-8 border-r border-[#3A1E65] bg-[#1E1F74]"
-                    style={{ backgroundColor: "#1E1F74", color: "#FFFFFF" }}
-                  >
-                    <div className="flex items-center justify-between border-b border-white/15 pb-5" id="xmark">
-                      <span className="text-lg font-bold tracking-tight text-white uppercase">
+                <div className="flex min-h-full flex-col justify-between border-r border-surface-inverse-raised p-6 xsmall:p-8">
+                  <div>
+                    <div className="flex min-h-11 items-center justify-between border-b border-content-inverse/15 pb-5">
+                      <Dialog.Title
+                        className="text-lg font-bold uppercase tracking-tight text-content-inverse"
+                        translate="no"
+                      >
                         Berca Store
-                      </span>
+                      </Dialog.Title>
                       <button
+                        type="button"
+                        autoFocus
                         data-testid="close-menu-button"
                         onClick={close}
-                        aria-label="Close menu"
-                        className="p-2 rounded-full hover:bg-white/10 text-white transition-colors focus-visible:outline-2 focus-visible:outline-white"
-                        style={{ color: "#FFFFFF" }}
+                        aria-label={t.nav.closeMenu}
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-content-inverse/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96]"
                       >
                         <XMark aria-hidden="true" />
                       </button>
                     </div>
-                    <ul className="flex flex-col gap-3 items-start justify-start py-6">
-                      {sideMenuItems.map((item) => {
-                        return (
+
+                    <nav aria-label={t.nav.storeMenu}>
+                      <ul className="flex flex-col items-start justify-start gap-3 py-6">
+                        {sideMenuItems.map((item) => (
                           <li key={item.id} className="w-full">
                             <LocalizedClientLink
                               href={item.href}
-                              className="text-3xl font-bold leading-10 text-white hover:text-[#E53946] hover:bg-white/10 px-4 py-3 rounded-xl transition-all duration-200 flex items-center justify-between group"
-                              style={{ color: "#FFFFFF" }}
+                              className="group flex min-h-11 items-center justify-between rounded-xl px-4 py-3 text-3xl font-bold leading-10 text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-content-inverse/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96]"
                               onClick={close}
                               data-testid={`${item.id}-link`}
                             >
                               <span>{item.name}</span>
-                              <span className="text-xl opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 text-[#E53946]">
-                                →
-                              </span>
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="h-5 w-5 text-content-inverse-muted opacity-0 motion-safe:transition-[opacity,transform] motion-safe:duration-150 motion-safe:ease-out group-hover:translate-x-1 group-hover:opacity-100"
+                              />
                             </LocalizedClientLink>
                           </li>
-                        )
-                      })}
-                    </ul>
-                    <div
-                      className="flex flex-col gap-y-5 p-5 rounded-2xl border border-white/10"
-                      style={{ backgroundColor: "#3A1E65", color: "#FFFFFF" }}
-                    >
-                      {!!locales?.length && (
-                        <div
-                          className="flex justify-between items-center text-white font-medium"
-                          onMouseEnter={languageToggleState.open}
-                          onMouseLeave={languageToggleState.close}
-                        >
-                          <LanguageSelect
-                            toggleState={languageToggleState}
-                            locales={locales}
-                            currentLocale={currentLocale}
-                          />
-                          <ArrowRightMini
-                            className={clx(
-                              "transition-transform duration-150 text-white",
-                              languageToggleState.state ? "-rotate-90" : "",
-                            )}
-                          />
-                        </div>
-                      )}
-                      <div
-                        className="flex justify-between items-center text-white font-medium"
-                        onMouseEnter={countryToggleState.open}
-                        onMouseLeave={countryToggleState.close}
-                      >
-                        {regions && (
-                          <CountrySelect
-                            toggleState={countryToggleState}
-                            regions={regions}
-                          />
-                        )}
-                        <ArrowRightMini
-                          className={clx(
-                            "transition-transform duration-150 text-white",
-                            countryToggleState.state ? "-rotate-90" : "",
-                          )}
-                        />
-                      </div>
-                      <Text className="flex justify-between text-xs text-white/70 font-medium">
-                        © {new Date().getFullYear()} Berca Store. {t.footer.allRightsReserved}
-                      </Text>
-                    </div>
+                        ))}
+                      </ul>
+                    </nav>
                   </div>
-                </PopoverPanel>
-              </Transition>
-            </>
-          )}
-        </Popover>
-      </div>
+
+                  <div className="flex flex-col gap-y-5 rounded-2xl border border-content-inverse/10 bg-surface-inverse-raised p-5 text-content-inverse">
+                    {!!locales?.length && (
+                      <LanguageSelect
+                        locales={locales}
+                        currentLocale={currentLocale}
+                      />
+                    )}
+                    {regions && <CountrySelect regions={regions} />}
+                    <Text className="flex justify-between text-xs font-medium text-content-inverse-muted">
+                      © {new Date().getFullYear()} Berca Store. {t.footer.allRightsReserved}
+                    </Text>
+                  </div>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   )
 }

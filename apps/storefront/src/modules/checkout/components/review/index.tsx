@@ -26,12 +26,12 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
     (cart.payment_collection || paidByGiftcard)
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm mt-6">
+    <div className="surface-elevated mt-6 rounded-2xl bg-surface-default p-6 sm:p-8">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
           className={clx(
-            "flex flex-row text-2xl font-bold text-[#1E1F74] gap-x-2 items-center",
+            "flex flex-row items-center gap-x-2 text-2xl font-bold text-content-primary",
             {
               "opacity-50 pointer-events-none select-none": !isOpen,
             },
@@ -43,8 +43,8 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
       {isOpen && previousStepsCompleted && (
         <>
           <div className="flex items-start gap-x-1 w-full mb-6">
-            <div className="w-full bg-[#F5F5F7] p-4 rounded-xl border border-[#CFCFD4]/40">
-              <Text className="text-xs text-[#1E1F74]/80 leading-relaxed">
+            <div className="w-full rounded-xl border border-line-subtle/40 bg-surface-subtle p-4">
+              <Text className="text-xs leading-relaxed text-content-secondary">
                 {t.disclaimerPrefix}<strong>{t.placeOrder}</strong>{t.disclaimerSuffix}
               </Text>
             </div>

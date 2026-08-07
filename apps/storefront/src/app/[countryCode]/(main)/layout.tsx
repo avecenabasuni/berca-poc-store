@@ -2,13 +2,14 @@ import { Metadata } from "next"
 
 import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
+import { getLocale } from "@lib/data/locale-actions"
 import { getBaseURL } from "@lib/util/env"
 import { StoreCartShippingOption } from "@medusajs/types"
 import CartMismatchBanner from "@modules/layout/components/cart-mismatch-banner"
 import Footer from "@modules/layout/templates/footer"
 import Nav from "@modules/layout/templates/nav"
 import FreeShippingPriceNudge from "@modules/shipping/components/free-shipping-price-nudge"
-import LocaleDocumentLanguage from "@modules/common/components/locale-document-language"
+import RouteFocusHandler from "@modules/common/components/route-focus-handler"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
@@ -19,6 +20,7 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
+  const locale = await getLocale()
   const customer = await retrieveCustomer()
   const cart = await retrieveCart(undefined, undefined, countryCode)
   let shippingOptions: StoreCartShippingOption[] = []
@@ -30,14 +32,14 @@ export default async function PageLayout(props: {
   }
 
   return (
-    <div lang={countryCode === "id" ? "id" : "en"}>
-      <LocaleDocumentLanguage language={countryCode === "id" ? "id" : "en"} />
+    <div lang={locale || (countryCode === "id" ? "id" : "en")}>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-surface-default focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
       >
         Skip to content
       </a>
+      <RouteFocusHandler targetId="main-content" />
       <Nav />
       {customer && cart && (
         <CartMismatchBanner customer={customer} cart={cart} />

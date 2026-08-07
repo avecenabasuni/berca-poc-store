@@ -10,7 +10,7 @@ type ThumbnailProps = {
   size?: "small" | "medium" | "large" | "full" | "square"
   isFeatured?: boolean
   className?: string
-  alt?: string
+  alt: string
   "data-testid"?: string
 }
 
@@ -28,7 +28,7 @@ const Thumbnail: React.FC<ThumbnailProps> = ({
   return (
     <Container
       className={clx(
-        "relative w-full overflow-hidden p-4 bg-ui-bg-subtle shadow-elevation-card-rest rounded-large group-hover:shadow-elevation-card-hover transition-shadow ease-in-out duration-150",
+        "surface-elevated-interactive relative w-full overflow-hidden rounded-large bg-ui-bg-subtle p-0",
         className,
         {
           "aspect-[11/14]": isFeatured,
@@ -55,8 +55,8 @@ const ImageOrPlaceholder = ({
   return image ? (
     <Image
       src={image}
-      alt={alt || "Product thumbnail"}
-      className="absolute inset-0 object-cover object-center"
+      alt={alt}
+      className="absolute inset-0 rounded-[inherit] object-cover object-center outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
       draggable={false}
       quality={50}
       sizes="(max-width: 576px) 280px, (max-width: 768px) 360px, (max-width: 992px) 480px, 800px"
@@ -65,6 +65,7 @@ const ImageOrPlaceholder = ({
   ) : (
     <div className="w-full h-full absolute inset-0 flex items-center justify-center">
       <PlaceholderImage size={size === "small" ? 16 : 24} aria-hidden="true" />
+      {alt && <span className="sr-only">{alt}</span>}
     </div>
   )
 }

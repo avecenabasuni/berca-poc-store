@@ -65,7 +65,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
         className={clx(
           "border rounded-rounded p-5 min-h-[220px] h-full w-full flex flex-col justify-between transition-colors",
           {
-            "border-gray-900": isActive,
+            "border-line-strong": isActive,
           }
         )}
         data-testid="address-container"
@@ -112,7 +112,6 @@ const EditAddress: React.FC<EditAddressProps> = ({
             className="text-small-regular text-ui-fg-base flex items-center gap-x-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm disabled:opacity-50"
             onClick={removeAddress}
             disabled={removing}
-            aria-disabled={removing}
             data-testid="address-delete-button"
           >
             {removing ? <Spinner aria-hidden="true" /> : <Trash aria-hidden="true" />}
@@ -122,9 +121,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
       </div>
 
       <Modal isOpen={state} close={close} data-testid="edit-address-modal">
-        <Modal.Title>
-          <Heading className="mb-2">Edit address</Heading>
-        </Modal.Title>
+        <Modal.Title>Edit address</Modal.Title>
         <form action={formAction}>
           <input type="hidden" name="addressId" value={address.id} />
           <Modal.Body>
@@ -182,7 +179,7 @@ const EditAddress: React.FC<EditAddressProps> = ({
                   label="City"
                   name="city"
                   required
-                  autoComplete="locality"
+                  autoComplete="address-level2"
                   defaultValue={address.city || undefined}
                   data-testid="city-input"
                 />
@@ -205,13 +202,17 @@ const EditAddress: React.FC<EditAddressProps> = ({
               <Input
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
+                type="tel"
+                autoComplete="tel"
                 defaultValue={address.phone || undefined}
                 data-testid="phone-input"
               />
             </div>
             {formState.error && (
-              <div className="text-rose-500 text-small-regular py-2">
+              <div
+                className="text-error-foreground text-small-regular py-2"
+                role="alert"
+              >
                 {formState.error}
               </div>
             )}

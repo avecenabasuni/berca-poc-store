@@ -30,7 +30,7 @@ function CartMismatchBanner(props: {
   }
 
   return (
-    <div className="flex items-center justify-center small:p-4 p-2 text-center bg-orange-300 small:gap-2 gap-1 text-sm mt-2 text-orange-800" role="alert">
+    <div className="flex items-center justify-center small:p-4 p-2 text-center bg-warning-background small:gap-2 gap-1 text-sm mt-2 text-warning-foreground" role="alert">
       <div className="flex flex-col small:flex-row small:gap-2 gap-1 items-center">
         <span className="flex items-center gap-1">
           <ExclamationCircleSolid className="inline" aria-hidden="true" />
@@ -41,7 +41,7 @@ function CartMismatchBanner(props: {
 
         <Button
           variant="transparent"
-          className="hover:bg-transparent active:bg-transparent focus:bg-transparent disabled:text-orange-500 text-orange-950 p-0 bg-transparent"
+          className="hover:bg-transparent active:bg-transparent focus:bg-transparent disabled:text-warning-foreground/60 text-warning-foreground p-0 bg-transparent"
           size="medium"
           disabled={isPending}
           onClick={handleSubmit}

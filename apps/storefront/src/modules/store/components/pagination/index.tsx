@@ -1,7 +1,8 @@
 "use client"
 
 import { clx } from "@modules/common/components/ui"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { usePathname, useSearchParams } from "next/navigation"
 
 export function Pagination({
   page,
@@ -12,7 +13,6 @@ export function Pagination({
   totalPages: number
   'data-testid'?: string
 }) {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -20,11 +20,10 @@ export function Pagination({
   const arrayRange = (start: number, stop: number) =>
     Array.from({ length: stop - start + 1 }, (_, index) => start + index)
 
-  // Function to handle page changes
-  const handlePageChange = (newPage: number) => {
+  const getPageHref = (newPage: number) => {
     const params = new URLSearchParams(searchParams)
     params.set("page", newPage.toString())
-    router.push(`${pathname}?${params.toString()}`)
+    return `${pathname}?${params.toString()}`
   }
 
   // Function to render a page button
@@ -32,20 +31,35 @@ export function Pagination({
     p: number,
     label: string | number,
     isCurrent: boolean
-  ) => (
-    <button
-      key={p}
-      className={clx("txt-xlarge-plus text-ui-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm", {
-        "text-ui-fg-base hover:text-ui-fg-subtle": isCurrent,
-      })}
-      disabled={isCurrent}
-      aria-current={isCurrent ? "page" : undefined}
-      aria-label={`Page ${label}`}
-      onClick={() => handlePageChange(p)}
-    >
-      {label}
-    </button>
-  )
+  ) => {
+    const className = clx(
+      "inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm px-2 txt-xlarge-plus focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+      {
+        "font-semibold text-ui-fg-base": isCurrent,
+        "text-ui-fg-muted hover:text-ui-fg-base": !isCurrent,
+      }
+    )
+
+    return isCurrent ? (
+      <span
+        key={p}
+        className={className}
+        aria-current="page"
+        aria-label={`Page ${label}, current page`}
+      >
+        {label}
+      </span>
+    ) : (
+      <Link
+        key={p}
+        href={getPageHref(p)}
+        className={className}
+        aria-label={`Go to page ${label}`}
+      >
+        {label}
+      </Link>
+    )
+  }
 
   // Function to render ellipsis
   const renderEllipsis = (key: string) => (

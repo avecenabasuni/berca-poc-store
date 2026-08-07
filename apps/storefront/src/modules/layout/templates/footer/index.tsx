@@ -12,24 +12,24 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
   const productCategories = await listCategories()
 
   return (
-    <footer className="bg-[#1E1F74] text-[#F5F5F7] border-t border-[#3A1E65] w-full">
+    <footer className="w-full border-t border-surface-inverse-raised bg-surface-inverse text-content-inverse">
       <div className="content-container flex flex-col w-full">
         <div className="flex flex-col gap-y-10 xsmall:flex-row items-start justify-between py-16 small:py-20">
           <div className="flex flex-col gap-y-4 max-w-sm">
             <LocalizedClientLink
               href="/"
-              className="text-2xl font-bold tracking-tight text-white hover:text-[#E53946] transition-colors uppercase"
+              className="text-2xl font-bold tracking-tight text-content-inverse hover:underline motion-safe:transition-colors uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
             >
-              Berca Store
+              <span translate="no">Berca Store</span>
             </LocalizedClientLink>
-            <Text className="text-sm text-[#CFCFD4] leading-relaxed">
+            <Text className="text-sm leading-relaxed text-content-inverse-muted">
               {t.description}
             </Text>
           </div>
           <div className="text-sm gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-3">
-                <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
+                <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
                   {t.categories}
                 </span>
                 <ul
@@ -50,13 +50,13 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
 
                     return (
                       <li
-                        className="flex flex-col gap-2 text-[#CFCFD4]"
+                        className="flex flex-col gap-2 text-content-inverse-muted"
                         key={c.id}
                       >
                         <LocalizedClientLink
                           className={clx(
-                            "hover:text-[#E53946] transition-colors",
-                            children && "font-semibold text-white",
+                            "hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse",
+                            children && "font-semibold text-content-inverse",
                           )}
                           href={`/categories/${c.handle}`}
                           data-testid="category-link"
@@ -69,7 +69,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                               children.map((child) => (
                                 <li key={child.id}>
                                   <LocalizedClientLink
-                                    className="hover:text-[#E53946] transition-colors text-xs text-[#CFCFD4]"
+                                    className="text-xs text-content-inverse-muted hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                                     href={`/categories/${child.handle}`}
                                     data-testid="category-link"
                                   >
@@ -87,12 +87,12 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
             )}
             {collections && collections.length > 0 && (
               <div className="flex flex-col gap-y-3">
-                <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
+                <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
                   {t.collections}
                 </span>
                 <ul
                   className={clx(
-                    "grid grid-cols-1 gap-2.5 text-[#CFCFD4]",
+                    "grid grid-cols-1 gap-2.5 text-content-inverse-muted",
                     {
                       "grid-cols-2": (collections?.length || 0) > 3,
                     },
@@ -101,7 +101,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                   {collections?.slice(0, 6).map((c) => (
                     <li key={c.id}>
                       <LocalizedClientLink
-                        className="hover:text-[#E53946] transition-colors"
+                        className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                         href={`/collections/${c.handle}`}
                       >
                         {c.title}
@@ -112,13 +112,13 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
               </div>
             )}
             <div className="flex flex-col gap-y-3">
-              <span className="text-xs uppercase tracking-wider font-semibold text-[#E53946]">
+              <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
                 {t.aboutUs}
               </span>
-              <ul className="grid grid-cols-1 gap-y-2.5 text-[#CFCFD4]">
+              <ul className="grid grid-cols-1 gap-y-2.5 text-content-inverse-muted">
                 <li>
                   <LocalizedClientLink
-                    className="hover:text-[#E53946] transition-colors"
+                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                     href="#"
                   >
                     {t.shippingPolicy}
@@ -126,7 +126,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                 </li>
                 <li>
                   <LocalizedClientLink
-                    className="hover:text-[#E53946] transition-colors"
+                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                     href="#"
                   >
                     {t.returnPolicy}
@@ -134,7 +134,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                 </li>
                 <li>
                   <LocalizedClientLink
-                    className="hover:text-[#E53946] transition-colors"
+                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                     href="#"
                   >
                     {t.helpFaq}
@@ -142,7 +142,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                 </li>
                 <li>
                   <LocalizedClientLink
-                    className="hover:text-[#E53946] transition-colors"
+                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
                     href="#"
                   >
                     {t.contactUs}
@@ -152,11 +152,11 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
             </div>
           </div>
         </div>
-        <div className="flex w-full py-8 border-t border-[#3A1E65] justify-between items-center text-xs text-[#CFCFD4]/70">
+        <div className="flex w-full items-center justify-between border-t border-surface-inverse-raised py-8 text-xs text-content-inverse-muted">
           <Text className="text-xs">
             © {new Date().getFullYear()} Berca Store. {t.allRightsReserved}
           </Text>
-          <Text className="text-xs text-[#CFCFD4] font-medium uppercase">{countryCode}</Text>
+          <Text className="text-xs font-medium uppercase text-content-inverse-muted">{countryCode}</Text>
         </div>
       </div>
     </footer>

@@ -51,7 +51,7 @@ const VerifyAccount = () => {
           </p>
           <LocalizedClientLink
             href="/account"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-[#E53946] px-4 font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-action-primary px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
           >
             Go to sign in
           </LocalizedClientLink>
@@ -66,7 +66,7 @@ const VerifyAccount = () => {
           </p>
           <LocalizedClientLink
             href="/account"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1E1F74] px-4 font-medium text-white hover:bg-[#3A1E65] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-line-subtle bg-surface-default px-4 font-medium text-content-primary motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
           >
             Go to sign in
           </LocalizedClientLink>

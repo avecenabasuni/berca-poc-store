@@ -64,6 +64,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "transparent"
   size?: "small" | "medium" | "large"
   isLoading?: boolean
+  static?: boolean
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -73,6 +74,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       variant = "primary",
       size = "medium",
       isLoading,
+      static: isStatic,
       disabled,
       children,
       ...props
@@ -85,19 +87,27 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || isLoading}
         aria-busy={isLoading || undefined}
         className={clsx(
-          "inline-flex gap-2 items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          variant === "primary" && "bg-[#E53946] text-white hover:bg-[#9F2335]",
+          "inline-flex items-center justify-center gap-2 rounded-md font-medium touch-manipulation motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:pointer-events-none disabled:opacity-50",
+          !isStatic && "motion-safe:active:scale-[0.96]",
+          variant === "primary" &&
+            "bg-action-primary text-content-inverse hover:bg-action-primary-hover",
           variant === "secondary" &&
-            "bg-[#1E1F74] text-white hover:bg-[#3A1E65]",
-          variant === "transparent" && "bg-transparent hover:bg-gray-100",
-          size === "small" && "h-8 px-3 text-sm",
-          size === "medium" && "h-10 px-4",
-          size === "large" && "h-12 px-6 text-lg",
+            "border border-line-subtle bg-surface-default text-content-primary hover:bg-surface-subtle",
+          variant === "transparent" &&
+            "bg-transparent text-content-primary hover:bg-surface-subtle",
+          size === "small" && "min-h-10 px-3 text-sm",
+          size === "medium" && "min-h-11 px-4",
+          size === "large" && "min-h-12 px-6 text-lg",
           className
         )}
         {...props}
       >
-        {isLoading && <span aria-hidden="true">Loading</span>}
+        {isLoading && (
+          <span
+            aria-hidden="true"
+            className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+          />
+        )}
         <span>{children}</span>
       </button>
     )
@@ -113,7 +123,7 @@ export const Container = forwardRef<HTMLDivElement, ContainerProps>(
     return (
       <div
         ref={ref}
-        className={clsx("bg-white rounded-lg p-4", className)}
+        className={clsx("bg-surface-default rounded-lg p-4", className)}
         {...props}
       >
         {children}
@@ -125,22 +135,21 @@ Container.displayName = "Container"
 
 // Badge Component
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  color?: "green" | "red" | "blue" | "orange" | "grey" | "purple"
+  variant?: "success" | "error" | "warning" | "info" | "neutral"
 }
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
-  ({ className, color = "grey", children, ...props }, ref) => {
+  ({ className, variant = "neutral", children, ...props }, ref) => {
     return (
       <span
         ref={ref}
         className={clsx(
           "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-          color === "green" && "bg-green-100 text-green-700",
-          color === "red" && "bg-red-100 text-red-700",
-          color === "blue" && "bg-blue-100 text-blue-700",
-          color === "orange" && "bg-orange-100 text-orange-700",
-          color === "grey" && "bg-gray-100 text-gray-700",
-          color === "purple" && "bg-purple-100 text-purple-700",
+          variant === "success" && "bg-success-background text-success-foreground",
+          variant === "error" && "bg-error-background text-error-foreground",
+          variant === "warning" && "bg-warning-background text-warning-foreground",
+          variant === "info" && "bg-info-background text-info-foreground",
+          variant === "neutral" && "bg-surface-subtle text-content-secondary",
           className
         )}
         {...props}
@@ -161,7 +170,7 @@ export const IconBadge = forwardRef<HTMLSpanElement, IconBadgeProps>(
       <span
         ref={ref}
         className={clsx(
-          "inline-flex items-center justify-center rounded-full bg-gray-100 p-1",
+          "inline-flex items-center justify-center rounded-full bg-surface-subtle p-1",
           className
         )}
         {...props}
@@ -174,16 +183,18 @@ export const IconBadge = forwardRef<HTMLSpanElement, IconBadgeProps>(
 IconBadge.displayName = "IconBadge"
 
 // IconButton Component
-type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement>
+type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  static?: boolean
+}
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, static: isStatic, ...props }, ref) => {
     return (
       <button
         ref={ref}
         className={clsx(
-          "inline-flex items-center justify-center rounded-md p-2 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2",
-          "min-h-10 min-w-10",
+          "inline-flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-md p-2 motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:pointer-events-none disabled:opacity-50",
+          !isStatic && "motion-safe:active:scale-[0.96]",
           className
         )}
         {...props}
@@ -216,25 +227,49 @@ Label.displayName = "Label"
 // Input Component
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string
+  error?: string
+  description?: string
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, ...props }, ref) => {
+  ({ className, label, error, description, ...props }, ref) => {
     const generatedId = useId()
     const inputId = props.id ?? generatedId
+    const descriptionId = `${inputId}-description`
+    const errorId = `${inputId}-error`
+    const describedBy = [
+      props["aria-describedby"],
+      description ? descriptionId : undefined,
+      error ? errorId : undefined,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined
 
     return (
       <div className="flex flex-col gap-1">
         {label && <Label htmlFor={inputId}>{label}</Label>}
         <input
+          {...props}
           ref={ref}
           id={inputId}
+          aria-invalid={error ? true : props["aria-invalid"]}
+          aria-describedby={describedBy}
           className={clsx(
-            "flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex min-h-11 w-full rounded-md border border-line-subtle bg-surface-default px-3 py-2 text-base text-content-primary placeholder:text-content-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50",
+            error && "border-error-foreground",
             className
           )}
-          {...props}
         />
+        {description && (
+          <p id={descriptionId} className="text-small-regular text-ui-fg-subtle">
+            {description}
+          </p>
+        )}
+        {error && (
+          <p id={errorId} className="text-small-regular text-error-foreground">
+            <span className="font-semibold">Error:</span> {error}
+          </p>
+        )}
       </div>
     )
   }
@@ -301,7 +336,7 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
       <tr
         ref={ref}
         className={clsx(
-          "border-b transition-colors hover:bg-gray-50",
+          "border-b border-line-subtle transition-colors hover:bg-surface-subtle",
           className
         )}
         {...props}
@@ -316,12 +351,13 @@ TableRow.displayName = "TableRow"
 type TableHeadProps = ThHTMLAttributes<HTMLTableCellElement>
 
 const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, scope = "col", ...props }, ref) => {
     return (
       <th
         ref={ref}
+        scope={scope}
         className={clsx(
-          "h-12 px-4 text-left align-middle font-medium text-gray-500 [&:has([role=checkbox])]:pr-0",
+          "h-12 px-4 text-left align-middle font-medium text-content-muted [&:has([role=checkbox])]:pr-0",
           className
         )}
         {...props}
@@ -393,7 +429,8 @@ const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
           type="radio"
           id={id}
           className={clsx(
-            "h-4 w-4 border-gray-300 text-gray-900 focus:ring-gray-900",
+            "h-4 w-4 border-line-subtle text-content-primary focus:ring-content-primary",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
             className
           )}
           {...props}
@@ -423,7 +460,8 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           type="checkbox"
           id={id}
           className={clsx(
-            "h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900",
+            "h-4 w-4 rounded border-line-subtle text-content-primary focus:ring-content-primary",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
             className
           )}
           {...props}

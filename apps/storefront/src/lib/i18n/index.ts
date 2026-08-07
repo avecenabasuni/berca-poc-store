@@ -6,6 +6,10 @@ export const idDictionary = {
     account: "Akun",
     cart: "Keranjang",
     shippingTo: "Pengiriman ke:",
+    closeMenu: "Tutup menu",
+    storeMenu: "Menu toko",
+    language: "Bahasa:",
+    updating: "Memperbarui…",
   },
   hero: {
     badge: "Koleksi Terbaru 2026",
@@ -49,6 +53,7 @@ export const idDictionary = {
     goToCheckout: "Lanjut ke Pembayaran",
   },
   checkout: {
+    title: "Pembayaran",
     secureTitle: "Pembayaran Aman & Terenkripsi",
     backToCart: "Kembali ke keranjang",
     summaryTitle: "Ringkasan Pesanan",
@@ -78,6 +83,10 @@ export const enDictionary = {
     account: "Account",
     cart: "Cart",
     shippingTo: "Shipping to:",
+    closeMenu: "Close menu",
+    storeMenu: "Store menu",
+    language: "Language:",
+    updating: "Updating…",
   },
   hero: {
     badge: "New Collection 2026",
@@ -121,6 +130,7 @@ export const enDictionary = {
     goToCheckout: "Go to Checkout",
   },
   checkout: {
+    title: "Checkout",
     secureTitle: "Secure & Encrypted Checkout",
     backToCart: "Back to shopping cart",
     summaryTitle: "Order Summary",

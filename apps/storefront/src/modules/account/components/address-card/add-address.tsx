@@ -1,7 +1,7 @@
 "use client"
 
 import { Plus } from "@medusajs/icons"
-import { Button, Heading } from "@modules/common/components/ui"
+import { Button } from "@modules/common/components/ui"
 import { useActionState, useEffect, useState } from "react"
 
 import { addCustomerAddress } from "@lib/data/customer"
@@ -56,9 +56,7 @@ const AddAddress = ({
       </button>
 
       <Modal isOpen={state} close={close} data-testid="add-address-modal">
-        <Modal.Title>
-          <Heading className="mb-2">Add address</Heading>
-        </Modal.Title>
+        <Modal.Title>Add address</Modal.Title>
         <form action={formAction}>
           <Modal.Body>
             <div className="flex flex-col gap-y-2">
@@ -109,7 +107,7 @@ const AddAddress = ({
                   label="City"
                   name="city"
                   required
-                  autoComplete="locality"
+                  autoComplete="address-level2"
                   data-testid="city-input"
                 />
               </div>
@@ -129,14 +127,16 @@ const AddAddress = ({
               <Input
                 label="Phone"
                 name="phone"
-                autoComplete="phone"
+                type="tel"
+                autoComplete="tel"
                 data-testid="phone-input"
               />
             </div>
             {formState.error && (
               <div
-                className="text-rose-500 text-small-regular py-2"
+                className="text-error-foreground text-small-regular py-2"
                 data-testid="address-error"
+                role="alert"
               >
                 {formState.error}
               </div>

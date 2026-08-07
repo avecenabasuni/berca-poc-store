@@ -1,4 +1,3 @@
-import { Checkbox, Label } from "@modules/common/components/ui"
 import React from "react"
 
 type CheckboxProps = {
@@ -20,25 +19,21 @@ const CheckboxWithLabel: React.FC<CheckboxProps> = ({
 }) => {
   const checkboxId = id || name || "checkbox"
   return (
-    <div className="flex items-center space-x-2 ">
-      <Checkbox
-        className="text-base-regular flex items-center gap-x-2"
+    <label
+      htmlFor={checkboxId}
+      className="flex min-h-11 cursor-pointer items-center gap-x-3 text-base-regular"
+    >
+      <input
+        type="checkbox"
         id={checkboxId}
-        role="checkbox"
         checked={checked}
-        readOnly
-        aria-checked={checked}
-        onClick={onChange}
+        onChange={() => onChange?.()}
         name={name}
         data-testid={dataTestId}
+        className="h-5 w-5 rounded border-ui-border-base text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       />
-      <Label
-        htmlFor={checkboxId}
-        className="!transform-none !txt-medium cursor-pointer"
-      >
-        {label}
-      </Label>
-    </div>
+      <span>{label}</span>
+    </label>
   )
 }
 

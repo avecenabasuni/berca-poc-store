@@ -62,12 +62,12 @@ const MobileActions: React.FC<MobileActionsProps> = ({
         <Transition
           as={Fragment}
           show={show}
-          enter="ease-in-out duration-300"
-          enterFrom="opacity-0"
+          enter="ease-out duration-200"
+          enterFrom="translate-y-3 opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-300"
+          leave="ease-out duration-150"
           leaveFrom="opacity-100"
-          leaveTo="opacity-0"
+          leaveTo="translate-y-3 opacity-0"
         >
           <div
             className="bg-white flex flex-col gap-y-3 justify-center items-center text-large-regular p-4 h-full w-full border-t border-gray-200"
@@ -140,7 +140,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
             enter="ease-out duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
-            leave="ease-in duration-200"
+            leave="ease-out duration-150"
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
@@ -154,18 +154,23 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 enter="ease-out duration-300"
                 enterFrom="opacity-0"
                 enterTo="opacity-100"
-                leave="ease-in duration-200"
+                leave="ease-out duration-150"
                 leaveFrom="opacity-100"
                 leaveTo="opacity-0"
               >
                 <Dialog.Panel
-                  className="w-full h-full transform overflow-hidden text-left flex flex-col gap-y-3"
+                  className="w-full h-full overflow-y-auto overscroll-contain text-left flex flex-col gap-y-3"
                   data-testid="mobile-actions-modal"
                 >
+                  <Dialog.Title className="sr-only">
+                    Select options for {product.title}
+                  </Dialog.Title>
                   <div className="w-full flex justify-end pr-6">
                     <button
+                      type="button"
+                      autoFocus
                       onClick={close}
-                      className="bg-white w-12 h-12 rounded-full text-ui-fg-base flex justify-center items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive"
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-ui-fg-base motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive motion-safe:active:scale-[0.96]"
                       data-testid="close-modal-button"
                       aria-label="Close"
                     >

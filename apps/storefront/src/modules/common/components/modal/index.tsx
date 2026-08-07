@@ -30,7 +30,7 @@ const Modal = ({
           enter="ease-out duration-300"
           enterFrom="opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-200"
+          leave="ease-out duration-150"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
@@ -52,20 +52,20 @@ const Modal = ({
               enter="ease-out duration-300"
               enterFrom="opacity-0 scale-95"
               enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
+              leave="ease-out duration-150"
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel
                 data-testid={dataTestId}
                 className={clx(
-                  "flex flex-col justify-start w-full transform p-5 text-left align-middle transition-all max-h-[75vh] h-fit",
+                  "flex h-fit max-h-[75vh] w-full flex-col justify-start overflow-y-auto overscroll-contain p-5 text-left align-middle",
                   {
                     "max-w-md": size === "small",
                     "max-w-xl": size === "medium",
                     "max-w-3xl": size === "large",
                     "bg-transparent shadow-none": search,
-                    "bg-white shadow-xl border rounded-rounded": !search,
+                    "surface-elevated rounded-rounded bg-white": !search,
                   }
                 )}
               >
@@ -83,18 +83,18 @@ const Title: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { close } = useModal()
 
   return (
-    <Dialog.Title className="flex items-center justify-between">
-      <div className="text-large-semi">{children}</div>
-      <div>
-        <button
-          onClick={close}
-          data-testid="close-modal-button"
-          aria-label="Close modal"
-          className="p-1 rounded-md text-ui-fg-subtle hover:text-ui-fg-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive"
-        >
-          <X size={20} aria-hidden="true" />
-        </button>
-      </div>
+    <Dialog.Title className="mb-2 flex min-h-11 items-center justify-between gap-4 text-large-semi">
+      <span>{children}</span>
+      <button
+        type="button"
+        autoFocus
+        onClick={close}
+        data-testid="close-modal-button"
+        aria-label="Close modal"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ui-fg-subtle hover:text-ui-fg-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      >
+        <X size={20} aria-hidden="true" />
+      </button>
     </Dialog.Title>
   )
 }

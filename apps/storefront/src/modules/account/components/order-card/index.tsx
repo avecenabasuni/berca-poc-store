@@ -23,7 +23,7 @@ const OrderCard = ({ order }: OrderCardProps) => {
   }, [order])
 
   return (
-    <div className="bg-white flex flex-col" data-testid="order-card">
+    <div className="bg-surface-default flex flex-col" data-testid="order-card">
       <div className="uppercase text-large-semi mb-1">
         #<span data-testid="order-display-id">{order.display_id}</span>
       </div>
@@ -49,7 +49,12 @@ const OrderCard = ({ order }: OrderCardProps) => {
               className="flex flex-col gap-y-2"
               data-testid="order-item"
             >
-              <Thumbnail thumbnail={i.thumbnail} images={[]} size="full" />
+              <Thumbnail
+                thumbnail={i.thumbnail}
+                images={[]}
+                size="full"
+                alt={i.title}
+              />
               <div className="flex items-center text-small-regular text-ui-fg-base">
                 <span
                   className="text-ui-fg-base font-semibold"
@@ -75,7 +80,7 @@ const OrderCard = ({ order }: OrderCardProps) => {
       <div className="flex justify-end">
         <LocalizedClientLink
           href={`/account/orders/details/${order.id}`}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-[#1E1F74] px-4 font-medium text-white hover:bg-[#3A1E65] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-line-subtle bg-surface-default px-4 font-medium text-content-primary motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
           data-testid="order-details-link"
         >
           See details

@@ -39,10 +39,8 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
     return (
       <div>
         <IconBadge
-          onFocus={() => innerRef.current?.focus()}
-          onBlur={() => innerRef.current?.blur()}
           className={clx(
-            "relative flex items-center txt-compact-small border text-ui-fg-base group focus-within:ring-2 focus-within:ring-ui-border-interactive",
+            "group relative flex items-center border text-ui-fg-base txt-compact-small focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
             className,
             {
               "text-ui-fg-subtle": isPlaceholder,
@@ -53,7 +51,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
             ref={innerRef}
             aria-label={props["aria-label"] || "Select quantity"}
             {...props}
-            className="appearance-none bg-transparent border-none px-4 transition-colors duration-150 focus:border-gray-700 outline-none w-16 h-16 items-center justify-center focus:outline-none"
+            className="h-16 w-16 appearance-none items-center justify-center border-none bg-transparent px-4 outline-none motion-safe:transition-colors"
           >
             <option disabled value="">
               {placeholder}

@@ -2,6 +2,48 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+:root {
+  --surface-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.06),
+    0 1px 2px -1px oklch(0 0 0 / 0.06),
+    0 2px 4px 0 oklch(0 0 0 / 0.04);
+  --surface-shadow-hover:
+    0 0 0 1px oklch(0 0 0 / 0.08),
+    0 1px 2px -1px oklch(0 0 0 / 0.08),
+    0 2px 4px 0 oklch(0 0 0 / 0.06);
+}
+
+.dark {
+  --surface-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
+  --surface-shadow-hover: 0 0 0 1px oklch(1 0 0 / 0.13);
+}
+
+@layer base {
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline-offset: 2px;
+  }
+
+  #main-content {
+    scroll-margin-top: 6rem;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -59,12 +101,25 @@
 }
 
 @layer components {
+  .surface-elevated {
+    box-shadow: var(--surface-shadow);
+  }
+
+  .surface-elevated-interactive {
+    box-shadow: var(--surface-shadow);
+    transition: box-shadow 150ms ease-out;
+  }
+
+  .surface-elevated-interactive:hover {
+    box-shadow: var(--surface-shadow-hover);
+  }
+
   .content-container {
     @apply max-w-[1440px] w-full mx-auto px-6;
   }
 
   .contrast-btn {
-    @apply px-4 py-2 border border-black rounded-full hover:bg-black hover:text-white transition-colors duration-200 ease-in;
+    @apply rounded-full border border-black px-4 py-2 transition-[background-color,color,scale] duration-150 ease-out hover:bg-black hover:text-white motion-safe:active:scale-[0.96];
   }
 
   .text-xsmall-regular {

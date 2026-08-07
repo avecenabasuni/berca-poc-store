@@ -168,7 +168,9 @@ const ProfileBillingAddress: React.FC<MyInformationProps> = ({
             data-testid="billing-province-input"
           />
           <NativeSelect
+            label="Country"
             name="country_code"
+            autoComplete="country"
             defaultValue={billingAddress?.country_code || undefined}
             required
             data-testid="billing-country-code-select"

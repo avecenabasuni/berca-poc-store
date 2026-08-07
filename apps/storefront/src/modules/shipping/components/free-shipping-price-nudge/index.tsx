@@ -142,14 +142,14 @@ function FreeShippingInline({
   }
 }) {
   return (
-    <div className="bg-neutral-100 p-2 rounded-lg border">
+    <div className="bg-surface-subtle p-2 rounded-lg border border-line-subtle">
       <div className="space-y-1.5">
-        <div className="flex justify-between text-xs text-neutral-600">
+        <div className="flex justify-between text-xs text-content-secondary">
           <div>
             {price.target_reached ? (
               <div className="flex items-center gap-1.5">
                 {" "}
-                <CheckCircleSolid className="text-green-500 inline-block" aria-hidden="true" />{" "}
+                <CheckCircleSolid className="text-success-indicator inline-block" aria-hidden="true" />{" "}
                 Free Shipping unlocked!
               </div>
             ) : (
@@ -163,7 +163,7 @@ function FreeShippingInline({
             })}
           >
             Only{" "}
-            <span className="text-neutral-950">
+            <span className="text-content-primary">
               {convertToLocale({
                 amount: price.target_remaining,
                 currency_code: cart.currency_code,
@@ -175,14 +175,14 @@ function FreeShippingInline({
         <div className="flex justify-between gap-1">
           <div
             className={clx(
-              "bg-gradient-to-r from-zinc-400 to-zinc-500 h-1 rounded-full max-w-full duration-500 ease-in-out",
+              "h-1 max-w-full rounded-full bg-content-muted motion-safe:transition-[width] motion-safe:duration-150 motion-safe:ease-out",
               {
-                "from-green-400 to-green-500": price.target_reached,
+                "bg-success-indicator": price.target_reached,
               }
             )}
             style={{ width: `${price.remaining_percentage}%` }}
           ></div>
-          <div className="bg-neutral-300 h-1 rounded-full w-fit flex-grow"></div>
+          <div className="bg-line-subtle h-1 rounded-full w-fit flex-grow"></div>
         </div>
       </div>
     </div>
@@ -201,11 +201,11 @@ function FreeShippingPopup({
   return (
     <div
       className={clx(
-        "fixed bottom-5 right-5 flex flex-col items-end gap-2 transition-all duration-500 ease-in-out z-10",
+        "fixed bottom-5 right-5 z-10 flex flex-col items-end gap-2 motion-safe:transition-[opacity,transform] motion-safe:duration-150 motion-safe:ease-out",
         {
-          "opacity-0 invisible delay-1000": price.target_reached,
-          "opacity-0 invisible": isClosed,
-          "opacity-100 visible": !price.target_reached && !isClosed,
+          "invisible translate-y-3 opacity-0 delay-1000": price.target_reached,
+          "invisible translate-y-3 opacity-0": isClosed,
+          "visible translate-y-0 opacity-100": !price.target_reached && !isClosed,
         }
       )}
     >
@@ -219,7 +219,7 @@ function FreeShippingPopup({
       </p>
       <div>
         <Button
-          className="rounded-full bg-neutral-900 shadow-none outline-none border-none text-[15px] p-2 focus-visible:ring-2 focus-visible:ring-white"
+          className="min-h-11 min-w-11 rounded-full bg-neutral-900 p-2 text-[15px] shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           onClick={() => setIsClosed(true)}
           aria-label="Close free shipping notification"
         >
@@ -227,14 +227,14 @@ function FreeShippingPopup({
         </Button>
       </div>
 
-      <div className="w-[400px] bg-black text-white p-6 rounded-lg ">
+      <div className="surface-elevated w-[400px] rounded-lg bg-black p-6 text-white">
         <div className="pb-4">
           <div className="space-y-3">
             <div className="flex justify-between text-[15px] text-neutral-400">
               <div>
                 {price.target_reached ? (
                   <div className="flex items-center gap-1.5">
-                    <CheckCircleSolid className="text-green-500 inline-block" aria-hidden="true" />{" "}
+                    <CheckCircleSolid className="text-success-indicator inline-block" aria-hidden="true" />{" "}
                     Free Shipping unlocked!
                   </div>
                 ) : (
@@ -260,9 +260,9 @@ function FreeShippingPopup({
             <div className="flex justify-between gap-1">
               <div
                 className={clx(
-                  "bg-gradient-to-r from-zinc-400 to-zinc-500 h-1.5 rounded-full max-w-full duration-500 ease-in-out",
+                  "h-1.5 max-w-full rounded-full bg-content-muted motion-safe:transition-[width] motion-safe:duration-150 motion-safe:ease-out",
                   {
-                    "from-green-400 to-green-500": price.target_reached,
+                    "bg-success-indicator": price.target_reached,
                   }
                 )}
                 style={{ width: `${price.remaining_percentage}%` }}
@@ -274,14 +274,14 @@ function FreeShippingPopup({
 
         <div className="flex gap-3">
           <LocalizedClientLink
-            className="rounded-2xl bg-transparent shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4 focus-visible:ring-2 focus-visible:ring-white"
+            className="rounded-2xl border border-white bg-transparent px-4 py-2.5 text-[15px] shadow-none outline-none motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out focus-visible:ring-2 focus-visible:ring-white motion-safe:active:scale-[0.96]"
             href="/cart"
           >
             View cart
           </LocalizedClientLink>
 
           <LocalizedClientLink
-            className="flex-grow rounded-2xl bg-white text-neutral-950 shadow-none outline-none border-[1px] border-white text-[15px] py-2.5 px-4 text-center focus-visible:ring-2 focus-visible:ring-white"
+            className="flex-grow rounded-2xl border border-white bg-white px-4 py-2.5 text-center text-[15px] text-neutral-950 shadow-none outline-none motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out focus-visible:ring-2 focus-visible:ring-white motion-safe:active:scale-[0.96]"
             href="/store"
           >
             View products

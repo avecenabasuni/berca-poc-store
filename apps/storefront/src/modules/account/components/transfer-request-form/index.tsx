@@ -51,14 +51,14 @@ export default function TransferRequestForm() {
         </form>
       </div>
       {!state.success && state.error && (
-        <Text className="text-base-regular text-rose-500 text-right" role="alert">
+        <Text className="text-base-regular text-error-foreground text-right" role="alert">
           {state.error}
         </Text>
       )}
       {showSuccess && (
         <div className="flex justify-between p-4 bg-neutral-50 shadow-borders-base w-full self-stretch items-center">
           <div className="flex gap-x-2 items-center">
-            <CheckCircleMiniSolid className="w-4 h-4 text-emerald-500" />
+            <CheckCircleMiniSolid className="w-4 h-4 text-success-indicator" />
             <div className="flex flex-col gap-y-1">
               <Text className="text-medim-pl text-neutral-950">
                 Transfer for order {state.order?.id} requested
@@ -69,7 +69,7 @@ export default function TransferRequestForm() {
             </div>
           </div>
           <IconButton
-            className="h-fit"
+            className="min-h-11 min-w-11"
             onClick={() => setShowSuccess(false)}
             aria-label="Dismiss transfer confirmation"
           >

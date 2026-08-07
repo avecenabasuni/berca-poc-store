@@ -15,20 +15,20 @@ const CheckoutSummary = ({ cart }: { cart: HttpTypes.StoreCart }) => {
 
   return (
     <div className="sticky top-24 flex flex-col-reverse small:flex-col gap-y-8 py-8 small:py-0">
-      <div className="w-full bg-white p-6 sm:p-8 rounded-2xl border border-[#CFCFD4]/60 shadow-sm flex flex-col">
+      <div className="surface-elevated flex w-full flex-col rounded-2xl bg-surface-default p-6 sm:p-8">
         <Divider className="my-4 small:hidden" />
         <Heading
           level="h2"
-          className="flex flex-row text-2xl font-bold text-[#1E1F74] items-baseline justify-between"
+          className="flex flex-row items-baseline justify-between text-2xl font-bold text-content-primary"
         >
           <span>{t.summaryTitle}</span>
         </Heading>
-        <Divider className="my-4 border-[#CFCFD4]/50" />
+        <Divider className="my-4 border-line-subtle/50" />
         <CartTotals totals={cart} />
         <div className="my-4">
           <ItemsPreviewTemplate cart={cart} />
         </div>
-        <div className="mt-4 pt-4 border-t border-[#CFCFD4]/50">
+        <div className="mt-4 border-t border-line-subtle/50 pt-4">
           <DiscountCode cart={cart} />
         </div>
       </div>

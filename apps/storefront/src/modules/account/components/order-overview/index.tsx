@@ -32,7 +32,7 @@ const OrderOverview = ({ orders }: { orders: HttpTypes.StoreOrder[] }) => {
       <div className="mt-4">
         <LocalizedClientLink
           href="/"
-          className="inline-flex h-10 items-center justify-center rounded-md bg-[#E53946] px-4 font-medium text-white hover:bg-[#9F2335] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center justify-center rounded-md bg-action-primary px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
           data-testid="continue-shopping-button"
         >
           Continue shopping

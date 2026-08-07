@@ -67,19 +67,20 @@ const AccountInfo = ({
         </div>
       </div>
 
-      {/* Success state */}
-      {isSuccess && (
-        <div className="motion-reduce:transition-none" data-testid="success-message">
-          <Badge className="p-2 my-4" color="green" role="status">
-            <span>{label} updated succesfully</span>
-          </Badge>
-        </div>
-      )}
+      <div role="status" aria-atomic="true">
+        {isSuccess && (
+          <div className="motion-reduce:transition-none" data-testid="success-message">
+            <Badge className="p-2 my-4" variant="success">
+              <span>{label} updated successfully</span>
+            </Badge>
+          </div>
+        )}
+      </div>
 
       {/* Error state  */}
       {isError && (
         <div className="motion-reduce:transition-none" data-testid="error-message">
-          <Badge className="p-2 my-4" color="red" role="alert">
+          <Badge className="p-2 my-4" variant="error" role="alert">
             <span>{errorMessage}</span>
           </Badge>
         </div>

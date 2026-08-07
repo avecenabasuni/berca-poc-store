@@ -104,7 +104,7 @@ const OptionsPicker = ({
               className="overflow-hidden"
             >
               <Accordion.Header>
-                <Accordion.Trigger className="flex w-full items-center justify-between py-3 text-left">
+                <Accordion.Trigger className="flex min-h-11 w-full items-center justify-between rounded-sm py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
                   <div className="flex items-center gap-2">
                     <span className="txt-compact-small-plus text-ui-fg-base">
                       {option.title || "Option"}
@@ -115,7 +115,7 @@ const OptionsPicker = ({
                   </div>
                   <span
                     className={clsx(
-                      "flex h-7 w-7 items-center justify-center text-ui-fg-muted transition-transform duration-150",
+                      "flex h-7 w-7 items-center justify-center text-ui-fg-muted motion-safe:transition-transform duration-150",
                       {
                         "rotate-180": isOpen,
                       }
@@ -137,7 +137,7 @@ const OptionsPicker = ({
                         className={clsx(
                           "border-ui-border-base border text-small-regular h-10 rounded-rounded px-3 flex items-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
                           {
-                            "border-ui-border-interactive text-ui-fg-base":
+                            "border-2 border-ui-border-interactive font-semibold text-ui-fg-base":
                               isSelected,
                             "text-ui-fg-muted hover:text-ui-fg-base":
                               !isSelected,
@@ -145,6 +145,7 @@ const OptionsPicker = ({
                         )}
                         aria-pressed={isSelected}
                       >
+                        {isSelected && <span className="sr-only">Selected: </span>}
                         {value.label}
                       </button>
                     )

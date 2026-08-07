@@ -14,13 +14,24 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
   return (
     <div>
       <div className="pb-3 flex items-center">
-        <Heading className="text-[2rem] leading-[2.75rem]">Cart</Heading>
+        <Heading level="h1" className="text-[2rem] leading-[2.75rem]">
+          Cart
+        </Heading>
       </div>
-      <Table>
-        <Table.Header className="border-t-0">
+      <div
+        className="overflow-x-auto overscroll-x-contain"
+        role="region"
+        aria-label="Shopping cart products"
+        tabIndex={0}
+      >
+        <Table>
+          <caption className="sr-only">Products in your shopping cart</caption>
+          <Table.Header className="border-t-0">
           <Table.Row className="text-ui-fg-subtle txt-medium-plus">
-            <Table.HeaderCell className="!pl-0">Item</Table.HeaderCell>
-            <Table.HeaderCell></Table.HeaderCell>
+            <Table.HeaderCell className="!pl-0">
+              <span className="sr-only">Product image</span>
+            </Table.HeaderCell>
+            <Table.HeaderCell>Item</Table.HeaderCell>
             <Table.HeaderCell>Quantity</Table.HeaderCell>
             <Table.HeaderCell className="hidden small:table-cell">
               Price
@@ -29,8 +40,8 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
               Total
             </Table.HeaderCell>
           </Table.Row>
-        </Table.Header>
-        <Table.Body>
+          </Table.Header>
+          <Table.Body>
           {items
             ? items
                 .sort((a, b) => {
@@ -48,8 +59,9 @@ const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
             : repeat(5).map((i) => {
                 return <SkeletonLineItem key={i} />
               })}
-        </Table.Body>
-      </Table>
+          </Table.Body>
+        </Table>
+      </div>
     </div>
   )
 }

@@ -8,12 +8,13 @@ import {
   Transition,
 } from "@headlessui/react"
 import { Fragment, useEffect, useMemo, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import ReactCountryFlag from "react-country-flag"
 
-import { StateType } from "@lib/hooks/use-toggle-state"
 import { updateLocale } from "@lib/data/locale-actions"
 import { Locale } from "@lib/data/locales"
+import { clx } from "@modules/common/components/ui"
+import { getDictionary } from "@lib/i18n"
 
 type LanguageOption = {
   code: string
@@ -37,7 +38,6 @@ const getCountryCodeFromLocale = (localeCode: string): string => {
 }
 
 type LanguageSelectProps = {
-  toggleState: StateType
   locales: Locale[]
   currentLocale: string | null
 }
@@ -69,15 +69,14 @@ const DEFAULT_OPTION: LanguageOption = {
 }
 
 const LanguageSelect = ({
-  toggleState,
   locales,
   currentLocale,
 }: LanguageSelectProps) => {
   const [current, setCurrent] = useState<LanguageOption | undefined>(undefined)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
-
-  const { state, close } = toggleState
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode).nav
 
   const options = useMemo(() => {
     const localeOptions = locales.map((locale) => ({
@@ -107,7 +106,6 @@ const LanguageSelect = ({
   const handleChange = (option: LanguageOption) => {
     startTransition(async () => {
       await updateLocale(option.code)
-      close()
       router.refresh()
     })
   }
@@ -115,73 +113,69 @@ const LanguageSelect = ({
   return (
     <div>
       <Listbox
-        as="span"
         onChange={handleChange}
-        defaultValue={
-          currentLocale
-            ? options.find(
-                (o) => o.code.toLowerCase() === currentLocale.toLowerCase()
-              ) ?? DEFAULT_OPTION
-            : DEFAULT_OPTION
-        }
+        value={current ?? DEFAULT_OPTION}
         disabled={isPending}
       >
-        <ListboxButton className="py-1 w-full">
-          <div className="txt-compact-small flex items-start gap-x-2">
-            <span>Language:</span>
-            {current && (
-              <span className="txt-compact-small flex items-center gap-x-2">
-                {current.countryCode && (
-                  <ReactCountryFlag
-                    svg
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                    }}
-                    countryCode={current.countryCode}
-                  />
+        {({ open }) => (
+          <>
+            <ListboxButton className="flex min-h-11 w-full items-center rounded-sm px-2 py-1 text-left motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out hover:bg-content-inverse/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse">
+              <span className="txt-compact-small flex flex-wrap items-center gap-x-2">
+                <span>{t.language}</span>
+                {current && (
+                  <span className="txt-compact-small flex items-center gap-x-2">
+                    {current.countryCode && (
+                      <ReactCountryFlag
+                        svg
+                        aria-hidden="true"
+                        style={{ width: "16px", height: "16px" }}
+                        countryCode={current.countryCode}
+                      />
+                    )}
+                    {isPending ? t.updating : current.localizedName}
+                  </span>
                 )}
-                {isPending ? "..." : current.localizedName}
               </span>
-            )}
-          </div>
-        </ListboxButton>
-        <div className="flex relative w-full min-w-[320px]">
-          <Transition
-            show={state}
-            as={Fragment}
-            leave="transition ease-in duration-150"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <ListboxOptions
-              className="absolute -bottom-[calc(100%-36px)] left-0 xsmall:left-auto xsmall:right-0 max-h-[442px] overflow-y-scroll z-[900] bg-white drop-shadow-md text-small-regular uppercase text-black no-scrollbar rounded-rounded w-full"
-              static
-            >
-              {options.map((o) => (
-                <ListboxOption
-                  key={o.code || "default"}
-                  value={o}
-                  className="py-2 hover:bg-gray-200 px-3 cursor-pointer flex items-center gap-x-2"
-                >
-                  {o.countryCode ? (
-                    <ReactCountryFlag
-                      svg
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                      }}
-                      countryCode={o.countryCode}
-                    />
-                  ) : (
-                    <span style={{ width: "16px", height: "16px" }} />
-                  )}
-                  {o.localizedName}
-                </ListboxOption>
-              ))}
-            </ListboxOptions>
-          </Transition>
-        </div>
+            </ListboxButton>
+            <div className="relative flex w-full min-w-0">
+              <Transition
+                show={open}
+                as={Fragment}
+                leave="transition ease-out duration-150"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
+              >
+                <ListboxOptions className="surface-elevated absolute bottom-11 left-0 z-[900] max-h-[min(442px,60vh)] w-full min-w-0 overflow-y-auto rounded-rounded bg-surface-default text-small-regular uppercase text-content-primary focus:outline-none">
+                  {options.map((o) => (
+                    <ListboxOption
+                      key={o.code || "default"}
+                      value={o}
+                      className={({ focus, selected }) =>
+                        clx(
+                          "flex min-h-11 cursor-pointer items-center gap-x-2 px-3 py-2 motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out",
+                          focus && "bg-surface-subtle outline-none",
+                          selected && "font-semibold text-content-primary"
+                        )
+                      }
+                    >
+                      {o.countryCode ? (
+                        <ReactCountryFlag
+                          svg
+                          aria-hidden="true"
+                          style={{ width: "16px", height: "16px" }}
+                          countryCode={o.countryCode}
+                        />
+                      ) : (
+                        <span aria-hidden="true" className="h-4 w-4" />
+                      )}
+                      {o.localizedName}
+                    </ListboxOption>
+                  ))}
+                </ListboxOptions>
+              </Transition>
+            </div>
+          </>
+        )}
       </Listbox>
     </div>
   )

@@ -58,7 +58,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
   }
 
   return (
-    <div className="w-full bg-white flex flex-col">
+    <div className="w-full bg-surface-default flex flex-col">
       <div className="txt-medium">
         <form action={(a) => addPromotionCode(a)} className="w-full mb-5">
           <Label className="flex gap-x-1 my-2 items-center">
@@ -66,7 +66,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
               onClick={() => setIsOpen(!isOpen)}
               type="button"
               aria-expanded={isOpen}
-              className="text-xs font-semibold text-[#1E1F74] hover:text-[#E53946] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
+              className="rounded-sm text-xs font-semibold text-content-primary hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               data-testid="add-discount-button"
             >
               + {countryCode === "id" ? "Tambahkan Kode Diskon" : "Add Discount Code"}
@@ -118,7 +118,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     <Text className="flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1">
                       <span className="truncate" data-testid="discount-code">
                         <Badge
-                          color={promotion.is_automatic ? "green" : "grey"}
+                          variant={promotion.is_automatic ? "success" : "neutral"}
                         >
                           {promotion.code}
                         </Badge>{" "}
@@ -148,7 +148,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     </Text>
                     {!promotion.is_automatic && (
                       <button
-                        className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive rounded-sm"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                         onClick={() => {
                           if (!promotion.code) {
                             return

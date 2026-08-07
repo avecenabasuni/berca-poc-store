@@ -6,7 +6,7 @@ const Radio = ({ checked, 'data-testid': dataTestId }: { checked: boolean, 'data
       className="group relative flex h-5 w-5 items-center justify-center rounded-full"
       data-testid={dataTestId || 'radio-indicator'}
     >
-      <span className="shadow-borders-base group-hover:shadow-borders-strong-with-shadow bg-ui-bg-base group-data-[state=checked]:bg-ui-bg-interactive group-data-[state=checked]:shadow-borders-interactive group-disabled:!bg-ui-bg-disabled group-disabled:!shadow-borders-base flex h-[14px] w-[14px] items-center justify-center rounded-full transition-all">
+      <span className="flex h-[14px] w-[14px] items-center justify-center rounded-full bg-ui-bg-base shadow-borders-base motion-safe:transition-[background-color,box-shadow] motion-safe:duration-150 motion-safe:ease-out group-hover:shadow-borders-strong-with-shadow group-data-[state=checked]:bg-ui-bg-interactive group-data-[state=checked]:shadow-borders-interactive group-disabled:!bg-ui-bg-disabled group-disabled:!shadow-borders-base">
           {checked && (
             <span
               data-state={checked ? "checked" : "unchecked"}

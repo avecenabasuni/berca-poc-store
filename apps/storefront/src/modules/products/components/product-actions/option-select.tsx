@@ -38,14 +38,16 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
               className={clx(
                 "border-ui-border-base bg-ui-bg-subtle border text-small-regular h-10 rounded-rounded p-2 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
                 {
-                  "border-ui-border-interactive": v === current,
-                  "hover:shadow-elevation-card-rest transition-shadow ease-in-out duration-150":
+                  "border-2 border-ui-border-interactive font-semibold":
+                    v === current,
+                  "shadow-elevation-card-rest motion-safe:transition-[box-shadow,scale] motion-safe:duration-150 motion-safe:ease-out hover:shadow-elevation-card-hover motion-safe:active:scale-[0.96]":
                     v !== current,
                 }
               )}
               disabled={disabled}
               data-testid="option-button"
             >
+              {v === current && <span className="sr-only">Selected: </span>}
               {v}
             </button>
           )

@@ -34,7 +34,7 @@ const PaymentContainer: React.FC<PaymentContainerProps> = ({
       value={paymentProviderId}
       disabled={disabled}
       className={clx(
-        "flex flex-col gap-y-2 text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active",
+        "flex min-h-11 flex-col gap-y-2 text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         {
           "border-ui-border-interactive":
             selectedPaymentOptionId === paymentProviderId,
@@ -92,7 +92,7 @@ export const StripeCardContainer = ({
         },
       },
       classes: {
-        base: "pt-3 pb-1 block w-full h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active border-ui-border-base hover:bg-ui-bg-field-hover transition-all duration-300 ease-in-out",
+        base: "mt-0 block h-11 w-full appearance-none rounded-md border border-ui-border-base bg-ui-bg-field px-4 pb-1 pt-3 focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active motion-safe:transition-[background-color,box-shadow] motion-safe:duration-150 motion-safe:ease-out hover:bg-ui-bg-field-hover",
       },
     }
   }, [])
@@ -106,7 +106,7 @@ export const StripeCardContainer = ({
     >
       {selectedPaymentOptionId === paymentProviderId &&
         (stripeReady ? (
-          <div className="my-4 transition-all duration-150 ease-in-out">
+          <div className="my-4">
             <Text className="txt-medium-plus text-ui-fg-base mb-1">
               Enter your card details:
             </Text>

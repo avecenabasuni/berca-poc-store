@@ -1,5 +1,68 @@
 const path = require("path")
 
+const brandColors = {
+  indigo: "#1E1F74",
+  purple: "#3A1E65",
+  plum: "#582158",
+  berry: "#782046",
+  crimson: "#9F2335",
+  coral: "#E53946",
+  white: "#FFFFFF",
+  offwhite: "#F5F5F7",
+  muted: "#CFCFD4",
+  black: "#000000",
+}
+
+const semanticColors = {
+  content: {
+    primary: "#1E1F74",
+    secondary: "#52525B",
+    muted: "#63636F",
+    inverse: "#FFFFFF",
+    "inverse-muted": "#CFCFD4",
+    interactive: "#9F2335",
+  },
+  surface: {
+    default: "#FFFFFF",
+    subtle: "#F5F5F7",
+    inverse: "#1E1F74",
+    "inverse-raised": "#3A1E65",
+  },
+  action: {
+    primary: "#9F2335",
+    "primary-hover": "#782046",
+  },
+  line: {
+    subtle: "#CFCFD4",
+    strong: "#1E1F74",
+  },
+  focus: "#1E1F74",
+  accent: {
+    decorative: "#E53946",
+    "on-inverse": "#FFB3B8",
+  },
+  success: {
+    foreground: "#166534",
+    background: "#DCFCE7",
+    indicator: "#16A34A",
+  },
+  error: {
+    foreground: "#BE123C",
+    background: "#FFF1F2",
+    indicator: "#E11D48",
+  },
+  warning: {
+    foreground: "#9A3412",
+    background: "#FFEDD5",
+    indicator: "#EA580C",
+  },
+  info: {
+    foreground: "#1D4ED8",
+    background: "#DBEAFE",
+    indicator: "#2563EB",
+  },
+}
+
 module.exports = {
   darkMode: "class",
   presets: [require("@medusajs/ui-preset")],
@@ -20,18 +83,8 @@ module.exports = {
         padding: "padding-top padding-right padding-bottom padding-left",
       },
       colors: {
-        brand: {
-          indigo: "#1E1F74",
-          purple: "#3A1E65",
-          plum: "#582158",
-          berry: "#782046",
-          crimson: "#9F2335",
-          coral: "#E53946",
-          white: "#FFFFFF",
-          offwhite: "#F5F5F7",
-          muted: "#CFCFD4",
-          black: "#000000",
-        },
+        brand: brandColors,
+        ...semanticColors,
         grey: {
           0: "#FFFFFF",
           5: "#F9FAFB",
