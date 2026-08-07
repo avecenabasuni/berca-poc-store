@@ -12,7 +12,7 @@ RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 
-RUN chmod +x start.sh start-storefront.sh
+RUN chmod +x start.sh
 
 EXPOSE 9000 5173 8000
 

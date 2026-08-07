@@ -20,13 +20,17 @@ export default async function Home(props: {
 
   const { countryCode } = params
 
-  const region = await getRegion(countryCode)
-
-  const { collections } = await listCollections({
-    fields: "id, handle, title",
-  })
-
-  const productCategories = await listCategories()
+  const [region, { collections }, productCategories] = await Promise.all([
+    getRegion(countryCode),
+    listCollections({
+      fields: "id, handle, title",
+    }),
+    listCategories({
+      fields: "id,name,handle",
+      limit: 8,
+      parent_category_id: null,
+    }),
+  ])
 
   if (!collections || !region) {
     return null

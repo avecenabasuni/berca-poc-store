@@ -17,13 +17,14 @@ export default async function Checkout(props: {
 }) {
   const { countryCode } = await props.params
   const t = getDictionary(countryCode).checkout
-  const cart = await retrieveCart(undefined, undefined, countryCode)
+  const [cart, customer] = await Promise.all([
+    retrieveCart(undefined, undefined, countryCode),
+    retrieveCustomer(),
+  ])
 
   if (!cart) {
     return notFound()
   }
-
-  const customer = await retrieveCustomer()
 
   return (
     <div className="content-container py-12">

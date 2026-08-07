@@ -20,9 +20,11 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
-  const locale = await getLocale()
-  const customer = await retrieveCustomer()
-  const cart = await retrieveCart(undefined, undefined, countryCode)
+  const [locale, customer, cart] = await Promise.all([
+    getLocale(),
+    retrieveCustomer(),
+    retrieveCart(undefined, undefined, countryCode),
+  ])
   let shippingOptions: StoreCartShippingOption[] = []
 
   if (cart) {

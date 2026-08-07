@@ -86,6 +86,38 @@ ignored `apps/backend/.env`. Keep ports 8000 and 9000 restricted to the trusted
 Lab network. Server-side storefront requests use `http://medusa:9000`; only a
 user's browser uses the public backend URL.
 
+The Docker storefront is a production-only Next.js server. Its public URLs and
+publishable key are compiled into the browser bundle, so changing any of the
+three values above requires rebuilding the storefront image:
+
+```bash
+docker compose build storefront
+docker compose up -d storefront
+```
+
+The container runs `next start`, has no source or build-output bind mounts, and
+uses `/api/healthz` for its Docker healthcheck. That endpoint is intentionally
+local-only in behavior: it does not fetch Medusa, cart, customer, database, or
+disk state.
+
+After one warm-up request, a simple server-TTFB check on the VM is:
+
+```bash
+curl -fsS http://127.0.0.1:8000/api/healthz
+curl -so /dev/null http://127.0.0.1:8000/id
+for path in /id /id/checkout; do
+  for run in $(seq 1 10); do
+    curl -so /dev/null -w "$path run=$run ttfb=%{time_starttransfer}s total=%{time_total}s\n" \
+      "http://127.0.0.1:8000$path"
+  done
+done
+```
+
+Run the checkout measurement with a valid cart cookie when comparing the exact
+checkout trace; a request without a cart may return `404` and is not a useful
+checkout performance sample. The target is warm TTFB p95 below one second and
+the first request after a storefront restart below two seconds.
+
 Human storefront validation from another Lab machine:
 
 1. Open `http://<VM_IP>:8000/id`.
@@ -230,7 +262,7 @@ export DD_API_KEY='<INJECTED_ON_VM>'
 cp -n .env.example .env
 # Set MEDUSA_PUBLISHABLE_KEY, STOREFRONT_PUBLIC_URL, and MEDUSA_PUBLIC_URL.
 # Add the Lab storefront origin to apps/backend/.env CORS values.
-docker compose up -d postgres redis pgbouncer medusa storefront \
+docker compose up -d --build postgres redis pgbouncer medusa storefront \
   traffic-generator log-generator datadog-agent
 ./demo-control.sh reset
 ./demo-control.sh status
