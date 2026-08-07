@@ -14,8 +14,8 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
   return (
     <footer className="w-full border-t border-surface-inverse-raised bg-surface-inverse text-content-inverse">
       <div className="content-container flex flex-col w-full">
-        <div className="flex flex-col gap-y-10 xsmall:flex-row items-start justify-between py-16 small:py-20">
-          <div className="flex flex-col gap-y-4 max-w-sm">
+        <div className="flex flex-col items-start justify-between gap-y-10 py-16 small:flex-row small:gap-x-12 small:py-20">
+          <div className="flex w-full flex-col gap-y-4 small:max-w-sm">
             <LocalizedClientLink
               href="/"
               className="text-2xl font-bold tracking-tight text-content-inverse hover:underline motion-safe:transition-colors uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
@@ -26,7 +26,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
               {t.description}
             </Text>
           </div>
-          <div className="text-sm gap-10 md:gap-x-16 grid grid-cols-2 sm:grid-cols-3">
+          <div className="grid w-full grid-cols-2 gap-10 text-sm small:flex-1 small:grid-cols-3 small:gap-x-12">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-3">
                 <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
@@ -64,7 +64,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                           {c.name}
                         </LocalizedClientLink>
                         {children && (
-                          <ul className="grid grid-cols-1 ml-3 gap-2">
+                          <ul className="[margin-inline-start:0.75rem] grid grid-cols-1 gap-2">
                             {children &&
                               children.map((child) => (
                                 <li key={child.id}>
@@ -152,7 +152,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
             </div>
           </div>
         </div>
-        <div className="flex w-full items-center justify-between border-t border-surface-inverse-raised py-8 text-xs text-content-inverse-muted">
+        <div className="flex w-full flex-col items-start gap-3 border-t border-surface-inverse-raised py-8 text-xs text-content-inverse-muted xsmall:flex-row xsmall:items-center xsmall:justify-between">
           <Text className="text-xs">
             © {new Date().getFullYear()} Berca Store. {t.allRightsReserved}
           </Text>

@@ -77,10 +77,10 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
               leaveTo="opacity-0 -translate-x-full"
             >
               <Dialog.Panel
-                className="fixed inset-y-0 left-0 flex h-full w-full max-w-[400px] flex-col overflow-y-auto overscroll-contain bg-surface-inverse text-sm text-content-inverse shadow-2xl"
+                className="fixed inset-y-0 [inset-inline-start:0] flex h-full w-full max-w-[400px] flex-col overflow-y-auto overscroll-contain bg-surface-inverse text-sm text-content-inverse shadow-2xl"
                 data-testid="nav-menu-popup"
               >
-                <div className="flex min-h-full flex-col justify-between border-r border-surface-inverse-raised p-6 xsmall:p-8">
+                <div className="flex min-h-full flex-col justify-between [border-inline-end-width:1px] border-surface-inverse-raised p-6 xsmall:p-8">
                   <div>
                     <div className="flex min-h-11 items-center justify-between border-b border-content-inverse/15 pb-5">
                       <Dialog.Title

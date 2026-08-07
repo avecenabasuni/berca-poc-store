@@ -73,7 +73,7 @@ const AddressSelect = ({
                   value={address.id}
                   className={({ focus, selected }) =>
                     clx(
-                      "relative cursor-default select-none py-4 pl-6 pr-10 motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out",
+                      "relative cursor-default select-none py-4 [padding-inline-start:1.5rem] [padding-inline-end:2.5rem] motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out",
                       focus && "bg-gray-100 outline-none",
                       selected && "font-semibold text-content-primary"
                     )

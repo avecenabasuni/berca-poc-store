@@ -65,7 +65,7 @@ const OptionsPicker = ({
         type="multiple"
         value={openItems}
         onValueChange={(values) => setOpenItems(values as string[])}
-        className="flex flex-col gap-y-3 pr-6"
+        className="flex flex-col gap-y-3 [padding-inline-end:1.5rem]"
       >
         {options.map((option) => {
           const values =

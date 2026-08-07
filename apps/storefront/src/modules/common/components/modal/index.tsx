@@ -59,13 +59,13 @@ const Modal = ({
               <Dialog.Panel
                 data-testid={dataTestId}
                 className={clx(
-                  "flex h-fit max-h-[75vh] w-full flex-col justify-start overflow-y-auto overscroll-contain p-5 text-left align-middle",
+                  "flex h-fit max-h-[calc(100dvh-2rem)] w-full flex-col justify-start overflow-hidden p-5 text-left align-middle",
                   {
                     "max-w-md": size === "small",
                     "max-w-xl": size === "medium",
                     "max-w-3xl": size === "large",
                     "bg-transparent shadow-none": search,
-                    "surface-elevated rounded-rounded bg-white": !search,
+                    "surface-elevated rounded-rounded bg-surface-default": !search,
                   }
                 )}
               >
@@ -83,7 +83,7 @@ const Title: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { close } = useModal()
 
   return (
-    <Dialog.Title className="mb-2 flex min-h-11 items-center justify-between gap-4 text-large-semi">
+    <Dialog.Title className="mb-2 flex min-h-11 shrink-0 items-center justify-between gap-4 text-large-semi">
       <span>{children}</span>
       <button
         type="button"
@@ -108,11 +108,11 @@ const Description: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 }
 
 const Body: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return <div className="flex justify-center">{children}</div>
+  return <div className="flex min-h-0 flex-1 justify-center overflow-y-auto overscroll-contain">{children}</div>
 }
 
 const Footer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return <div className="flex items-center justify-end gap-x-4">{children}</div>
+  return <div className="flex shrink-0 items-center justify-end gap-x-4">{children}</div>
 }
 
 Modal.Title = Title

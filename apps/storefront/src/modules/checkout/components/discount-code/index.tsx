@@ -115,7 +115,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                     className="flex items-center justify-between w-full max-w-full mb-2"
                     data-testid="discount-row"
                   >
-                    <Text className="flex gap-x-1 items-baseline txt-small-plus w-4/5 pr-1">
+                    <Text className="flex w-4/5 items-baseline gap-x-1 [padding-inline-end:0.25rem] txt-small-plus">
                       <span className="truncate" data-testid="discount-code">
                         <Badge
                           variant={promotion.is_automatic ? "success" : "neutral"}

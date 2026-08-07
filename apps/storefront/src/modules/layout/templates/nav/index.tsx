@@ -50,7 +50,7 @@ export default async function Nav() {
 
           <div className="flex items-center gap-x-2 small:gap-x-3 h-full flex-1 basis-0 justify-end">
             <LocalizedClientLink
-              className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+              className="hidden xsmall:flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
               href="/store"
               title="Cari Produk"
             >
@@ -59,7 +59,7 @@ export default async function Nav() {
             </LocalizedClientLink>
 
             <LocalizedClientLink
-              className="flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+              className="hidden xsmall:flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
               href="/account"
               data-testid="nav-account-link"
               title="Akun Saya"

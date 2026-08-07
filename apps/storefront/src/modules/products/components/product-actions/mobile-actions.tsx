@@ -55,7 +55,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
   return (
     <>
       <div
-        className={clx("lg:hidden inset-x-0 bottom-0 fixed z-50", {
+        className={clx("fixed inset-x-0 bottom-0 z-50 small:hidden", {
           "pointer-events-none": !show,
         })}
       >
@@ -70,14 +70,14 @@ const MobileActions: React.FC<MobileActionsProps> = ({
           leaveTo="translate-y-3 opacity-0"
         >
           <div
-            className="bg-white flex flex-col gap-y-3 justify-center items-center text-large-regular p-4 h-full w-full border-t border-gray-200"
+            className="flex h-full w-full flex-col items-stretch justify-center gap-y-3 border-t border-line-subtle bg-surface-default p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-large-regular"
             data-testid="mobile-actions"
           >
-            <div className="flex items-center gap-x-2">
-              <span data-testid="mobile-title">{product.title}</span>
+            <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
+              <span className="min-w-0" data-testid="mobile-title">{product.title}</span>
               <span>—</span>
               {selectedPrice ? (
-                <div className="flex items-end gap-x-2 text-ui-fg-base">
+                <div className="flex flex-wrap items-end justify-center gap-x-2 text-ui-fg-base">
                   {selectedPrice.price_type === "sale" && (
                     <p>
                       <span className="line-through text-small-regular">
@@ -98,7 +98,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 <div></div>
               )}
             </div>
-            <div className={clx("grid grid-cols-2 w-full gap-x-4", {
+            <div className={clx("grid w-full grid-cols-2 gap-x-3", {
               "!grid-cols-1": isSimple
             })}>
               {!isSimple && <Button
@@ -165,7 +165,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   <Dialog.Title className="sr-only">
                     Select options for {product.title}
                   </Dialog.Title>
-                  <div className="w-full flex justify-end pr-6">
+                  <div className="flex w-full justify-end pe-6">
                     <button
                       type="button"
                       autoFocus
@@ -177,7 +177,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                       <X aria-hidden="true" />
                     </button>
                   </div>
-                  <div className="bg-white px-6 py-12">
+                  <div className="bg-surface-default px-6 py-12">
                     {(product.variants?.length ?? 0) > 1 && (
                       <div className="flex flex-col gap-y-6">
                         {(product.options || []).map((option) => {

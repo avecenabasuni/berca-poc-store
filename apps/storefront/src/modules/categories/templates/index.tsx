@@ -41,7 +41,7 @@ export default function CategoryTemplate({
 
   return (
     <div
-      className="flex flex-col small:flex-row small:items-start py-6 content-container"
+      className="content-container flex flex-col py-6 small:flex-row small:items-start small:gap-x-8"
       data-testid="category-container"
     >
       <RefinementList
@@ -50,21 +50,29 @@ export default function CategoryTemplate({
         hideOptionsPicker
       />
       <div className="w-full">
-        <div className="flex flex-row mb-8 text-2xl-semi gap-4">
-          {parents &&
-            parents.map((parent) => (
-              <span key={parent.id} className="text-ui-fg-subtle">
-                <LocalizedClientLink
-                  className="mr-4 hover:text-black"
-                  href={`/categories/${parent.handle}`}
-                  data-testid="sort-by-link"
-                >
-                  {parent.name}
-                </LocalizedClientLink>
-                /
-              </span>
-            ))}
-          <h1 data-testid="category-page-title">{category.name}</h1>
+        <div className="mb-8">
+          {parents.length > 0 && (
+            <nav
+              aria-label="Category breadcrumb"
+              className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-base-regular text-ui-fg-subtle"
+            >
+              {parents.map((parent) => (
+                <span key={parent.id} className="flex items-baseline gap-x-2">
+                  <LocalizedClientLink
+                    className="hover:text-ui-fg-base"
+                    href={`/categories/${parent.handle}`}
+                    data-testid="sort-by-link"
+                  >
+                    {parent.name}
+                  </LocalizedClientLink>
+                  <span aria-hidden="true">/</span>
+                </span>
+              ))}
+            </nav>
+          )}
+          <h1 className="mt-2 text-2xl-semi" data-testid="category-page-title">
+            {category.name}
+          </h1>
         </div>
         {category.description && (
           <div className="mb-8 text-base-regular">

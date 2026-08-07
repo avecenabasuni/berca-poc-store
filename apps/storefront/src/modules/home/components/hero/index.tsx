@@ -10,7 +10,7 @@ const Hero = () => {
   const t = getDictionary(countryCode).hero
 
   return (
-    <div className="relative min-h-[42rem] w-full overflow-hidden">
+    <div className="relative flex min-h-[42rem] w-full flex-col overflow-hidden">
       {/* Background image with overlay */}
       <div className="absolute inset-0">
         <img
@@ -23,7 +23,7 @@ const Hero = () => {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex h-full items-center">
+      <div className="relative z-10 flex flex-1 items-center py-16">
         <div className="content-container flex flex-col gap-6 max-w-2xl">
           <span className="w-fit rounded-full border border-accent-decorative bg-surface-inverse/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-content-inverse backdrop-blur-sm">
             {t.badge}
@@ -38,16 +38,16 @@ const Hero = () => {
           <Text className="text-content-inverse text-lg max-w-md font-normal leading-relaxed">
             {t.description}
           </Text>
-          <div className="flex gap-4 mt-4">
+          <div className="mt-4 flex w-full flex-col gap-3 xsmall:w-auto xsmall:flex-row xsmall:gap-4">
             <LocalizedClientLink
               href="/store"
-              className="inline-flex min-h-11 w-fit items-center justify-center rounded-md bg-action-primary px-6 py-3 font-semibold text-content-inverse shadow-lg shadow-brand-berry/30 motion-safe:transition-[background-color,box-shadow,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96]"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-action-primary px-6 py-3 font-semibold text-content-inverse shadow-lg shadow-brand-berry/30 motion-safe:transition-[background-color,box-shadow,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96] xsmall:w-fit"
             >
               {t.shopNow}
             </LocalizedClientLink>
             <LocalizedClientLink
               href="/collections"
-              className="inline-flex min-h-11 w-fit items-center justify-center rounded-md border border-content-inverse/50 bg-surface-inverse/70 px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96]"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-content-inverse/50 bg-surface-inverse/70 px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96] xsmall:w-fit"
             >
               {t.exploreCollection}
             </LocalizedClientLink>
@@ -56,16 +56,13 @@ const Hero = () => {
       </div>
 
       {/* Bottom decorative bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-surface-inverse/90 backdrop-blur-md border-t border-surface-inverse-raised">
+      <div className="relative z-10 border-t border-surface-inverse-raised bg-surface-inverse/90 backdrop-blur-md">
         <div className="content-container py-3">
-          <div className="flex items-center justify-between text-content-inverse-muted text-xs uppercase tracking-wider font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-center text-xs font-medium uppercase tracking-wider text-content-inverse-muted small:grid-cols-4">
             <span>{t.freeShipping}</span>
-            <span className="hidden small:inline text-brand-berry">|</span>
             <span>{t.guarantee}</span>
-            <span className="hidden small:inline text-brand-berry">|</span>
             <span>{t.cod}</span>
-            <span className="hidden small:inline text-brand-berry">|</span>
-            <span className="hidden small:inline">{t.support}</span>
+            <span>{t.support}</span>
           </div>
         </div>
       </div>

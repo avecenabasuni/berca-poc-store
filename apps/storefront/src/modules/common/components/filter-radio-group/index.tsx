@@ -22,18 +22,15 @@ const FilterRadioGroup = ({
   const groupId = useId()
 
   return (
-    <div className="flex gap-x-3 flex-col gap-y-3">
+    <div className="flex flex-col gap-y-3">
       <Text className="txt-compact-small-plus text-ui-fg-muted">{title}</Text>
       <RadioGroup data-testid={dataTestId}>
         <legend className="sr-only">{title}</legend>
         {items?.map((i) => (
-          <div
-            key={i.value}
-            className={clx("flex gap-x-2 items-center", {
-              "ml-[-23px]": i.value === value,
-            })}
-          >
-            {i.value === value && <EllipseMiniSolid aria-hidden="true" />}
+          <div key={i.value} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2">
+            <span className="flex h-5 w-5 items-center justify-center">
+              {i.value === value && <EllipseMiniSolid aria-hidden="true" />}
+            </span>
             <RadioGroup.Item
               checked={i.value === value}
               onChange={() => handleChange(i.value)}
@@ -45,7 +42,7 @@ const FilterRadioGroup = ({
             <Label
               htmlFor={`${groupId}-${i.value}`}
               className={clx(
-                "flex min-h-11 items-center rounded-sm px-2 !txt-compact-small !transform-none text-ui-fg-subtle hover:cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus",
+                "flex min-h-11 min-w-0 items-center rounded-sm px-2 !txt-compact-small !transform-none text-ui-fg-subtle hover:cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus",
                 {
                   "text-ui-fg-base": i.value === value,
                 }
