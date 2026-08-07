@@ -2,7 +2,6 @@ import { Metadata } from "next"
 
 import { listCartOptions, retrieveCart } from "@lib/data/cart"
 import { retrieveCustomer } from "@lib/data/customer"
-import { getLocale } from "@lib/data/locale-actions"
 import { getBaseURL } from "@lib/util/env"
 import { StoreCartShippingOption } from "@medusajs/types"
 import CartMismatchBanner from "@modules/layout/components/cart-mismatch-banner"
@@ -20,8 +19,7 @@ export default async function PageLayout(props: {
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await props.params
-  const [locale, customer, cart] = await Promise.all([
-    getLocale(),
+  const [customer, cart] = await Promise.all([
     retrieveCustomer(),
     retrieveCart(undefined, undefined, countryCode),
   ])
@@ -34,12 +32,12 @@ export default async function PageLayout(props: {
   }
 
   return (
-    <div lang={locale || (countryCode === "id" ? "id" : "en")}>
+    <div lang="id">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-surface-default focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
       >
-        Skip to content
+        Lewati ke konten utama
       </a>
       <RouteFocusHandler targetId="main-content" />
       <Nav />

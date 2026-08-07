@@ -6,6 +6,7 @@ import { Fragment, useMemo } from "react"
 import compareAddresses from "@lib/util/compare-addresses"
 import { HttpTypes } from "@medusajs/types"
 import Radio from "@modules/common/components/radio"
+import { getDictionary } from "@lib/i18n"
 
 type AddressSelectProps = {
   addresses: HttpTypes.StoreCustomerAddress[]
@@ -21,6 +22,7 @@ const AddressSelect = ({
   addressInput,
   onSelect,
 }: AddressSelectProps) => {
+  const t = getDictionary().checkout
   const handleSelect = (id: string) => {
     const savedAddress = addresses.find((a) => a.id === id)
     if (savedAddress) {
@@ -36,8 +38,8 @@ const AddressSelect = ({
     <Listbox onChange={handleSelect} value={selectedAddress?.id}>
       <div className="relative">
         <Listbox.Button
-          className="relative flex min-h-11 w-full cursor-default items-center justify-between rounded-rounded border border-line-subtle bg-surface-default px-4 py-[10px] text-left text-base-regular focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-          aria-label="Select saved address"
+          className="relative flex min-h-11 w-full cursor-default items-center justify-between rounded-rounded border border-line-control bg-surface-default px-4 py-[10px] text-left text-base-regular focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          aria-label={t.selectSavedAddress}
           data-testid="shipping-address-select"
         >
           {({ open }) => (
@@ -45,7 +47,7 @@ const AddressSelect = ({
               <span className="block truncate">
                 {selectedAddress
                   ? selectedAddress.address_1
-                  : "Choose an address"}
+                  : t.chooseAddress}
               </span>
               <ChevronUpDown
                 className={clx("motion-safe:transition-transform duration-200", {

@@ -10,6 +10,7 @@ import { getProductPrice } from "@lib/util/get-product-price"
 import OptionSelect from "./option-select"
 import { HttpTypes } from "@medusajs/types"
 import { isSimpleProduct } from "@lib/util/product"
+import { getDictionary } from "@lib/i18n"
 
 type MobileActionsProps = {
   product: HttpTypes.StoreProduct
@@ -21,6 +22,7 @@ type MobileActionsProps = {
   isAdding?: boolean
   show: boolean
   optionsDisabled: boolean
+  actionLabel: string
 }
 
 const MobileActions: React.FC<MobileActionsProps> = ({
@@ -33,7 +35,9 @@ const MobileActions: React.FC<MobileActionsProps> = ({
   isAdding,
   show,
   optionsDisabled,
+  actionLabel,
 }) => {
+  const t = getDictionary().product
   const { state, open, close } = useToggleState()
 
   const price = getProductPrice({
@@ -75,20 +79,19 @@ const MobileActions: React.FC<MobileActionsProps> = ({
           >
             <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1 text-center">
               <span className="min-w-0" data-testid="mobile-title">{product.title}</span>
-              <span>—</span>
+              <span aria-hidden="true">—</span>
               {selectedPrice ? (
                 <div className="flex flex-wrap items-end justify-center gap-x-2 text-ui-fg-base">
                   {selectedPrice.price_type === "sale" && (
                     <p>
-                      <span className="line-through text-small-regular">
+                      <span className="line-through text-small-regular tabular-nums">
                         {selectedPrice.original_price}
                       </span>
                     </p>
                   )}
                   <span
-                    className={clx({
-                      "text-ui-fg-interactive":
-                        selectedPrice.price_type === "sale",
+                    className={clx("tabular-nums", {
+                      "text-ui-fg-interactive": selectedPrice.price_type === "sale",
                     })}
                   >
                     {selectedPrice.calculated_price}
@@ -110,8 +113,8 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 <div className="flex items-center justify-between w-full">
                   <span>
                     {variant
-                      ? Object.values(options).join(" / ")
-                      : "Select Options"}
+                      ? Object.values(options).join(" / ")
+                      : t.selectOptions}
                   </span>
                   <ChevronDown aria-hidden="true" />
                 </div>
@@ -123,11 +126,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                 isLoading={isAdding}
                 data-testid="mobile-cart-button"
               >
-                {!variant
-                  ? "Select variant"
-                  : !inStock
-                  ? "Out of stock"
-                  : "Add to cart"}
+                {actionLabel}
               </Button>
             </div>
           </div>
@@ -163,7 +162,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                   data-testid="mobile-actions-modal"
                 >
                   <Dialog.Title className="sr-only">
-                    Select options for {product.title}
+                    {t.chooseOptionsFor} {product.title}
                   </Dialog.Title>
                   <div className="flex w-full justify-end pe-6">
                     <button
@@ -172,7 +171,7 @@ const MobileActions: React.FC<MobileActionsProps> = ({
                       onClick={close}
                       className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-ui-fg-base motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive motion-safe:active:scale-[0.96]"
                       data-testid="close-modal-button"
-                      aria-label="Close"
+                      aria-label="Tutup"
                     >
                       <X aria-hidden="true" />
                     </button>

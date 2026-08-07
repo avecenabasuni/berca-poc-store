@@ -13,6 +13,7 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import Spinner from "@modules/common/icons/spinner"
 import Thumbnail from "@modules/products/components/thumbnail"
 import { useState } from "react"
+import { getDictionary } from "@lib/i18n"
 
 type ItemProps = {
   item: HttpTypes.StoreCartLineItem
@@ -21,6 +22,7 @@ type ItemProps = {
 }
 
 const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
+  const t = getDictionary().cart
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -82,6 +84,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
               onChange={(value) => changeQuantity(parseInt(value.target.value))}
               className="w-14 h-10 p-4"
               data-testid="product-select-button"
+              aria-label={`${t.selectQuantity} ${item.product_title}`}
             >
               {/* TODO: Update this with the v2 way of managing inventory */}
               {Array.from(
@@ -94,10 +97,6 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
                   </option>
                 )
               )}
-
-              <option value={1} key={1}>
-                1
-              </option>
             </CartItemSelect>
             {updating && <Spinner />}
           </div>
@@ -123,7 +122,7 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
         >
           {type === "preview" && (
             <span className="flex gap-x-1 ">
-              <Text className="text-ui-fg-muted">{item.quantity}x </Text>
+              <Text className="text-ui-fg-muted tabular-nums">{item.quantity}× </Text>
               <LineItemUnitPrice
                 item={item}
                 style="tight"

@@ -4,6 +4,7 @@ import { Heading, Table } from "@modules/common/components/ui"
 
 import Item from "@modules/cart/components/item"
 import SkeletonLineItem from "@modules/skeletons/components/skeleton-line-item"
+import { getDictionary } from "@lib/i18n"
 
 type ItemsTemplateProps = {
   cart?: HttpTypes.StoreCart
@@ -11,30 +12,31 @@ type ItemsTemplateProps = {
 
 const ItemsTemplate = ({ cart }: ItemsTemplateProps) => {
   const items = cart?.items
+  const t = getDictionary().cart
   return (
     <div>
       <div className="pb-3 flex items-center">
         <Heading level="h1" className="text-[2rem] leading-[2.75rem]">
-          Cart
+          {t.title}
         </Heading>
       </div>
       <div
         className="overflow-x-auto overscroll-x-contain"
         role="region"
-        aria-label="Shopping cart products"
+        aria-label="Produk dalam keranjang belanja"
         tabIndex={0}
       >
         <Table>
-          <caption className="sr-only">Products in your shopping cart</caption>
+          <caption className="sr-only">Produk dalam keranjang belanja</caption>
           <Table.Header className="border-t-0">
           <Table.Row className="text-ui-fg-subtle txt-medium-plus">
             <Table.HeaderCell className="!pl-0">
-              <span className="sr-only">Product image</span>
+              <span className="sr-only">Gambar produk</span>
             </Table.HeaderCell>
-            <Table.HeaderCell>Item</Table.HeaderCell>
-            <Table.HeaderCell>Quantity</Table.HeaderCell>
+            <Table.HeaderCell>{t.product}</Table.HeaderCell>
+            <Table.HeaderCell>{t.quantity}</Table.HeaderCell>
             <Table.HeaderCell className="hidden small:table-cell">
-              Price
+              Harga
             </Table.HeaderCell>
             <Table.HeaderCell className="!pr-0 text-right">
               Total

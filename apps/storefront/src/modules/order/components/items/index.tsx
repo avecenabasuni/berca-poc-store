@@ -19,16 +19,16 @@ const Items = ({ order }: ItemsProps) => {
       <div
         className="overflow-x-auto overscroll-x-contain"
         role="region"
-        aria-label="Order products"
+        aria-label="Produk dalam pesanan"
         tabIndex={0}
       >
         <Table>
-          <caption className="sr-only">Products in this order</caption>
+          <caption className="sr-only">Produk dalam pesanan ini</caption>
           <Table.Header className="sr-only">
             <Table.Row>
-              <Table.HeaderCell>Product image</Table.HeaderCell>
-              <Table.HeaderCell>Item</Table.HeaderCell>
-              <Table.HeaderCell>Quantity and total</Table.HeaderCell>
+              <Table.HeaderCell>Gambar produk</Table.HeaderCell>
+              <Table.HeaderCell>Produk</Table.HeaderCell>
+              <Table.HeaderCell>Jumlah dan total</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
           <Table.Body data-testid="products-table">

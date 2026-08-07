@@ -7,6 +7,8 @@ import { ChevronDownMini } from "@medusajs/icons"
 import { sdk } from "@lib/config"
 import { HttpTypes } from "@medusajs/types"
 import clsx from "clsx"
+import { getDictionary } from "@lib/i18n"
+import { useParams } from "next/navigation"
 
 type OptionsPickerProps = {
   selectedValueIds: string[]
@@ -17,6 +19,8 @@ const OptionsPicker = ({
   selectedValueIds,
   setOptionValueIds,
 }: OptionsPickerProps) => {
+  const { countryCode } = useParams()
+  const t = getDictionary(countryCode)
   const [options, setOptions] = useState<HttpTypes.StoreProductOption[]>([])
   const [openItems, setOpenItems] = useState<string[]>([])
 
@@ -58,7 +62,7 @@ const OptionsPicker = ({
     <div className="flex flex-col gap-y-4">
       <div className="flex items-center justify-between px-1">
         <span className="txt-compact-small-plus text-ui-fg-subtle">
-          Options
+          {t.store.options}
         </span>
       </div>
       <Accordion.Root
@@ -107,7 +111,7 @@ const OptionsPicker = ({
                 <Accordion.Trigger className="flex min-h-11 w-full items-center justify-between rounded-sm py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
                   <div className="flex items-center gap-2">
                     <span className="txt-compact-small-plus text-ui-fg-base">
-                      {option.title || "Option"}
+                      {option.title || t.store.options}
                     </span>
                     <span className="txt-compact-small-plus text-ui-fg-muted">
                       ({selectedCount})
@@ -135,7 +139,7 @@ const OptionsPicker = ({
                         key={value.id}
                         onClick={() => toggleValue(value.id)}
                         className={clsx(
-                          "border-ui-border-base border text-small-regular h-10 rounded-rounded px-3 flex items-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
+                          "border-line-control border text-small-regular min-h-11 rounded-rounded px-3 flex items-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
                           {
                             "border-2 border-ui-border-interactive font-semibold text-ui-fg-base":
                               isSelected,
@@ -145,7 +149,7 @@ const OptionsPicker = ({
                         )}
                         aria-pressed={isSelected}
                       >
-                        {isSelected && <span className="sr-only">Selected: </span>}
+                        {isSelected && <span className="sr-only">{t.product.selected} </span>}
                         {value.label}
                       </button>
                     )

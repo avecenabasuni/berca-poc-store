@@ -2,7 +2,6 @@ import LocalizedClientLink from "@modules/common/components/localized-client-lin
 import ChevronDown from "@modules/common/icons/chevron-down"
 import { Text } from "@modules/common/components/ui"
 import { getDictionary } from "@lib/i18n"
-import { getLocale } from "@lib/data/locale-actions"
 import RouteFocusHandler from "@modules/common/components/route-focus-handler"
 
 export default async function CheckoutLayout({
@@ -13,24 +12,23 @@ export default async function CheckoutLayout({
   params: Promise<{ countryCode: string }>
 }) {
   const { countryCode } = await params
-  const locale = await getLocale()
   const t = getDictionary(countryCode).checkout
 
   return (
     <div
       className="relative min-h-screen w-full bg-surface-subtle"
-      lang={locale || (countryCode === "id" ? "id" : "en")}
+      lang="id"
     >
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-surface-default focus:px-4 focus:py-2 focus:text-ui-fg-base focus:shadow-lg"
       >
-        Skip to content
+        Lewati ke konten utama
       </a>
       <RouteFocusHandler targetId="main-content" />
       <div className="h-16 border-b border-surface-inverse-raised bg-surface-inverse">
         <nav
-          aria-label="Checkout"
+          aria-label="Navigasi checkout"
           className="flex h-full items-center content-container justify-between"
         >
           <LocalizedClientLink
@@ -43,7 +41,7 @@ export default async function CheckoutLayout({
               {t.backToCart}
             </span>
             <span className="mt-px block small:hidden">
-              {countryCode === "id" ? "Kembali" : "Back"}
+              Kembali
             </span>
           </LocalizedClientLink>
           <LocalizedClientLink
@@ -79,7 +77,7 @@ export default async function CheckoutLayout({
       </main>
       <div className="mt-12 flex w-full items-center justify-center border-t border-line-subtle/40 bg-surface-default py-6">
         <Text className="text-xs font-medium text-content-muted">
-          © {new Date().getFullYear()} Berca Store. {countryCode === "id" ? "Hak Cipta Dilindungi Undang-Undang." : "All Rights Reserved."}
+          © {new Date().getFullYear()} Berca Store. Hak cipta dilindungi undang-undang.
         </Text>
       </div>
     </div>

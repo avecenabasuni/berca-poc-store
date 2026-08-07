@@ -149,7 +149,7 @@ const Payment = ({
           {!paidByGiftcard && availablePaymentMethods?.length && (
             <>
               <RadioGroup
-                aria-label="Payment method"
+                aria-label={t.paymentMethodsLabel}
                 value={selectedPaymentMethod}
                 onChange={(value: string) => setPaymentMethod(value)}
               >
@@ -178,15 +178,15 @@ const Payment = ({
           )}
 
           {paidByGiftcard && (
-            <div className="flex flex-col w-1/3">
+            <div className="flex min-w-0 flex-col">
               <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                Payment method
+                {t.paymentMethod}
               </Text>
               <Text
                 className="txt-medium text-ui-fg-subtle"
                 data-testid="payment-method-summary"
               >
-                Gift card
+                {t.giftCard}
               </Text>
             </div>
           )}
@@ -208,17 +208,17 @@ const Payment = ({
             data-testid="submit-payment-button"
           >
             {!activeSession && isStripeLike(selectedPaymentMethod)
-              ? " Enter card details"
-              : "Continue to review"}
+              ? t.enterCardDetails
+              : t.continueToReview}
           </Button>
         </div>
 
         <div className={isOpen ? "hidden" : "block"}>
           {cart && paymentReady && activeSession ? (
-            <div className="flex items-start gap-x-1 w-full">
-              <div className="flex flex-col w-1/3">
+            <div className="grid w-full grid-cols-1 gap-6 xsmall:grid-cols-2">
+              <div className="flex min-w-0 flex-col">
                 <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                  Payment method
+                  {t.paymentMethod}
                 </Text>
                 <Text
                   className="txt-medium text-ui-fg-subtle"
@@ -228,9 +228,9 @@ const Payment = ({
                     activeSession?.provider_id}
                 </Text>
               </div>
-              <div className="flex flex-col w-1/3">
+              <div className="flex min-w-0 flex-col">
                 <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                  Payment details
+                  {t.paymentDetails}
                 </Text>
                 <div
                   className="flex gap-2 txt-medium text-ui-fg-subtle items-center"
@@ -244,21 +244,21 @@ const Payment = ({
                   <Text>
                     {isStripeLike(selectedPaymentMethod) && cardBrand
                       ? cardBrand
-                      : "Another step will appear"}
+                      : t.paymentNextStep}
                   </Text>
                 </div>
               </div>
             </div>
           ) : paidByGiftcard ? (
-            <div className="flex flex-col w-1/3">
+            <div className="flex min-w-0 flex-col">
               <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                Payment method
+                {t.paymentMethod}
               </Text>
               <Text
                 className="txt-medium text-ui-fg-subtle"
                 data-testid="payment-method-summary"
               >
-                Gift card
+                {t.giftCard}
               </Text>
             </div>
           ) : null}

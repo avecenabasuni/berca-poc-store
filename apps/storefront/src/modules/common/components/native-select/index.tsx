@@ -22,7 +22,7 @@ export type NativeSelectProps = {
 const NativeSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
   (
     {
-      placeholder = "Select...",
+      placeholder = "Pilih…",
       defaultValue,
       className,
       children,
@@ -69,7 +69,7 @@ const NativeSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
           onFocus={() => innerRef.current?.focus()}
           onBlur={() => innerRef.current?.blur()}
           className={clx(
-            "relative flex min-h-11 items-center rounded-md border border-ui-border-base bg-ui-bg-subtle text-base-regular motion-safe:transition-[background-color,border-color] motion-safe:duration-150 motion-safe:ease-out hover:bg-ui-bg-field-hover focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
+            "relative flex min-h-11 items-center rounded-md border border-line-control bg-ui-bg-subtle text-base-regular motion-safe:transition-[background-color,border-color] motion-safe:duration-150 motion-safe:ease-out hover:bg-ui-bg-field-hover focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
             className,
             {
               "text-ui-fg-muted": isPlaceholder,
@@ -102,7 +102,7 @@ const NativeSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
         )}
         {error && (
           <p id={errorId} className="text-small-regular text-error-foreground">
-            <span className="font-semibold">Error:</span> {error}
+            <span className="font-semibold">Kesalahan:</span> {error}
           </p>
         )}
       </div>

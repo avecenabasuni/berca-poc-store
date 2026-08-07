@@ -192,17 +192,17 @@ const Shipping: React.FC<ShippingProps> = ({
           <div className="grid">
             <div className="flex flex-col">
               <span className="font-medium txt-medium text-ui-fg-base">
-                Shipping method
+                {t.shippingMethod}
               </span>
               <span className="mb-4 text-ui-fg-muted txt-medium">
-                How would you like you order delivered
+                {t.chooseDelivery}
               </span>
             </div>
             <div data-testid="delivery-options-container">
               <div className="pb-8 md:pt-0 pt-2">
                 {hasPickupOptions && (
                   <RadioGroup
-                    aria-label="Fulfillment type"
+                    aria-label={t.shippingMethod}
                     value={showPickupOptions}
                     onChange={(_value) => {
                       const id = _pickupMethods.find(
@@ -218,7 +218,7 @@ const Shipping: React.FC<ShippingProps> = ({
                       value={PICKUP_OPTION_ON}
                       data-testid="delivery-option-radio"
                       className={clx(
-                        "flex items-center justify-between text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active",
+                        "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
                         {
                           "border-ui-border-interactive":
                             showPickupOptions === PICKUP_OPTION_ON,
@@ -230,7 +230,7 @@ const Shipping: React.FC<ShippingProps> = ({
                           checked={showPickupOptions === PICKUP_OPTION_ON}
                         />
                         <span className="text-base-regular">
-                          Pick up your order
+                          {t.pickup}
                         </span>
                       </div>
                       <span className="justify-self-end text-ui-fg-base">
@@ -240,7 +240,7 @@ const Shipping: React.FC<ShippingProps> = ({
                   </RadioGroup>
                 )}
                 <RadioGroup
-                  aria-label="Delivery method"
+                  aria-label={t.shippingMethod}
                   value={shippingMethodId}
                   onChange={(v) => {
                     if (v) {
@@ -261,7 +261,7 @@ const Shipping: React.FC<ShippingProps> = ({
                         data-testid="delivery-option-radio"
                         disabled={isDisabled}
                         className={clx(
-                          "flex items-center justify-between text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active",
+                          "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
                           {
                             "border-ui-border-interactive":
                               option.id === shippingMethodId,
@@ -278,7 +278,7 @@ const Shipping: React.FC<ShippingProps> = ({
                             {option.name}
                           </span>
                         </div>
-                        <span className="justify-self-end text-ui-fg-base">
+                        <span className="justify-self-end tabular-nums text-ui-fg-base">
                           {option.price_type === "flat" ? (
                             convertToLocale({
                               amount: option.amount!,
@@ -307,16 +307,16 @@ const Shipping: React.FC<ShippingProps> = ({
             <div className="grid">
               <div className="flex flex-col">
                 <span className="font-medium txt-medium text-ui-fg-base">
-                  Store
+                  {t.pickupLocation}
                 </span>
                 <span className="mb-4 text-ui-fg-muted txt-medium">
-                  Choose a store near you
+                  {t.chooseStore}
                 </span>
               </div>
               <div data-testid="delivery-options-container">
                 <div className="pb-8 md:pt-0 pt-2">
                   <RadioGroup
-                    aria-label="Pickup location"
+                    aria-label={t.pickupLocation}
                     value={shippingMethodId}
                     onChange={(v) => {
                       if (v) {
@@ -332,7 +332,7 @@ const Shipping: React.FC<ShippingProps> = ({
                           disabled={option.insufficient_inventory}
                           data-testid="delivery-option-radio"
                           className={clx(
-                            "flex items-center justify-between text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active",
+                            "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
                             {
                               "border-ui-border-interactive":
                                 option.id === shippingMethodId,
@@ -357,7 +357,7 @@ const Shipping: React.FC<ShippingProps> = ({
                               </span>
                             </div>
                           </div>
-                          <span className="justify-self-end text-ui-fg-base">
+                          <span className="justify-self-end tabular-nums text-ui-fg-base">
                             {convertToLocale({
                               amount: option.amount!,
                               currency_code: cart?.currency_code,
@@ -385,7 +385,7 @@ const Shipping: React.FC<ShippingProps> = ({
               disabled={!cart.shipping_methods?.[0]}
               data-testid="submit-delivery-option-button"
             >
-              Continue to payment
+              {t.continueToPayment}
             </Button>
           </div>
         </>
@@ -393,11 +393,11 @@ const Shipping: React.FC<ShippingProps> = ({
         <div>
           <div className="text-small-regular">
             {cart && (cart.shipping_methods?.length ?? 0) > 0 && (
-              <div className="flex flex-col w-1/3">
+              <div className="flex min-w-0 flex-col">
                 <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                  Method
+                  {t.method}
                 </Text>
-                <Text className="txt-medium text-ui-fg-subtle">
+                <Text className="break-words txt-medium text-ui-fg-subtle">
                   {cart.shipping_methods!.at(-1)!.name}{" "}
                   {convertToLocale({
                     amount: cart.shipping_methods!.at(-1)!.amount!,

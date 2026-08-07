@@ -3,24 +3,26 @@ import { HttpTypes } from "@medusajs/types"
 import { Heading, Text } from "@modules/common/components/ui"
 
 import Divider from "@modules/common/components/divider"
+import { getDictionary } from "@lib/i18n"
 
 type ShippingDetailsProps = {
   order: HttpTypes.StoreOrder
 }
 
 const ShippingDetails = ({ order }: ShippingDetailsProps) => {
+  const t = getDictionary().order
   return (
     <div>
       <Heading level="h2" className="flex flex-row text-3xl-regular my-6">
-        Delivery
+        {t.shipping}
       </Heading>
-      <div className="flex items-start gap-x-8">
+      <div className="grid grid-cols-1 gap-6 xsmall:grid-cols-2 small:grid-cols-3">
         <div
-          className="flex flex-col w-1/3"
+          className="flex min-w-0 flex-col"
           data-testid="shipping-address-summary"
         >
           <Text className="txt-medium-plus text-ui-fg-base mb-1">
-            Shipping Address
+            {t.deliveryAddress}
           </Text>
           <Text className="txt-medium text-ui-fg-subtle">
             {order.shipping_address?.first_name}{" "}
@@ -40,22 +42,22 @@ const ShippingDetails = ({ order }: ShippingDetailsProps) => {
         </div>
 
         <div
-          className="flex flex-col w-1/3 "
+          className="flex min-w-0 flex-col"
           data-testid="shipping-contact-summary"
         >
-          <Text className="txt-medium-plus text-ui-fg-base mb-1">Contact</Text>
+          <Text className="txt-medium-plus text-ui-fg-base mb-1">{t.contact}</Text>
           <Text className="txt-medium text-ui-fg-subtle">
             {order.shipping_address?.phone}
           </Text>
-          <Text className="txt-medium text-ui-fg-subtle">{order.email}</Text>
+          <Text className="break-words txt-medium text-ui-fg-subtle">{order.email}</Text>
         </div>
 
         <div
-          className="flex flex-col w-1/3"
+          className="flex min-w-0 flex-col"
           data-testid="shipping-method-summary"
         >
-          <Text className="txt-medium-plus text-ui-fg-base mb-1">Method</Text>
-          <Text className="txt-medium text-ui-fg-subtle">
+          <Text className="txt-medium-plus text-ui-fg-base mb-1">{t.method}</Text>
+          <Text className="txt-medium tabular-nums text-ui-fg-subtle">
             {(order.shipping_methods?.[0] as { name?: string })?.name} (
             {convertToLocale({
               amount: order.shipping_methods?.[0].total ?? 0,

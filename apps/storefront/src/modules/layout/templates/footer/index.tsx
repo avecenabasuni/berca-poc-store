@@ -7,7 +7,7 @@ import { getDictionary } from "@lib/i18n"
 export default async function Footer({ countryCode = "id" }: { countryCode?: string }) {
   const t = getDictionary(countryCode).footer
   const { collections } = await listCollections({
-    fields: "*products",
+    fields: "id,title,handle",
   })
   const productCategories = await listCategories()
 
@@ -26,7 +26,7 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
               {t.description}
             </Text>
           </div>
-          <div className="grid w-full grid-cols-2 gap-10 text-sm small:flex-1 small:grid-cols-3 small:gap-x-12">
+          <div className="grid w-full grid-cols-2 gap-10 text-sm small:flex-1 small:gap-x-12">
             {productCategories && productCategories?.length > 0 && (
               <div className="flex flex-col gap-y-3">
                 <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
@@ -111,45 +111,6 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
                 </ul>
               </div>
             )}
-            <div className="flex flex-col gap-y-3">
-              <span className="text-xs uppercase tracking-wider font-semibold text-content-inverse">
-                {t.aboutUs}
-              </span>
-              <ul className="grid grid-cols-1 gap-y-2.5 text-content-inverse-muted">
-                <li>
-                  <LocalizedClientLink
-                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
-                    href="#"
-                  >
-                    {t.shippingPolicy}
-                  </LocalizedClientLink>
-                </li>
-                <li>
-                  <LocalizedClientLink
-                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
-                    href="#"
-                  >
-                    {t.returnPolicy}
-                  </LocalizedClientLink>
-                </li>
-                <li>
-                  <LocalizedClientLink
-                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
-                    href="#"
-                  >
-                    {t.helpFaq}
-                  </LocalizedClientLink>
-                </li>
-                <li>
-                  <LocalizedClientLink
-                    className="hover:text-content-inverse hover:underline motion-safe:transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse"
-                    href="#"
-                  >
-                    {t.contactUs}
-                  </LocalizedClientLink>
-                </li>
-              </ul>
-            </div>
           </div>
         </div>
         <div className="flex w-full flex-col items-start gap-3 border-t border-surface-inverse-raised py-8 text-xs text-content-inverse-muted xsmall:flex-row xsmall:items-center xsmall:justify-between">

@@ -10,6 +10,7 @@ import { CardElement } from "@stripe/react-stripe-js"
 import { StripeCardElementOptions } from "@stripe/stripe-js"
 import PaymentTest from "../payment-test"
 import { StripeContext } from "../payment-wrapper/stripe-wrapper"
+import { getDictionary } from "@lib/i18n"
 
 type PaymentContainerProps = {
   paymentProviderId: string
@@ -34,7 +35,7 @@ const PaymentContainer: React.FC<PaymentContainerProps> = ({
       value={paymentProviderId}
       disabled={disabled}
       className={clx(
-        "flex min-h-11 flex-col gap-y-2 text-small-regular cursor-pointer py-4 border rounded-rounded px-8 mb-2 hover:shadow-borders-interactive-with-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        "mb-2 flex min-h-11 cursor-pointer flex-col gap-y-2 rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus xsmall:px-8",
         {
           "border-ui-border-interactive":
             selectedPaymentOptionId === paymentProviderId,
@@ -51,12 +52,12 @@ const PaymentContainer: React.FC<PaymentContainerProps> = ({
             <PaymentTest className="hidden small:block" />
           )}
         </div>
-        <span className="justify-self-end text-ui-fg-base">
+        <span className="justify-self-end text-ui-fg-base" aria-hidden="true">
           {paymentInfoMap[paymentProviderId]?.icon}
         </span>
       </div>
       {isManual(paymentProviderId) && isDevelopment && (
-        <PaymentTest className="small:hidden text-[10px]" />
+        <PaymentTest className="small:hidden" />
       )}
       {children}
     </RadioGroupOption>
@@ -78,13 +79,14 @@ export const StripeCardContainer = ({
   setError: (error: string | null) => void
   setCardComplete: (complete: boolean) => void
 }) => {
+  const t = getDictionary().checkout
   const stripeReady = useContext(StripeContext)
 
   const useOptions: StripeCardElementOptions = useMemo(() => {
     return {
       style: {
         base: {
-          fontFamily: "Inter, sans-serif",
+          fontFamily: "system-ui, sans-serif",
           color: "#424270",
           "::placeholder": {
             color: "rgb(107 114 128)",
@@ -92,7 +94,7 @@ export const StripeCardContainer = ({
         },
       },
       classes: {
-        base: "mt-0 block h-11 w-full appearance-none rounded-md border border-ui-border-base bg-ui-bg-field px-4 pb-1 pt-3 focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active motion-safe:transition-[background-color,box-shadow] motion-safe:duration-150 motion-safe:ease-out hover:bg-ui-bg-field-hover",
+        base: "mt-0 block h-11 w-full appearance-none rounded-md border border-line-control bg-ui-bg-field px-4 pb-1 pt-3 focus:outline-none focus:ring-0 focus:shadow-borders-interactive-with-active motion-safe:transition-[background-color,box-shadow] motion-safe:duration-150 motion-safe:ease-out hover:bg-ui-bg-field-hover",
       },
     }
   }, [])
@@ -108,7 +110,7 @@ export const StripeCardContainer = ({
         (stripeReady ? (
           <div className="my-4">
             <Text className="txt-medium-plus text-ui-fg-base mb-1">
-              Enter your card details:
+              {t.enterCardDetails}:
             </Text>
             <CardElement
               options={useOptions as StripeCardElementOptions}

@@ -34,6 +34,7 @@ const semanticColors = {
   },
   line: {
     subtle: "#CFCFD4",
+    control: "#8B8B96",
     strong: "#1E1F74",
   },
   focus: "#1E1F74",
@@ -124,7 +125,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          "Inter",
+          "var(--font-manrope)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",

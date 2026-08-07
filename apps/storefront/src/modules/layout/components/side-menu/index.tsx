@@ -7,19 +7,15 @@ import { Fragment, useState } from "react"
 import { useParams } from "next/navigation"
 
 import { getDictionary } from "@lib/i18n"
-import { Locale } from "@lib/data/locales"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import { Text } from "@modules/common/components/ui"
 import CountrySelect from "../country-select"
-import LanguageSelect from "../language-select"
 
 type SideMenuProps = {
   regions: HttpTypes.StoreRegion[] | null
-  locales: Locale[] | null
-  currentLocale: string | null
 }
 
-const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
+const SideMenu = ({ regions }: SideMenuProps) => {
   const { countryCode } = useParams()
   const t = getDictionary(countryCode)
   const [isOpen, setIsOpen] = useState(false)
@@ -124,12 +120,6 @@ const SideMenu = ({ regions, locales, currentLocale }: SideMenuProps) => {
                   </div>
 
                   <div className="flex flex-col gap-y-5 rounded-2xl border border-content-inverse/10 bg-surface-inverse-raised p-5 text-content-inverse">
-                    {!!locales?.length && (
-                      <LanguageSelect
-                        locales={locales}
-                        currentLocale={currentLocale}
-                      />
-                    )}
                     {regions && <CountrySelect regions={regions} />}
                     <Text className="flex justify-between text-xs font-medium text-content-inverse-muted">
                       © {new Date().getFullYear()} Berca Store. {t.footer.allRightsReserved}

@@ -18,6 +18,18 @@ import { useParams } from "next/navigation"
 import { getDictionary } from "@lib/i18n"
 import { Fragment, useEffect, useRef, useState } from "react"
 
+const CartIndicator = ({ totalItems }: { totalItems: number }) => (
+  <>
+    <ShoppingBag className="h-5 w-5" aria-hidden="true" />
+    <span
+      aria-hidden="true"
+      className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-surface-default bg-action-primary px-1 text-xs font-bold tabular-nums text-content-inverse shadow-sm"
+    >
+      {totalItems}
+    </span>
+  </>
+)
+
 const CartDropdown = ({
   cart: cartState,
 }: {
@@ -37,7 +49,7 @@ const CartDropdown = ({
 
   useEffect(() => {
     if (previousItemCount.current !== totalItems) {
-      setStatusMessage(`${t.title} updated. ${totalItems} ${t.items}.`)
+      setStatusMessage(`${t.title} diperbarui. ${totalItems} ${t.items}.`)
       previousItemCount.current = totalItems
     }
   }, [t.items, t.title, totalItems])
@@ -47,8 +59,16 @@ const CartDropdown = ({
       <p className="sr-only" role="status" aria-atomic="true">
         {statusMessage}
       </p>
-      <div className="h-full z-50 flex items-center">
-      <Popover className="relative h-full flex items-center">
+      <div className="z-50 flex h-full items-center">
+        <LocalizedClientLink
+          href="/cart"
+          className="relative flex min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2.5 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96] small:hidden"
+          data-testid="nav-cart-link"
+          aria-label={`${t.title}, ${totalItems} ${t.items}`}
+        >
+          <CartIndicator totalItems={totalItems} />
+        </LocalizedClientLink>
+        <Popover className="relative hidden h-full items-center small:flex">
         {({ open, close }) => (
           <>
             <PopoverButton
@@ -56,16 +76,7 @@ const CartDropdown = ({
               data-testid="nav-cart-button"
               aria-label={`${t.title}, ${totalItems} ${t.items}`}
             >
-              <ShoppingBag className="w-5 h-5" aria-hidden="true" />
-              {totalItems > 0 ? (
-                <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 bg-action-primary text-content-inverse text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-surface-default shadow-sm">
-                  {totalItems}
-                </span>
-              ) : (
-                <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 bg-surface-inverse text-content-inverse text-[9px] font-medium w-4 h-4 rounded-full flex items-center justify-center border border-surface-default">
-                  0
-                </span>
-              )}
+              <CartIndicator totalItems={totalItems} />
             </PopoverButton>
             <Transition
               show={open}
@@ -162,7 +173,7 @@ const CartDropdown = ({
                       {t.subtotal}
                     </span>
                     <span
-                      className="text-lg font-bold text-content-primary"
+                      className="text-lg font-bold tabular-nums text-content-primary"
                       data-testid="cart-subtotal"
                       data-value={subtotal}
                     >
@@ -204,7 +215,7 @@ const CartDropdown = ({
             </Transition>
           </>
         )}
-      </Popover>
+        </Popover>
       </div>
     </>
   )

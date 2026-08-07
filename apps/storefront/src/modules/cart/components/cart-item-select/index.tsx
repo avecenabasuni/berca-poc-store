@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import ChevronDown from "@modules/common/icons/chevron-down"
+import { getDictionary } from "@lib/i18n"
 
 type NativeSelectProps = {
   placeholder?: string
@@ -19,7 +20,8 @@ type NativeSelectProps = {
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, "size">
 
 const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
-  ({ placeholder = "Select...", className, children, ...props }, ref) => {
+  ({ placeholder = "Pilih…", className, children, ...props }, ref) => {
+    const t = getDictionary().cart
     const innerRef = useRef<HTMLSelectElement>(null)
     const [isPlaceholder, setIsPlaceholder] = useState(false)
 
@@ -40,7 +42,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
       <div>
         <IconBadge
           className={clx(
-            "group relative flex items-center border text-ui-fg-base txt-compact-small focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
+            "group relative flex items-center border border-line-control text-ui-fg-base txt-compact-small focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
             className,
             {
               "text-ui-fg-subtle": isPlaceholder,
@@ -49,7 +51,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
         >
           <select
             ref={innerRef}
-            aria-label={props["aria-label"] || "Select quantity"}
+            aria-label={props["aria-label"] || t.selectQuantity}
             {...props}
             className="h-16 w-16 appearance-none items-center justify-center border-none bg-transparent px-4 outline-none motion-safe:transition-colors"
           >
@@ -58,7 +60,7 @@ const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
             </option>
             {children}
           </select>
-          <span className="absolute flex pointer-events-none justify-end w-8 group-hover:animate-pulse">
+          <span className="pointer-events-none absolute flex w-8 justify-end">
             <ChevronDown aria-hidden="true" />
           </span>
         </IconBadge>

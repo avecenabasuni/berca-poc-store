@@ -58,6 +58,7 @@ const ImageOrPlaceholder = ({
       alt={alt}
       className="absolute inset-0 rounded-[inherit] object-cover object-center outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
       draggable={false}
+      unoptimized
       quality={50}
       sizes="(max-width: 576px) 280px, (max-width: 768px) 360px, (max-width: 992px) 480px, 800px"
       fill

@@ -2,6 +2,7 @@ import { HttpTypes } from "@medusajs/types"
 import { ArrowRight } from "@medusajs/icons"
 import { Heading, Text } from "@modules/common/components/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import Image from "next/image"
 
 const categoryImages: Record<string, string> = {
   shirts:
@@ -36,7 +37,7 @@ export default function CategoryGrid({
   }
 
   return (
-    <div className="bg-surface-subtle py-16 small:py-24 border-y border-line-subtle/40">
+    <section id="categories" className="scroll-mt-28 border-y border-line-subtle/40 bg-surface-subtle py-16 small:py-24">
       <div className="content-container">
         <div className="flex flex-col items-center mb-12">
           <span className="text-content-interactive text-xs uppercase tracking-widest font-semibold mb-2">
@@ -59,10 +60,13 @@ export default function CategoryGrid({
               href={`/categories/${category.handle}`}
               className="surface-elevated-interactive group relative block aspect-[3/4] overflow-hidden rounded-xl motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:active:scale-[0.96]"
             >
-              <img
+              <Image
                 src={getCategoryImage(category.handle)}
                 alt={category.name}
-                className="absolute inset-0 h-full w-full object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:group-hover:scale-110"
+                fill
+                quality={80}
+                sizes="(min-width: 1024px) 25vw, 50vw"
+                className="object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-surface-inverse/90 via-surface-inverse-raised/50 to-transparent group-hover:from-surface-inverse/95 group-hover:via-brand-purple/70" />
               <div className="absolute inset-0 flex flex-col items-center justify-end p-6 text-center">
@@ -81,6 +85,6 @@ export default function CategoryGrid({
           ))}
         </div>
       </div>
-    </div>
+    </section>
   )
 }

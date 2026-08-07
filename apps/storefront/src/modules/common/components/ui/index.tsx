@@ -45,9 +45,9 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
         ref={ref}
         className={clsx(
           "font-semibold",
-          Component === "h1" && "text-3xl",
-          Component === "h2" && "text-2xl",
-          Component === "h3" && "text-xl",
+          Component === "h1" && "text-balance text-3xl leading-tight tracking-tight",
+          Component === "h2" && "text-balance text-2xl leading-tight tracking-tight",
+          Component === "h3" && "text-xl leading-snug",
           className
         )}
         {...props}
@@ -92,7 +92,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           variant === "primary" &&
             "bg-action-primary text-content-inverse hover:bg-action-primary-hover",
           variant === "secondary" &&
-            "border border-line-subtle bg-surface-default text-content-primary hover:bg-surface-subtle",
+            "border border-line-control bg-surface-default text-content-primary hover:bg-surface-subtle",
           variant === "transparent" &&
             "bg-transparent text-content-primary hover:bg-surface-subtle",
           size === "small" && "min-h-10 px-3 text-sm",
@@ -255,7 +255,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           aria-invalid={error ? true : props["aria-invalid"]}
           aria-describedby={describedBy}
           className={clsx(
-            "flex min-h-11 w-full rounded-md border border-line-subtle bg-surface-default px-3 py-2 text-base text-content-primary placeholder:text-content-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50",
+            "flex min-h-11 w-full rounded-md border border-line-control bg-surface-default px-3 py-2 text-base text-content-primary placeholder:text-content-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50",
             error && "border-error-foreground",
             className
           )}
@@ -429,7 +429,7 @@ const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
           type="radio"
           id={id}
           className={clsx(
-            "h-4 w-4 border-line-subtle text-content-primary focus:ring-content-primary",
+            "h-4 w-4 border-line-control text-content-primary focus:ring-content-primary",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
             className
           )}
@@ -460,7 +460,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           type="checkbox"
           id={id}
           className={clsx(
-            "h-4 w-4 rounded border-line-subtle text-content-primary focus:ring-content-primary",
+            "h-4 w-4 rounded border-line-control text-content-primary focus:ring-content-primary",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
             className
           )}

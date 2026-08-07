@@ -2,6 +2,7 @@
 
 import { Heading, Text } from "@modules/common/components/ui"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import Image from "next/image"
 import { useParams } from "next/navigation"
 import { getDictionary } from "@lib/i18n"
 
@@ -13,11 +14,15 @@ const Hero = () => {
     <div className="relative flex min-h-[42rem] w-full flex-col overflow-hidden">
       {/* Background image with overlay */}
       <div className="absolute inset-0">
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80"
           alt=""
           aria-hidden="true"
-          className="h-full w-full object-cover"
+          fill
+          priority
+          quality={85}
+          sizes="100vw"
+          className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-surface-inverse/95 via-surface-inverse-raised/80 to-brand-berry/50" />
       </div>
@@ -35,7 +40,7 @@ const Hero = () => {
             {t.title1}{" "}
             <span className="text-accent-on-inverse">{t.title2}</span>
           </Heading>
-          <Text className="text-content-inverse text-lg max-w-md font-normal leading-relaxed">
+          <Text className="max-w-md text-pretty text-lg font-normal leading-relaxed text-content-inverse">
             {t.description}
           </Text>
           <div className="mt-4 flex w-full flex-col gap-3 xsmall:w-auto xsmall:flex-row xsmall:gap-4">
@@ -45,12 +50,12 @@ const Hero = () => {
             >
               {t.shopNow}
             </LocalizedClientLink>
-            <LocalizedClientLink
-              href="/collections"
+            <a
+              href="#categories"
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-content-inverse/50 bg-surface-inverse/70 px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-inverse focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse motion-safe:active:scale-[0.96] xsmall:w-fit"
             >
-              {t.exploreCollection}
-            </LocalizedClientLink>
+              {t.exploreCategories}
+            </a>
           </div>
         </div>
       </div>

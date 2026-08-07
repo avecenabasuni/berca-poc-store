@@ -78,7 +78,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={error ? true : props["aria-invalid"]}
             aria-describedby={describedBy}
             className={clx(
-              "pt-4 pb-1 block w-full min-h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none text-base border-ui-border-base hover:bg-ui-bg-field-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+              "pt-4 pb-1 block w-full min-h-11 px-4 mt-0 bg-ui-bg-field border rounded-md appearance-none text-base border-line-control hover:bg-ui-bg-field-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
               type === "password" && "pr-12",
               error && "border-error-foreground",
               className
@@ -114,7 +114,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         {error && (
           <p id={errorId} className="mt-1 text-small-regular text-error-foreground">
-            <span className="font-semibold">Error:</span> {error}
+            <span className="font-semibold">Kesalahan:</span> {error}
           </p>
         )}
       </div>

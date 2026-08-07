@@ -69,7 +69,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
               className="rounded-sm text-xs font-semibold text-content-primary hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               data-testid="add-discount-button"
             >
-              + {countryCode === "id" ? "Tambahkan Kode Diskon" : "Add Discount Code"}
+              + {t.addDiscountCode}
             </button>
           </Label>
 
@@ -79,7 +79,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                 <Input
                   className="size-full"
                   id="promotion-input"
-                  label={countryCode === "id" ? "Kode diskon" : "Discount code"}
+                  label={t.discountCode}
                   name="code"
                   type="text"
                   autoFocus={false}
@@ -105,7 +105,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
           <div className="w-full flex items-center">
             <div className="flex flex-col w-full">
               <Heading className="txt-medium mb-2">
-                Promotion(s) applied:
+                {t.appliedPromotions}
               </Heading>
 
               {promotions.map((promotion) => {
@@ -160,7 +160,7 @@ const DiscountCode: React.FC<DiscountCodeProps> = ({ cart }) => {
                       >
                         <Trash size={14} aria-hidden="true" />
                         <span className="sr-only">
-                          Remove discount code from order
+                          {t.removeDiscountCode}
                         </span>
                       </button>
                     )}

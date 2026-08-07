@@ -118,6 +118,12 @@ export default function ProductActions({
     return false
   }, [selectedVariant])
 
+  const actionLabel = !selectedVariant || !isValidVariant
+    ? t.selectVariant
+    : !inStock
+    ? t.outOfStock
+    : t.addToCart
+
   const actionsRef = useRef<HTMLDivElement>(null)
 
   const inView = useIntersection(actionsRef, "0px")
@@ -178,11 +184,7 @@ export default function ProductActions({
           isLoading={isAdding}
           data-testid="add-product-button"
         >
-          {!selectedVariant && !options
-            ? t.selectVariant
-            : !inStock || !isValidVariant
-            ? t.outOfStock
-            : t.addToCart}
+          {actionLabel}
         </Button>
         <MobileActions
           product={product}
@@ -194,6 +196,7 @@ export default function ProductActions({
           isAdding={isAdding}
           show={!inView}
           optionsDisabled={!!disabled || isAdding}
+          actionLabel={actionLabel}
         />
       </div>
     </>

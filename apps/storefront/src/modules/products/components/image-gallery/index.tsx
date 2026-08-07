@@ -25,6 +25,7 @@ const ImageGallery = ({ images, productTitle }: ImageGalleryProps) => {
                   className="absolute inset-0 rounded-[inherit] outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
                   alt={`${productTitle}, image ${index + 1} of ${images.length}`}
                   fill
+                  unoptimized
                   sizes="(max-width: 576px) 280px, (max-width: 768px) 360px, (max-width: 992px) 480px, 800px"
                   style={{
                     objectFit: "cover",

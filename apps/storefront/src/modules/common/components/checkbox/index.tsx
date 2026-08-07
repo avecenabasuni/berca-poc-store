@@ -30,7 +30,7 @@ const CheckboxWithLabel: React.FC<CheckboxProps> = ({
         onChange={() => onChange?.()}
         name={name}
         data-testid={dataTestId}
-        className="h-5 w-5 rounded border-ui-border-base text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        className="h-5 w-5 rounded border-line-control text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       />
       <span>{label}</span>
     </label>

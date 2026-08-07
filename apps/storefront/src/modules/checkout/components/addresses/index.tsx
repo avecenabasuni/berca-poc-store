@@ -82,14 +82,14 @@ const Addresses = ({
                   level="h2"
                   className="text-3xl-regular gap-x-4 pb-6 pt-8"
                 >
-                  Billing address
+                  {t.billingAddress}
                 </Heading>
 
                 <BillingAddress cart={cart} />
               </div>
             )}
             <SubmitButton className="mt-6" data-testid="submit-address-button">
-              Continue to delivery
+              {t.continueToDelivery}
             </SubmitButton>
             <ErrorMessage error={message} data-testid="address-error-message" />
           </div>
@@ -98,14 +98,14 @@ const Addresses = ({
         <div>
           <div className="text-small-regular">
             {cart && cart.shipping_address ? (
-              <div className="flex items-start gap-x-8">
-                <div className="flex items-start gap-x-1 w-full">
+              <div>
+                <div className="grid w-full grid-cols-1 gap-6 xsmall:grid-cols-2 small:grid-cols-3">
                   <div
-                    className="flex flex-col w-1/3"
+                    className="flex min-w-0 flex-col"
                     data-testid="shipping-address-summary"
                   >
                     <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                      Shipping Address
+                      {t.shippingAddress}
                     </Text>
                     <Text className="txt-medium text-ui-fg-subtle">
                       {cart.shipping_address.first_name}{" "}
@@ -125,13 +125,13 @@ const Addresses = ({
                   </div>
 
                   <div
-                    className="flex flex-col w-1/3 "
+                    className="flex min-w-0 flex-col"
                     data-testid="shipping-contact-summary"
                   >
                     <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                      Contact
+                      {t.contact}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="break-words txt-medium text-ui-fg-subtle">
                       {cart.shipping_address.phone}
                     </Text>
                     <Text className="txt-medium text-ui-fg-subtle">
@@ -140,16 +140,16 @@ const Addresses = ({
                   </div>
 
                   <div
-                    className="flex flex-col w-1/3"
+                    className="flex min-w-0 flex-col"
                     data-testid="billing-address-summary"
                   >
                     <Text className="txt-medium-plus text-ui-fg-base mb-1">
-                      Billing Address
+                      {t.billingAddress}
                     </Text>
 
                     {sameAsBilling ? (
                       <Text className="txt-medium text-ui-fg-subtle">
-                        Billing and delivery address are the same.
+                        {t.billingSameAsShipping}
                       </Text>
                     ) : (
                       <>

@@ -5,13 +5,15 @@ import { ExclamationCircleSolid } from "@medusajs/icons"
 import { StoreCart, StoreCustomer } from "@medusajs/types"
 import { Button } from "@modules/common/components/ui"
 import { useState } from "react"
+import { getDictionary } from "@lib/i18n"
 function CartMismatchBanner(props: {
   customer: StoreCustomer
   cart: StoreCart
 }) {
   const { customer, cart } = props
+  const t = getDictionary().cart
   const [isPending, setIsPending] = useState(false)
-  const [actionText, setActionText] = useState("Run transfer again")
+  const [actionText, setActionText] = useState(t.transferAgain)
 
   if (!customer || !!cart.customer_id) {
     return
@@ -20,11 +22,11 @@ function CartMismatchBanner(props: {
   const handleSubmit = async () => {
     try {
       setIsPending(true)
-      setActionText("Transferring..")
+      setActionText(t.transferring)
 
       await transferCart()
     } catch {
-      setActionText("Run transfer again")
+      setActionText(t.transferAgain)
       setIsPending(false)
     }
   }
@@ -34,10 +36,10 @@ function CartMismatchBanner(props: {
       <div className="flex flex-col small:flex-row small:gap-2 gap-1 items-center">
         <span className="flex items-center gap-1">
           <ExclamationCircleSolid className="inline" aria-hidden="true" />
-          Something went wrong when we tried to transfer your cart
+          {t.transferError}
         </span>
 
-        <span>·</span>
+        <span aria-hidden="true">·</span>
 
         <Button
           variant="transparent"
