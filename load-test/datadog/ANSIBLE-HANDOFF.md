@@ -10,6 +10,11 @@ The repository intentionally contains no final EDA Rulebook, Decision
 Environment, AAP inventory, Job Template, credential, or remediation playbook.
 Those assets remain owned by the Red Hat Ansible team.
 
+The detailed implementation and acceptance specification for that owner is in
+[`ansible/README.md`](../../ansible/README.md). It also defines how existing AAP
+Job Templates 13 (pool), 14 (disk), and 15 (manual reset) fit into the final EDA
+flow.
+
 ## Approved event schema
 
 POOL:
