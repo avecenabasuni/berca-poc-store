@@ -14,6 +14,19 @@ Event-Driven Ansible (EDA) tidak menjadi dependency untuk versi POC ini.
 Datadog Workflow Automation langsung menjalankan Job Template yang sudah
 disetujui melalui Automation Controller API.
 
+Workflow 1 untuk fault injection juga menggunakan AAP pada implementasi final:
+
+```text
+Presenter menjalankan Datadog Workflow 1
+  -> pool  -> POST fixed Pool Fault Job Template
+  -> disk  -> POST fixed Disk Fault Job Template
+  -> reset -> POST Job Template 15
+```
+
+Dengan desain ini, `demo-control.sh` dan Demo Control API tidak berada pada
+critical path final demo. Keduanya dipertahankan hanya sebagai development dan
+emergency fallback.
+
 ```text
 Datadog generic backend monitor ALERT
   -> Bits Investigation
@@ -28,13 +41,15 @@ Datadog generic backend monitor ALERT
   -> success atau escalation
 ```
 
-Posisi Job Template yang sudah tersedia:
+Posisi Job Template:
 
-| ID | Fungsi | Pemanggil |
-|---:|---|---|
-| 13 | Pool remediation | Workflow 2, hanya pada klasifikasi `POOL` |
-| 14 | Disk remediation | Workflow 2, hanya pada klasifikasi `DISK` |
-| 15 | Reset demo | Presenter/operator; bukan autonomous remediation |
+| ID | Fungsi | Pemanggil | Status |
+|---:|---|---|---|
+| `<POOL_FAULT_JT_ID>` | Start pool fault | Workflow 1 `pool` | Perlu dibuat owner Ansible |
+| `<DISK_FAULT_JT_ID>` | Start disk fault | Workflow 1 `disk` | Perlu dibuat owner Ansible |
+| 13 | Pool remediation | Workflow 2, hanya pada `POOL` | Sudah tersedia |
+| 14 | Disk remediation | Workflow 2, hanya pada `DISK` | Sudah tersedia |
+| 15 | Full reset | Workflow 1 `reset` atau operator | Sudah tersedia |
 
 Endpoint Job Template harus disimpan sebagai URL statis pada masing-masing
 branch Workflow. Workflow tidak boleh membentuk Job Template ID dari output
@@ -66,7 +81,7 @@ Owner Ansible bertanggung jawab atas:
 - AAP Project dan source control playbook;
 - dedicated Inventory untuk satu VM POC;
 - Machine Credential dan privilege escalation;
-- Job Template 13, 14, dan 15;
+- Pool Fault, Disk Fault, dan Job Template 13, 14, dan 15;
 - final idempotent playbooks;
 - RBAC untuk service account Datadog;
 - execution evidence dan status job.
@@ -80,18 +95,18 @@ Repository aplikasi menyediakan:
 
 - fault injection dan traffic generator;
 - target resource dan path POC yang eksplisit;
-- `demo-control.sh` sebagai tested host-local reference/fallback;
-- Demo Control API untuk development transport;
+- `demo-control.sh` sebagai tested host-local fallback;
+- Demo Control API sebagai development fallback transport;
 - expected recovery behavior;
 - Datadog telemetry dan success criteria.
 
-## 3. Apakah playbook harus memanggil `demo-control.sh`?
+## 3. Posisi `demo-control.sh`
 
-Tidak wajib.
+Final AAP playbooks tidak memanggil `demo-control.sh`. Seluruh action `pool`,
+`disk`, `recover-pool`, `recover-disk`, `reset`, dan read-only `status`
+diimplementasikan sebagai Ansible role/tasks.
 
-Memanggil script dari Ansible adalah pola integrasi yang valid ketika script
-tersebut merupakan operational interface yang sudah diuji. Untuk MVP atau
-integration smoke test, pola berikut tetap diizinkan:
+Script berikut dipertahankan sebagai emergency dan development fallback:
 
 ```text
 demo-control.sh recover-pool
@@ -99,21 +114,23 @@ demo-control.sh recover-disk
 demo-control.sh reset
 ```
 
-Namun untuk final sales demo, playbook 13 dan 14 lebih baik memperlihatkan task
-Ansible yang idempotent, tervalidasi, dan mudah dibaca. Dengan demikian AAP
-tidak terlihat hanya sebagai remote shell wrapper.
-
-Keputusan implementasi:
+Keputusan implementasi final:
 
 | Mode | Implementasi | Posisi |
 |---|---|---|
-| Reference/fallback | `command.argv` memanggil `demo-control.sh` | Diizinkan untuk smoke test |
-| Preferred final | Native Ansible tasks dengan safety dan hasil yang sama | Direkomendasikan untuk JT 13/14 |
-| Reset | Boleh memanggil `demo-control.sh reset` | Dapat diterima karena cleanup lintas-resource kompleks |
+| Final hero demo | Native Ansible role/tasks | Wajib untuk fault, remediation, reset, dan status |
+| Development fallback | Demo Control API -> `demo-control.sh` | Hanya jika AAP belum tersedia |
+| Emergency host fallback | Operator menjalankan `demo-control.sh reset` | Manual break-glass |
 
-Jika owner Ansible memilih native tasks, script tetap menjadi executable
-reference untuk membandingkan behavior. Datadog tetap menggunakan telemetry
-yang sama untuk menentukan berhasil atau gagal.
+Tidak menggunakan `.sh` bukan berarti semua executable Linux dilarang. Bila
+tidak ada module yang sesuai, playbook boleh memakai `ansible.builtin.command`
+dengan `argv` statis untuk `psql`, `findmnt`, `losetup`, `sync`, atau command
+lain yang telah di-whitelist. `ansible.builtin.shell`, interpolasi command, dan
+arbitrary arguments tetap dilarang.
+
+Setelah native implementation lulus parity test, Ansible menjadi canonical
+implementation. Script dibekukan sebagai fallback dan tidak dikembangkan
+sebagai jalur utama kedua.
 
 ## 4. Katalog action yang dibatasi
 
@@ -200,7 +217,8 @@ input action; konteks audit menggunakan tiga ID yang terstruktur.
 
 ## 6. Datadog Workflow dispatch
 
-Workflow 2 menggunakan connection dengan Bearer token dan dua fixed actions:
+Workflow 2 menggunakan remediation-scoped connection dengan Bearer token dan
+dua fixed actions:
 
 ```text
 POOL -> POST <AAP_BASE_URL>/api/controller/v2/job_templates/13/launch/
@@ -227,6 +245,11 @@ Connection, bukan di workflow body, log, repository, atau screenshot.
 Service account token untuk Workflow harus memiliki execute permission hanya
 pada Job Template 13 dan 14. Reset Job Template 15 sebaiknya memakai hak
 operator terpisah.
+
+Workflow 1 menggunakan fault-control-scoped connection yang hanya mempunyai
+execute permission untuk Pool Fault Job Template, Disk Fault Job Template, dan
+Job Template 15. Token Workflow 1 tidak dapat menjalankan Job Template 13/14;
+token Workflow 2 tidak dapat membuat fault atau melakukan reset.
 
 ## 7. Konfigurasi AAP
 
@@ -256,18 +279,70 @@ operator terpisah.
 - Tidak dipanggil oleh Workflow 2.
 - Tidak membutuhkan classification dari Bits.
 - Menggunakan dedicated POC Inventory yang sama.
+- Menjalankan native reset tasks; tidak memanggil shell script pada final flow.
+
+### Pool dan disk fault Job Templates
+
+- Masing-masing memakai dedicated playbook dengan action tetap.
+- Hanya dapat dijalankan melalui Workflow 1 atau operator POC.
+- Tidak menerima action, host, path, command, atau container dari survey.
+- Menggunakan Inventory dan Machine Credential yang sama.
+- Tidak boleh aktif bersamaan; shared host lock menjadi final guard.
 
 Token AAP, private endpoint, SSH key, become password, dan certificate tidak
 boleh disimpan di Git.
 
-## 8. Spesifikasi preferred native playbooks
+## 8. Spesifikasi native Ansible implementation
+
+Owner Ansible disarankan membuat satu reusable role dengan task files terpisah,
+bukan menyalin task yang sama ke banyak playbook:
+
+```text
+roles/berca_poc_demo/
+  defaults/main.yml
+  tasks/preflight.yml
+  tasks/acquire-lock.yml
+  tasks/release-lock.yml
+  tasks/read-pool-state.yml
+  tasks/read-disk-state.yml
+  tasks/fault-pool.yml
+  tasks/fault-disk.yml
+  tasks/recover-pool.yml
+  tasks/recover-disk.yml
+  tasks/reset.yml
+  tasks/status.yml
+```
+
+Thin playbooks mengimpor tepat satu task lifecycle. External payload tidak
+memilih nama task file; setiap Job Template sudah terikat ke playbook/action
+yang tetap.
+
+Pin collection versions pada Ansible repository:
+
+```yaml
+collections:
+  - name: community.docker
+  - name: community.general
+  - name: ansible.posix
+```
+
+Gunakan:
+
+- `community.docker.docker_compose_v2` untuk Compose services;
+- `community.general.filesize` untuk disk image berukuran tetap;
+- `community.general.filesystem` untuk ext4 pada image POC;
+- `ansible.posix.mount` dengan state ephemeral/unmounted agar tidak mengubah
+  `/etc/fstab`;
+- `ansible.builtin.file`, `stat`, `assert`, `command`, dan bounded
+  `until/retries/delay` untuk state dan verification.
 
 Semua playbook minimum harus:
 
 1. Menargetkan dedicated inventory group dengan `serial: 1`.
 2. Menggunakan `become: true` dan `gather_facts: false`.
 3. Menjalankan preflight sebelum task yang mengubah state.
-4. Memvalidasi tiga audit IDs sebagai string non-empty.
+4. Job Template 13/14 memvalidasi tiga audit IDs sebagai string non-empty;
+   fault, reset, dan status tidak menerima remediation audit payload.
 5. Menggunakan Fully Qualified Collection Name.
 6. Menghindari `ansible.builtin.shell` bila `command.argv` atau module tersedia.
 7. Tidak memakai wildcard, `pkill`, atau arbitrary process matching.
@@ -276,6 +351,46 @@ Semua playbook minimum harus:
    perubahan berbahaya.
 10. Membiarkan kegagalan aktual menghasilkan AAP job `failed`.
 11. Mencatat before/after state dan durasi sebagai job evidence.
+
+### Shared operation lock
+
+`allow_simultaneous: false` harus diaktifkan pada setiap Job Template, tetapi
+itu belum mencegah dua Job Template berbeda berjalan bersamaan. Tambahkan satu
+shared host lock, misalnya direktori root-owned di `/run/lock/berca-poc-demo`.
+
+Acquisition harus atomic dan gagal cepat jika lock dimiliki job lain. Simpan
+`awx_job_id` dan waktu pada lock metadata. Release dilakukan dalam `always`
+block. Sertakan bounded stale-lock handling untuk job yang pernah terputus;
+jangan menghapus lock aktif secara buta.
+
+### Pool fault Job Template
+
+Required behavior:
+
+1. Verifikasi disk fault tidak aktif.
+2. Pastikan PostgreSQL dan PgBouncer sehat.
+3. Verifikasi PgBouncer berada pada baseline `5/5`.
+4. Start hanya Compose service `pool-hog` dengan profile `demo-fault`.
+5. Poll sampai `sv_active>=5` dan `cl_waiting>0`.
+6. Jika saturation gagal tercapai, stop pool-hog dan kembalikan baseline.
+7. Repeated invocation saat fault sudah aktif menghasilkan idempotent success.
+
+### Disk fault Job Template
+
+Required behavior:
+
+1. Verifikasi pool fault tidak aktif.
+2. Buat exact 200 MB image `/tmp/poc-log-disk.img`.
+3. Buat ext4 tanpa journal dan tanpa reserved blocks pada image tersebut.
+4. Mount hanya ke `<poc_project_path>/docker/log-saturation/data` secara
+   ephemeral.
+5. Verifikasi source `/dev/loopN`, filesystem ext4, dan backing image exact.
+6. Buat exact trigger `.trigger_saturation`.
+7. Re-create hanya `log-generator` dan `datadog-agent` agar bind mount aktif.
+8. Poll sampai disk `>=85%` dan backend impact marker tersedia.
+9. Jika fault gagal tercapai, hentikan generator state dan pulihkan disk aman.
+10. Repeated invocation saat fault valid sudah aktif menghasilkan idempotent
+    success.
 
 ### Job Template 13: pool remediation
 
@@ -339,60 +454,72 @@ Path `/var/log/poc-saturation` bukan target fault yang digunakan repository.
 
 ### Job Template 15: reset
 
-Reset menyentuh beberapa resource sekaligus: pool-hog, PgBouncer baseline,
-trigger, synthetic filesystem, loop device, log baseline, consumer containers,
-dan health checks. Karena lifecycle ini sudah dipusatkan dan diuji di
-`demo-control.sh reset`, memanggil script tersebut dari JT 15 dapat diterima dan
-lebih aman daripada membuat implementasi reset kedua yang mudah menyimpang.
+Reset final juga menggunakan native tasks:
 
-Jika dipanggil dari Ansible, gunakan fixed argv:
+1. Stop dan remove exact `pool-hog` service/container.
+2. Pastikan PgBouncer hidup dan reset runtime config ke baseline `5/5` hanya
+   bila nilainya berbeda.
+3. Poll sampai tepat satu target pool row dan `cl_waiting=0`.
+4. Verifikasi disk mount ownership sebelum menyentuh disk target.
+5. Hapus exact trigger dan impact marker.
+6. Stop hanya filesystem consumers.
+7. Kosongkan exact saturation log.
+8. Unmount POC mount secara ephemeral.
+9. Detach hanya loop device dengan exact backing image.
+10. Hapus image hanya setelah unmount dan detach terverifikasi.
+11. Bangun baseline log directory dan readiness log.
+12. Re-create `log-generator` dan `datadog-agent`.
+13. Verifikasi health consumer, tidak ada mount/marker/trigger, pool `5/5`, dan
+    `cl_waiting=0`.
 
-```yaml
-- name: Reset the POC to its tested baseline
-  ansible.builtin.command:
-    argv:
-      - "{{ poc_project_path }}/demo-control.sh"
-      - reset
-  register: reset_result
-```
+Gunakan `block`, `rescue`, dan `always` agar semua cleanup stage yang aman tetap
+dicoba dan shared lock selalu dilepas. Jangan menyembunyikan kegagalan kritis.
 
-Tambahkan preflight executable dan independent post-reset checks. Non-zero exit
-code harus menggagalkan Job Template.
+### Status playbook
 
-## 9. Reference/fallback playbook mode
+Read-only status tasks mengumpulkan observed state untuk pool-hog, pool config,
+`sv_active`, `cl_waiting`, mount source/fstype/backing image, disk usage,
+trigger, marker, log size, dan container health. Publish hasil menggunakan
+`ansible.builtin.set_stats` agar tersedia sebagai AAP job artifact.
 
-Jika native playbook belum selesai saat integration test dimulai, JT 13 dan 14
-boleh sementara memanggil fixed recovery interface berikut menggunakan
-`command.argv`:
+## 9. Development dan emergency fallback
+
+Final Job Template tidak memanggil script. Jika native playbook belum tersedia,
+development Workflow 2 boleh memakai transport `direct_script` melalui Demo
+Control API yang sudah dibatasi. Operator juga dapat memakai fixed commands
+berikut secara manual untuk troubleshooting:
 
 ```text
+<poc_project_path>/demo-control.sh pool
+<poc_project_path>/demo-control.sh disk
 <poc_project_path>/demo-control.sh recover-pool
 <poc_project_path>/demo-control.sh recover-disk
+<poc_project_path>/demo-control.sh reset
+<poc_project_path>/demo-control.sh status
 ```
 
-Mode ini harus diberi label `REFERENCE INTEGRATION FALLBACK`, bukan dianggap
-final best-practice playbook. Script tidak menerima host, path, filename, SQL,
-pool size, atau arbitrary shell arguments.
+Fallback tidak aktif otomatis ketika AAP gagal. AAP failure harus menghasilkan
+escalation agar demo tidak menyembunyikan kegagalan integrasi. Script tidak
+menerima host, path, filename, SQL, pool size, atau arbitrary shell arguments.
 
 ## 10. Perubahan terhadap draft playbook sekarang
 
 ### Pool draft
 
 Draft saat ini melakukan restart container PgBouncer. Ganti dengan native pool
-recovery pada bagian 8, atau gunakan reference fallback sementara. Container
-yang harus dihentikan adalah dedicated `pool-hog`, bukan PgBouncer.
+recovery pada bagian 8. Container yang harus dihentikan adalah dedicated
+`pool-hog`, bukan PgBouncer.
 
 ### Disk draft
 
 Hapus `pkill`, wildcard truncate, path `/var/log/poc-saturation`, dan seluruh
 `ignore_errors`. Implementasikan exact target validation dan native recovery
-pada bagian 8, atau gunakan reference fallback sementara.
+pada bagian 8.
 
 ### Reset draft
 
-Ganti placeholder personal dengan `{{ poc_project_path }}` dari Inventory,
-gunakan `command.argv`, targetkan dedicated inventory group, dan tambahkan
-independent post-reset verification.
+Ganti script wrapper dengan native reset tasks pada bagian 8, targetkan
+dedicated inventory group, dan tambahkan independent post-reset verification.
 
 ## 11. API smoke tests
 
@@ -414,6 +541,10 @@ Content-Type: application/json
 
 Disk menggunakan body yang sama menuju Job Template 14. Reset Job Template 15
 menggunakan `{"extra_vars": {}}` dan dijalankan manual.
+
+Workflow 1 menggunakan fixed Pool Fault dan Disk Fault Job Template endpoints
+yang diberikan owner Ansible. Kedua launch request tidak menerima action atau
+target override. Reset menggunakan fixed Job Template 15 endpoint.
 
 Gunakan HTTPS dengan certificate/CA yang dipercaya. Jangan menggunakan token
 nyata dalam dokumentasi, shell history, atau screenshot publik.
@@ -473,6 +604,13 @@ AND escalation sent
 12. Job Template 15 dapat mengembalikan baseline untuk demo berikutnya.
 13. Datadog mendapatkan job ID, membaca terminal status, lalu melakukan
     independent telemetry verification.
+14. Workflow 1 pool menjalankan satu Pool Fault Job Template dan mencapai
+    `sv_active>=5`, `cl_waiting>0`.
+15. Workflow 1 disk menjalankan satu Disk Fault Job Template dan mencapai
+    disk `>=85%` serta backend impact.
+16. Pool dan disk fault tidak dapat aktif bersamaan.
+17. Semua native actions memiliki parity terhadap observed results fallback
+    script.
 
 ## 14. Definition of done
 
@@ -480,11 +618,13 @@ Handoff Ansible selesai setelah tersedia:
 
 - AAP Project yang sinkron dengan repository playbook owner Ansible;
 - dedicated Inventory dan Machine Credential untuk VM POC;
-- Job Template 13/14/15 sesuai pembatasan dokumen ini;
+- Pool Fault, Disk Fault, dan Job Template 13/14/15 sesuai pembatasan dokumen
+  ini;
 - required audit surveys pada JT 13/14;
-- preferred native pool dan disk playbooks, atau fallback yang diberi label;
+- satu reusable native Ansible role untuk fault, remediation, reset, dan status;
 - positive dan negative test evidence;
-- Datadog service account dengan execute-only access ke JT 13/14;
+- dua scoped Datadog service accounts/connections untuk fault control dan
+  remediation;
 - private connectivity dari Datadog Private Action Runner ke AAP;
 - konfirmasi bahwa AAP status hanya execution evidence dan Datadog telemetry
   tetap menjadi final recovery authority.

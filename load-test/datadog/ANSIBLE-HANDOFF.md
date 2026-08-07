@@ -60,6 +60,10 @@ Datadog passes only `monitor_id`, `investigation_id`, and
 path, filename, command, SQL statement, pool size, playbook name, or arbitrary
 extra variable from the launch request.
 
+Final Job Templates implement the recovery as native Ansible role/tasks.
+`demo-control.sh` and the Demo Control API remain development and emergency
+fallbacks only; they are not called by the final Job Templates.
+
 ## Expected technical results
 
 Pool result:
