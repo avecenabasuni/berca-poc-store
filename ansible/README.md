@@ -1,120 +1,190 @@
-# Spesifikasi Implementasi untuk Owner Red Hat Ansible
+# Spesifikasi Handoff Datadog ke Red Hat Ansible
 
-Dokumen ini adalah kontrak kerja antara owner Datadog/aplikasi demo dan owner
-Red Hat Ansible untuk POC **AI-Driven Autonomous Remediation with Datadog and
-Red Hat Ansible**.
+Dokumen ini menjelaskan implementasi yang diharapkan dari owner Red Hat
+Ansible untuk POC **AI-Driven Autonomous Remediation with Datadog and Red Hat
+Ansible**.
 
-Implementasi final Event-Driven Ansible (EDA), Automation Controller/AAP,
-inventory, credential, Job Template, dan playbook tetap dimiliki oleh owner
-Ansible. Repository aplikasi hanya menyediakan event contract dan recovery
-command yang deterministic.
+Target dokumen ini adalah live sales demo yang sederhana, stabil, aman untuk
+diulang, dan tetap memperlihatkan peran nyata kedua produk. Ini bukan desain
+production-grade.
 
-## 1. Target arsitektur
+## 1. Keputusan arsitektur
 
-Final hero flow:
+Event-Driven Ansible (EDA) tidak menjadi dependency untuk versi POC ini.
+Datadog Workflow Automation langsung menjalankan Job Template yang sudah
+disetujui melalui Automation Controller API.
 
 ```text
 Datadog generic backend monitor ALERT
-  -> Datadog Bits Investigation
+  -> Bits Investigation
   -> Datadog Workflow mengklasifikasikan POOL / DISK / UNKNOWN
-  -> EDA Event Stream menerima event POOL atau DISK
-  -> EDA Rulebook melakukan exact allowlist match
-  -> EDA menjalankan approved AAP Job Template
-  -> AAP SSH ke satu VM POC
-  -> playbook memanggil demo-control.sh
+  -> bounded action catalog
+       POOL    -> POST AAP Job Template 13
+       DISK    -> POST AAP Job Template 14
+       UNKNOWN -> no change, escalation
+  -> ambil AAP job ID
+  -> poll AAP job sampai terminal state
   -> Datadog memverifikasi recovery dari telemetry
+  -> success atau escalation
 ```
 
 Posisi Job Template yang sudah tersedia:
 
-| ID | Fungsi | Pemanggil final |
+| ID | Fungsi | Pemanggil |
 |---:|---|---|
-| 13 | Pool remediation | EDA Rulebook setelah exact `POOL` match |
-| 14 | Disk remediation | EDA Rulebook setelah exact `DISK` match |
-| 15 | Reset demo | Presenter/operator secara manual, bukan Workflow 2 |
+| 13 | Pool remediation | Workflow 2, hanya pada klasifikasi `POOL` |
+| 14 | Disk remediation | Workflow 2, hanya pada klasifikasi `DISK` |
+| 15 | Reset demo | Presenter/operator; bukan autonomous remediation |
 
-Endpoint `/api/controller/v2/job_templates/<id>/launch/` boleh dipakai untuk
-smoke test integrasi AAP. Pada final hero flow, Datadog tidak memanggil Job
-Template 13 atau 14 secara langsung. Datadog mengirim event ke EDA Event
-Stream, lalu EDA yang menjalankan Job Template terkait.
+Endpoint Job Template harus disimpan sebagai URL statis pada masing-masing
+branch Workflow. Workflow tidak boleh membentuk Job Template ID dari output
+Bits, monitor payload, atau input bebas.
 
-Development tanpa EDA tetap menggunakan transport `direct_script` menuju Demo
-Control API. Direct AAP bukan fallback otomatis dan bukan transport ketiga.
+EDA dapat ditambahkan kemudian bila demo memang perlu menampilkan Event Stream,
+Rulebook, dan event routing milik Red Hat. EDA bukan bagian dari minimal hero
+demo dan bukan fallback otomatis.
 
-## 2. Batas tanggung jawab
+## 2. Peran setiap komponen
 
-Owner Datadog/aplikasi menyediakan:
+### Datadog
 
-- `demo-control.sh recover-pool`;
-- `demo-control.sh recover-disk`;
-- `demo-control.sh reset`;
-- fault injection dan traffic generator;
-- event schema;
-- Datadog Bits classification;
-- final recovery verification dari telemetry.
+Datadog bertanggung jawab atas:
 
-Owner Ansible menyediakan:
+- generic backend degradation detection;
+- Bits Investigation;
+- klasifikasi terbatas `POOL`, `DISK`, atau `UNKNOWN`;
+- pemilihan endpoint Job Template dari katalog statis;
+- authenticated launch request ke AAP;
+- polling status job sebagai execution evidence;
+- recovery verification dari Datadog telemetry;
+- safe escalation untuk `UNKNOWN`, dispatch failure, atau recovery failure.
 
-- EDA Event Stream dan authentication;
-- Rulebook dan Decision Environment;
-- AAP Project yang mengambil playbook dari repository Ansible;
-- dedicated inventory untuk VM POC;
+### Red Hat Ansible
+
+Owner Ansible bertanggung jawab atas:
+
+- AAP Project dan source control playbook;
+- dedicated Inventory untuk satu VM POC;
 - Machine Credential dan privilege escalation;
 - Job Template 13, 14, dan 15;
-- playbook final;
-- RBAC dan execution evidence.
+- final idempotent playbooks;
+- RBAC untuk service account Datadog;
+- execution evidence dan status job.
 
 Ansible tidak menentukan root cause dan tidak membangun command dari output AI.
-Ansible hanya menjalankan action dari katalog yang telah disetujui.
+Playbook hanya menjalankan remediasi yang sudah melekat pada Job Template.
 
-## 3. Event contract dari Datadog ke EDA
+### Repository aplikasi
 
-POOL event:
+Repository aplikasi menyediakan:
+
+- fault injection dan traffic generator;
+- target resource dan path POC yang eksplisit;
+- `demo-control.sh` sebagai tested host-local reference/fallback;
+- Demo Control API untuk development transport;
+- expected recovery behavior;
+- Datadog telemetry dan success criteria.
+
+## 3. Apakah playbook harus memanggil `demo-control.sh`?
+
+Tidak wajib.
+
+Memanggil script dari Ansible adalah pola integrasi yang valid ketika script
+tersebut merupakan operational interface yang sudah diuji. Untuk MVP atau
+integration smoke test, pola berikut tetap diizinkan:
+
+```text
+demo-control.sh recover-pool
+demo-control.sh recover-disk
+demo-control.sh reset
+```
+
+Namun untuk final sales demo, playbook 13 dan 14 lebih baik memperlihatkan task
+Ansible yang idempotent, tervalidasi, dan mudah dibaca. Dengan demikian AAP
+tidak terlihat hanya sebagai remote shell wrapper.
+
+Keputusan implementasi:
+
+| Mode | Implementasi | Posisi |
+|---|---|---|
+| Reference/fallback | `command.argv` memanggil `demo-control.sh` | Diizinkan untuk smoke test |
+| Preferred final | Native Ansible tasks dengan safety dan hasil yang sama | Direkomendasikan untuk JT 13/14 |
+| Reset | Boleh memanggil `demo-control.sh reset` | Dapat diterima karena cleanup lintas-resource kompleks |
+
+Jika owner Ansible memilih native tasks, script tetap menjadi executable
+reference untuk membandingkan behavior. Datadog tetap menggunakan telemetry
+yang sama untuk menentukan berhasil atau gagal.
+
+## 4. Katalog action yang dibatasi
+
+Mapping diagnosis ke action hanya ada di Datadog Workflow:
+
+| Classification | Endpoint tetap | Approved outcome |
+|---|---|---|
+| `POOL` | Job Template 13 | Hentikan dedicated pool-hog dan pulihkan antrean |
+| `DISK` | Job Template 14 | Pulihkan hanya synthetic log volume yang di-whitelist |
+| `UNKNOWN` | Tidak ada request | Tidak ada perubahan; escalation |
+
+Workflow tidak boleh menerima atau meneruskan:
+
+- target host atau inventory;
+- path atau filename;
+- command atau shell argument;
+- SQL atau pool size;
+- container name;
+- playbook name;
+- credential;
+- Job Template ID.
+
+Semua target teknis ditetapkan oleh Inventory, Job Template, dan playbook yang
+dikendalikan owner Ansible.
+
+## 5. Launch contract Datadog ke AAP
+
+Karena Job Template ID sudah menentukan jenis remediation, action fields tidak
+perlu diterima sebagai launch-time variables.
+
+Job Template 13 menyimpan fixed variables berikut pada konfigurasi template
+atau playbook:
+
+```yaml
+schema_version: "1.0"
+environment: poc
+service: berca-backend
+classification: POOL
+resource_id: pgbouncer-demo
+requested_action: recover_pool
+```
+
+Job Template 14 menyimpan:
+
+```yaml
+schema_version: "1.0"
+environment: poc
+service: berca-backend
+classification: DISK
+resource_id: synthetic-log-volume
+requested_action: recover_disk
+```
+
+Datadog hanya mengirim tiga audit identifiers:
 
 ```json
 {
-  "schema_version": "1.0",
-  "environment": "poc",
-  "service": "berca-backend",
-  "classification": "POOL",
-  "resource_id": "pgbouncer-demo",
-  "requested_action": "recover_pool",
-  "monitor_id": "<DATADOG_MONITOR_ID>",
-  "investigation_id": "<BITS_INVESTIGATION_ID>",
-  "workflow_instance_id": "<DATADOG_WORKFLOW_INSTANCE_ID>"
+  "extra_vars": {
+    "monitor_id": "<DATADOG_MONITOR_ID>",
+    "investigation_id": "<BITS_INVESTIGATION_ID>",
+    "workflow_instance_id": "<DATADOG_WORKFLOW_INSTANCE_ID>"
+  }
 }
 ```
 
-DISK event:
+Ketiga variable harus dibuat sebagai required text survey fields pada Job
+Template 13 dan 14, dengan panjang minimum 1 dan panjang maksimum yang wajar.
+Jangan mengaktifkan arbitrary `ask_variables_on_launch` jika survey yang sempit
+sudah mencukupi.
 
-```json
-{
-  "schema_version": "1.0",
-  "environment": "poc",
-  "service": "berca-backend",
-  "classification": "DISK",
-  "resource_id": "synthetic-log-volume",
-  "requested_action": "recover_disk",
-  "monitor_id": "<DATADOG_MONITOR_ID>",
-  "investigation_id": "<BITS_INVESTIGATION_ID>",
-  "workflow_instance_id": "<DATADOG_WORKFLOW_INSTANCE_ID>"
-}
-```
-
-Rules:
-
-- `schema_version`, `environment`, dan `service` harus exact match.
-- Ketiga ID audit harus string non-empty.
-- `POOL` hanya valid bersama `pgbouncer-demo` dan `recover_pool`.
-- `DISK` hanya valid bersama `synthetic-log-volume` dan `recover_disk`.
-- Kombinasi lain harus ditolak tanpa menjalankan Job Template.
-- `UNKNOWN` tidak dikirim ke EDA. Bila sampai diterima, tidak boleh match rule.
-- Event tidak boleh berisi atau menentukan host, inventory, path, filename,
-  command, shell argument, SQL, pool size, playbook name, credential, atau Job
-  Template ID.
-
-Inventory dan target host ditentukan statis di AAP. Contoh lama berikut tidak
-boleh digunakan:
+Payload lama berikut dilarang:
 
 ```json
 {
@@ -125,190 +195,208 @@ boleh digunakan:
 }
 ```
 
-`target_host` memperluas blast radius berdasarkan input eksternal dan
-`alert_title` bukan kontrak action yang dibutuhkan.
+Target host berasal dari AAP Inventory. `alert_title` tidak digunakan sebagai
+input action; konteks audit menggunakan tiga ID yang terstruktur.
 
-## 4. Mapping EDA ke AAP
+## 6. Datadog Workflow dispatch
 
-Rule POOL:
-
-```text
-IF exact event ==
-  schema_version=1.0
-  environment=poc
-  service=berca-backend
-  classification=POOL
-  resource_id=pgbouncer-demo
-  requested_action=recover_pool
-  all audit IDs non-empty
-THEN run Job Template 13
-ELSE no action
-```
-
-Rule DISK:
+Workflow 2 menggunakan connection dengan Bearer token dan dua fixed actions:
 
 ```text
-IF exact event ==
-  schema_version=1.0
-  environment=poc
-  service=berca-backend
-  classification=DISK
-  resource_id=synthetic-log-volume
-  requested_action=recover_disk
-  all audit IDs non-empty
-THEN run Job Template 14
-ELSE no action
+POOL -> POST <AAP_BASE_URL>/api/controller/v2/job_templates/13/launch/
+DISK -> POST <AAP_BASE_URL>/api/controller/v2/job_templates/14/launch/
 ```
 
-Saat EDA menjalankan Job Template, event yang sudah tervalidasi dinormalisasi ke
-satu variable berikut:
+Setelah launch:
 
-```json
-{
-  "extra_vars": {
-    "remediation_event": {
-      "schema_version": "1.0",
-      "environment": "poc",
-      "service": "berca-backend",
-      "classification": "POOL",
-      "resource_id": "pgbouncer-demo",
-      "requested_action": "recover_pool",
-      "monitor_id": "<DATADOG_MONITOR_ID>",
-      "investigation_id": "<BITS_INVESTIGATION_ID>",
-      "workflow_instance_id": "<DATADOG_WORKFLOW_INSTANCE_ID>"
-    }
-  }
-}
-```
+1. Pastikan respons launch berisi numeric `id`.
+2. Simpan nilai tersebut sebagai `aap_job_id`.
+3. Poll `GET <AAP_BASE_URL>/api/controller/v2/jobs/<aap_job_id>/`.
+4. Gunakan bounded wait; jangan membuat remediation retry ladder.
+5. Terminal success: `successful`.
+6. Terminal failure: `failed`, `error`, atau `canceled`.
+7. Setelah AAP selesai, lanjutkan ke shared Datadog telemetry verification.
 
-Untuk DISK, object yang sama menggunakan nilai DISK yang telah ditentukan di
-bagian 3. Playbook melakukan defensive assertion ulang terhadap object ini
-sebelum task yang dapat mengubah state.
+HTTP 2xx dan status AAP `successful` hanya membuktikan dispatch/execution.
+Keduanya tidak membuktikan service sudah pulih.
 
-## 5. Konfigurasi AAP yang diminta
+Karena Controller menggunakan alamat private, gunakan Datadog Private Action
+Runner yang dapat mencapai jaringan AAP. Simpan token pada Datadog HTTP
+Connection, bukan di workflow body, log, repository, atau screenshot.
+
+Service account token untuk Workflow harus memiliki execute permission hanya
+pada Job Template 13 dan 14. Reset Job Template 15 sebaiknya memakai hak
+operator terpisah.
+
+## 7. Konfigurasi AAP
 
 ### Inventory dan credential
 
-- Gunakan dedicated inventory group, misalnya `berca_poc_vm`.
-- Group hanya berisi satu managed VM POC.
-- VM address dan SSH user berada di Inventory/Machine Credential, bukan event.
-- Simpan `poc_project_path` sebagai inventory/host variable, contoh
-  `/home/<automation-user>/berca-poc-store`.
-- `poc_project_path` wajib absolute dan tidak boleh diterima dari `extra_vars`.
+- Gunakan dedicated group, misalnya `berca_poc_vm`.
+- Group hanya berisi managed VM POC.
+- VM address dan SSH user berada di Inventory/Machine Credential.
+- Simpan `poc_project_path` sebagai inventory/group/host variable.
+- `poc_project_path` harus absolute dan tidak diterima dari `extra_vars`.
 - Gunakan dedicated Machine Credential dan `become: true`.
+- Jangan memakai `hosts: all`; targetkan dedicated group.
 
 ### Job Template 13 dan 14
 
-- Inventory: dedicated POC inventory.
-- Credential: dedicated POC Machine Credential.
-- Limit: dedicated POC VM/group, tidak menggunakan `all` secara bebas.
-- Concurrent jobs: disabled.
-- Job timeout: 300 detik.
-- Variable input hanya `remediation_event` yang berasal dari EDA.
-- Jangan menyediakan survey untuk host, command, path, filename, action, atau
-  playbook name.
+- Dedicated POC Inventory dan Machine Credential.
+- Dedicated playbook untuk satu remediation.
+- Concurrent jobs disabled.
+- Timeout sekitar 300 detik.
+- Tiga required audit survey fields saja.
+- Fixed classification/resource/action tidak promptable.
+- Tidak ada prompt untuk inventory, credential, limit, path, atau command.
 
 ### Job Template 15
 
-- Hanya dapat dijalankan manual oleh presenter/operator.
-- Tidak boleh dipanggil dari rule POOL, DISK, atau UNKNOWN.
-- Tidak membutuhkan event payload.
-- Memanggil `demo-control.sh reset` pada dedicated VM yang sama.
+- Manual reset atau Workflow 1 manual reset saja.
+- Tidak dipanggil oleh Workflow 2.
+- Tidak membutuhkan classification dari Bits.
+- Menggunakan dedicated POC Inventory yang sama.
 
-Token AAP, SSH key, become password, Event Stream credential, dan endpoint
-private disimpan di AAP/EDA/Datadog Connection. Nilainya tidak disimpan di Git,
-playbook, Workflow output, atau screenshot publik.
+Token AAP, private endpoint, SSH key, become password, dan certificate tidak
+boleh disimpan di Git.
 
-## 6. Bentuk playbook yang diwajibkan
+## 8. Spesifikasi preferred native playbooks
 
-Semua remediation harus menggunakan deterministic repository interface:
-
-| Classification | Satu-satunya command yang diizinkan |
-|---|---|
-| POOL | `<poc_project_path>/demo-control.sh recover-pool` |
-| DISK | `<poc_project_path>/demo-control.sh recover-disk` |
-| Manual reset | `<poc_project_path>/demo-control.sh reset` |
-
-Playbook minimum harus:
+Semua playbook minimum harus:
 
 1. Menargetkan dedicated inventory group dengan `serial: 1`.
 2. Menggunakan `become: true` dan `gather_facts: false`.
-3. Memastikan `poc_project_path` defined, non-empty, dan absolute.
-4. Memakai `ansible.builtin.stat` untuk memastikan `demo-control.sh` adalah file
-   executable.
-5. Memvalidasi seluruh `remediation_event` dengan `ansible.builtin.assert`.
-6. Memanggil script menggunakan `ansible.builtin.command` bentuk `argv`.
-7. Tidak memakai `shell`, wildcard, `pkill`, raw `truncate`, raw SQL, atau
-   direct Docker restart.
-8. Tidak memakai `ignore_errors` pada preflight atau remediation.
-9. Mendaftarkan stdout, stderr, rc, dan durasi job sebagai execution evidence.
-10. Membiarkan non-zero exit code menggagalkan Job Template.
+3. Menjalankan preflight sebelum task yang mengubah state.
+4. Memvalidasi tiga audit IDs sebagai string non-empty.
+5. Menggunakan Fully Qualified Collection Name.
+6. Menghindari `ansible.builtin.shell` bila `command.argv` atau module tersedia.
+7. Tidak memakai wildcard, `pkill`, atau arbitrary process matching.
+8. Tidak memakai `ignore_errors` pada preflight, remediation, atau verification.
+9. Bersifat idempotent: kondisi yang sudah pulih menghasilkan sukses tanpa
+   perubahan berbahaya.
+10. Membiarkan kegagalan aktual menghasilkan AAP job `failed`.
+11. Mencatat before/after state dan durasi sebagai job evidence.
 
-Bentuk task action yang diharapkan untuk POOL:
+### Job Template 13: pool remediation
 
-```yaml
-- name: Run approved pool recovery
-  ansible.builtin.command:
-    argv:
-      - "{{ poc_project_path }}/demo-control.sh"
-      - recover-pool
-  register: recovery_result
-  changed_when: recovery_result.rc == 0
-```
+Required behavior:
 
-Untuk DISK, satu-satunya perbedaan adalah argument `recover-disk`. Untuk reset,
-gunakan argument `reset` dan jangan menerima `remediation_event`.
+1. Pastikan Docker Compose v2 dan project path tersedia.
+2. Baca state PgBouncer dan dedicated `pool-hog`.
+3. Hentikan hanya service/container `pool-hog` milik project POC.
+4. Jangan restart PgBouncer atau PostgreSQL.
+5. Jangan mengubah `default_pool_size` atau `max_db_connections`.
+6. Poll sampai `cl_waiting=0`.
+7. Verifikasi pool tetap pada baseline `5/5`.
+8. Bila pool-hog sudah berhenti dan antrean sudah nol, hasilkan idempotent
+   success.
 
-Playbook tidak perlu mengimplementasikan ulang validasi loopback, truncate,
-PgBouncer polling, atau cleanup. Semua safety logic itu sudah menjadi tanggung
-jawab `demo-control.sh`.
+Preferred modules:
 
-## 7. Perubahan wajib terhadap draft sekarang
+- `community.docker.docker_compose_v2` atau module Docker yang menargetkan nama
+  service/container exact;
+- `ansible.builtin.command` bentuk `argv` untuk fixed PgBouncer admin query;
+- `ansible.builtin.assert` dan bounded `until` untuk verification.
 
-### Pool remediation
+Restart container `pgbouncer` bukan approved remediation karena tidak
+menghilangkan penyebab synthetic connection holder.
 
-Hapus task restart PgBouncer. Restart tidak menghentikan dedicated pool-hog dan
-bukan recovery yang disetujui. Ganti dengan:
+### Job Template 14: disk remediation
 
-```text
-demo-control.sh recover-pool
-```
+Required behavior:
 
-### Disk remediation
+1. Pastikan target tepat `/var/log/poc-app`.
+2. Verifikasi target adalah ext4 pada `/dev/loopN` yang backing file-nya tepat
+   `/tmp/poc-log-disk.img`.
+3. Gagal aman tanpa perubahan jika validasi mount tidak cocok.
+4. Hapus hanya `/var/log/poc-app/.trigger_saturation`.
+5. Hapus hanya POC backend impact marker yang dikonfigurasi pada Inventory.
+6. Truncate hanya `/var/log/poc-app/app-saturation.log` setelah target aman
+   terverifikasi.
+7. Jalankan `sync` melalui fixed `command.argv` bila diperlukan.
+8. Poll sampai disk usage `<20%` dan ukuran log berhenti bertambah.
+9. Jangan unmount loopback saat remediation; unmount adalah bagian reset.
+10. Bila fault sudah pulih, hasilkan idempotent success.
 
-Hapus seluruh task berikut:
+Preferred modules:
+
+- `ansible.builtin.command` bentuk `argv` untuk `findmnt`, `losetup`, `truncate`,
+  dan `sync` dengan arguments statis;
+- `ansible.builtin.file` untuk menghapus exact trigger/marker;
+- `ansible.builtin.assert` sebelum truncate;
+- bounded `until` untuk usage dan growth verification.
+
+Dilarang menggunakan:
 
 ```text
 pkill -f log-generator.sh
-truncate -s 0 /var/log/poc-saturation/*.log
+truncate /var/log/poc-saturation/*.log
+wildcard file deletion
 ignore_errors
 ```
 
-Path tersebut bukan target project dan wildcard tidak memenuhi whitelist.
-Ganti seluruhnya dengan:
+Path `/var/log/poc-saturation` bukan target fault yang digunakan repository.
 
-```text
-demo-control.sh recover-disk
+### Job Template 15: reset
+
+Reset menyentuh beberapa resource sekaligus: pool-hog, PgBouncer baseline,
+trigger, synthetic filesystem, loop device, log baseline, consumer containers,
+dan health checks. Karena lifecycle ini sudah dipusatkan dan diuji di
+`demo-control.sh reset`, memanggil script tersebut dari JT 15 dapat diterima dan
+lebih aman daripada membuat implementasi reset kedua yang mudah menyimpang.
+
+Jika dipanggil dari Ansible, gunakan fixed argv:
+
+```yaml
+- name: Reset the POC to its tested baseline
+  ansible.builtin.command:
+    argv:
+      - "{{ poc_project_path }}/demo-control.sh"
+      - reset
+  register: reset_result
 ```
 
-### Reset demo
+Tambahkan preflight executable dan independent post-reset checks. Non-zero exit
+code harus menggagalkan Job Template.
 
-Pertahankan pemanggilan `demo-control.sh reset`, tetapi:
+## 9. Reference/fallback playbook mode
 
-- ganti placeholder `/path/to/berca-poc-store` dengan
-  `{{ poc_project_path }}` dari inventory;
-- gunakan `command.argv`;
-- targetkan dedicated POC group;
-- jadikan Job Template 15 manual-only;
-- tambahkan preflight dan independent post-command status check.
+Jika native playbook belum selesai saat integration test dimulai, JT 13 dan 14
+boleh sementara memanggil fixed recovery interface berikut menggunakan
+`command.argv`:
 
-## 8. AAP API smoke test
+```text
+<poc_project_path>/demo-control.sh recover-pool
+<poc_project_path>/demo-control.sh recover-disk
+```
 
-Direct Controller API hanya untuk menguji Job Template secara terisolasi.
-Gunakan HTTPS dengan CA/certificate yang dipercaya; jangan menaruh token dalam
-command history atau repository.
+Mode ini harus diberi label `REFERENCE INTEGRATION FALLBACK`, bukan dianggap
+final best-practice playbook. Script tidak menerima host, path, filename, SQL,
+pool size, atau arbitrary shell arguments.
 
-Request POOL ke Job Template 13:
+## 10. Perubahan terhadap draft playbook sekarang
+
+### Pool draft
+
+Draft saat ini melakukan restart container PgBouncer. Ganti dengan native pool
+recovery pada bagian 8, atau gunakan reference fallback sementara. Container
+yang harus dihentikan adalah dedicated `pool-hog`, bukan PgBouncer.
+
+### Disk draft
+
+Hapus `pkill`, wildcard truncate, path `/var/log/poc-saturation`, dan seluruh
+`ignore_errors`. Implementasikan exact target validation dan native recovery
+pada bagian 8, atau gunakan reference fallback sementara.
+
+### Reset draft
+
+Ganti placeholder personal dengan `{{ poc_project_path }}` dari Inventory,
+gunakan `command.argv`, targetkan dedicated inventory group, dan tambahkan
+independent post-reset verification.
+
+## 11. API smoke tests
+
+Pool launch:
 
 ```http
 POST <AAP_BASE_URL>/api/controller/v2/job_templates/13/launch/
@@ -317,60 +405,86 @@ Content-Type: application/json
 
 {
   "extra_vars": {
-    "remediation_event": {
-      "schema_version": "1.0",
-      "environment": "poc",
-      "service": "berca-backend",
-      "classification": "POOL",
-      "resource_id": "pgbouncer-demo",
-      "requested_action": "recover_pool",
-      "monitor_id": "smoke-monitor",
-      "investigation_id": "smoke-investigation",
-      "workflow_instance_id": "smoke-workflow"
-    }
+    "monitor_id": "smoke-monitor",
+    "investigation_id": "smoke-investigation",
+    "workflow_instance_id": "smoke-workflow"
   }
 }
 ```
 
-DISK menggunakan endpoint Job Template 14 dan exact DISK values. Reset Job
-Template 15 menggunakan `{"extra_vars": {}}` dan hanya dijalankan manual.
+Disk menggunakan body yang sama menuju Job Template 14. Reset Job Template 15
+menggunakan `{"extra_vars": {}}` dan dijalankan manual.
 
-HTTP 2xx atau status AAP `successful` belum membuktikan service recovery. Itu
-hanya membuktikan dispatch/execution. Final success tetap ditentukan oleh
-Datadog telemetry.
+Gunakan HTTPS dengan certificate/CA yang dipercaya. Jangan menggunakan token
+nyata dalam dokumentasi, shell history, atau screenshot publik.
 
-## 9. Acceptance tests
+## 12. Recovery acceptance criteria
 
-Owner Ansible menyerahkan bukti untuk test berikut:
+### POOL
 
-1. Valid POOL event menjalankan tepat satu Job Template 13.
-2. Job 13 menghentikan pool-hog, mempertahankan PgBouncer `5/5`, dan menghasilkan
-   `cl_waiting=0`.
-3. Valid DISK event menjalankan tepat satu Job Template 14.
-4. Job 14 hanya memulihkan POC loopback filesystem, menghasilkan disk `<20%`,
-   zero log growth, dan menghapus backend impact marker.
-5. `UNKNOWN` tidak menjalankan Job Template apa pun.
-6. Mismatched classification/resource/action tidak menjalankan Job Template.
-7. Missing/empty audit ID tidak menjalankan Job Template.
-8. Extra variable tidak dapat mengganti host, path, command, inventory, atau
-   Job Template.
-9. Non-zero `demo-control.sh` exit membuat AAP job `failed`.
-10. Job Template 15 hanya berhasil dari manual operator launch.
-11. Concurrent remediation tidak berjalan bersamaan; VM script lock tetap
-    menjadi final guard.
-12. Datadog melakukan verification setelah AAP execution dan melakukan
-    escalation bila telemetry belum pulih.
+```text
+pool-hog stopped
+AND default_pool_size = 5
+AND max_db_connections = 5
+AND cl_waiting = 0
+AND backend health OK
+```
 
-## 10. Definition of done
+Final Workflow success juga membutuhkan backend latency dan error rate kembali
+normal berdasarkan Datadog telemetry.
 
-Handoff Ansible dinyatakan selesai setelah tersedia:
+### DISK
 
-- EDA Event Stream URL dan authentication yang dapat dipakai Datadog;
-- Rulebook dengan dua exact-match rules dan safe no-match behavior;
-- Decision Environment yang tervalidasi;
-- Project, Inventory, Machine Credential, dan Job Template 13/14/15;
-- playbook pool, disk, dan manual reset sesuai kontrak ini;
-- successful and negative test evidence;
-- nama connection/credential untuk integrasi tanpa mengungkap secret;
-- konfirmasi bahwa Datadog mengirim ke EDA pada final demo, bukan langsung ke
-  Controller Job Template.
+```text
+only the POC loopback target changed
+AND synthetic trigger removed
+AND synthetic impact marker removed
+AND app-saturation.log truncated
+AND disk usage < 20%
+AND synthetic log growth = 0
+AND backend health OK
+```
+
+Final Workflow success juga membutuhkan backend latency dan error rate kembali
+normal berdasarkan Datadog telemetry.
+
+### UNKNOWN
+
+```text
+no AAP launch
+AND no infrastructure change
+AND escalation sent
+```
+
+## 13. Required tests from the Ansible owner
+
+1. Valid POOL branch menjalankan tepat satu Job Template 13.
+2. Valid DISK branch menjalankan tepat satu Job Template 14.
+3. `UNKNOWN` tidak menjalankan Job Template apa pun.
+4. Empty audit ID ditolak oleh survey atau playbook preflight.
+5. Launch payload tidak dapat mengganti host, path, action, inventory, atau
+   credential.
+6. Duplicate invocation setelah recovery menghasilkan idempotent success.
+7. Non-zero remediation result membuat AAP job `failed`.
+8. Pool remediation tidak restart PgBouncer/PostgreSQL.
+9. Disk remediation menolak non-loopback/non-ext4/wrong backing file.
+10. Disk remediation tidak menyentuh log di luar exact whitelist.
+11. Concurrent execution tidak diperbolehkan.
+12. Job Template 15 dapat mengembalikan baseline untuk demo berikutnya.
+13. Datadog mendapatkan job ID, membaca terminal status, lalu melakukan
+    independent telemetry verification.
+
+## 14. Definition of done
+
+Handoff Ansible selesai setelah tersedia:
+
+- AAP Project yang sinkron dengan repository playbook owner Ansible;
+- dedicated Inventory dan Machine Credential untuk VM POC;
+- Job Template 13/14/15 sesuai pembatasan dokumen ini;
+- required audit surveys pada JT 13/14;
+- preferred native pool dan disk playbooks, atau fallback yang diberi label;
+- positive dan negative test evidence;
+- Datadog service account dengan execute-only access ke JT 13/14;
+- private connectivity dari Datadog Private Action Runner ke AAP;
+- konfirmasi bahwa AAP status hanya execution evidence dan Datadog telemetry
+  tetap menjadi final recovery authority.
