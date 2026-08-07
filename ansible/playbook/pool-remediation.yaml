@@ -1,0 +1,10 @@
+---
+- name: Remediate PgBouncer Connection Pool
+  hosts: all
+  become: yes
+  tasks:
+    - name: Restart PgBouncer Docker container
+      community.docker.docker_container:
+        name: pgbouncer
+        state: started
+        restart: yes

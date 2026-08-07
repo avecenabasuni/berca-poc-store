@@ -1,0 +1,9 @@
+---
+- name: Reset the PoC Application Environment
+  hosts: all
+  become: yes
+  tasks:
+    - name: Execute the demo control reset script
+      ansible.builtin.command:
+        cmd: ./demo-control.sh reset
+        chdir: /path/to/berca-poc-store # Update with the actual path on the managed host

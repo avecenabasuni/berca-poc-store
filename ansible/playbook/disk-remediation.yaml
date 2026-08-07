@@ -1,0 +1,12 @@
+---
+- name: Remediate Filesystem and Log Saturation
+  hosts: all
+  become: yes
+  tasks:
+    - name: Stop the log generator script (if running)
+      ansible.builtin.command: pkill -f log-generator.sh
+      ignore_errors: yes
+
+    - name: Truncate large dummy log files
+      ansible.builtin.shell: truncate -s 0 /var/log/poc-saturation/*.log
+      ignore_errors: yes
