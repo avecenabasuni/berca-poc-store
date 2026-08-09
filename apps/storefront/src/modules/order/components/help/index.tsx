@@ -1,23 +1,18 @@
 import { Heading } from "@modules/common/components/ui"
-import LocalizedClientLink from "@modules/common/components/localized-client-link"
+import { getDictionary } from "@lib/i18n"
 import React from "react"
 
 const Help = () => {
+  const t = getDictionary().order
+
   return (
-    <div className="mt-6">
-      <Heading className="text-base-semi">Need help?</Heading>
-      <div className="text-base-regular my-2">
-        <ul className="gap-y-2 flex flex-col">
-          <li>
-            <LocalizedClientLink href="/contact">Contact</LocalizedClientLink>
-          </li>
-          <li>
-            <LocalizedClientLink href="/contact">
-              Returns & Exchanges
-            </LocalizedClientLink>
-          </li>
-        </ul>
-      </div>
+    <div className="mt-6 rounded-xl border border-line-subtle bg-surface-subtle p-4">
+      <Heading className="text-base-semi text-content-primary">
+        {t.helpTitle}
+      </Heading>
+      <p className="mt-1 text-sm leading-6 text-content-secondary">
+        {t.helpDescription}
+      </p>
     </div>
   )
 }

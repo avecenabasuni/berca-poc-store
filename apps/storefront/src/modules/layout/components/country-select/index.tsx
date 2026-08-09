@@ -27,7 +27,7 @@ type CountrySelectProps = {
 }
 
 const CountrySelect = ({ regions }: CountrySelectProps) => {
-  const [current, setCurrent] = useState<CountryOption | undefined>(undefined)
+  const [current, setCurrent] = useState<CountryOption | null>(null)
 
   const { countryCode } = useParams()
   const t = getDictionary(countryCode)
@@ -60,10 +60,7 @@ const CountrySelect = ({ regions }: CountrySelectProps) => {
 
   return (
     <div>
-      <Listbox
-        onChange={handleChange}
-        value={current}
-      >
+      <Listbox onChange={handleChange} value={current}>
         {({ open }) => (
           <>
             <ListboxButton className="flex min-h-11 w-full items-center rounded-sm px-2 py-1 text-left motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out hover:bg-content-inverse/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-content-inverse">
@@ -99,7 +96,7 @@ const CountrySelect = ({ regions }: CountrySelectProps) => {
                         clx(
                           "flex min-h-11 cursor-pointer items-center gap-x-2 px-3 py-2 motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out",
                           focus && "bg-surface-subtle outline-none",
-                          selected && "font-semibold text-content-primary"
+                          selected && "font-semibold text-content-primary",
                         )
                       }
                     >

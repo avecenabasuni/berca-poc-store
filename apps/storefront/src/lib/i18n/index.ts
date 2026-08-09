@@ -39,7 +39,8 @@ export const idDictionary = {
     priceLowHigh: "Harga: terendah ke tertinggi",
     priceHighLow: "Harga: tertinggi ke terendah",
     emptyTitle: "Produk tidak ditemukan",
-    emptyDescription: "Coba ubah filter atau lihat seluruh produk yang tersedia.",
+    emptyDescription:
+      "Coba ubah filter atau lihat seluruh produk yang tersedia.",
     viewAll: "Lihat semua produk",
   },
   product: {
@@ -136,6 +137,10 @@ export const idDictionary = {
     selectSavedAddress: "Pilih alamat tersimpan",
     chooseAddress: "Pilih alamat",
     chooseDelivery: "Pilih cara pesanan akan dikirim.",
+    shippingUnavailableTitle: "Pengiriman belum tersedia",
+    shippingUnavailableDescription:
+      "Belum ada pilihan pengiriman untuk alamat ini. Periksa kembali alamat pengiriman Anda, lalu coba lagi.",
+    returnToAddress: "Ubah alamat pengiriman",
     pickup: "Ambil pesanan",
     pickupLocation: "Lokasi pengambilan",
     chooseStore: "Pilih lokasi pengambilan terdekat.",
@@ -168,6 +173,11 @@ export const idDictionary = {
     orderStatus: "Status pesanan",
     paymentStatus: "Status pembayaran",
     paidAt: "dibayar pada",
+    details: "Detail pesanan",
+    backToOrders: "Kembali ke pesanan",
+    helpTitle: "Butuh bantuan?",
+    helpDescription:
+      "Simpan nomor pesanan Anda untuk keperluan konfirmasi dan tindak lanjut.",
   },
   shippingNudge: {
     unlocked: "Gratis ongkir sudah tersedia",
@@ -182,6 +192,5 @@ export const idDictionary = {
 
 export type Dictionary = typeof idDictionary
 
-export const getDictionary = (
-  _countryCode?: string | string[]
-): Dictionary => idDictionary
+export const getDictionary = (_countryCode?: string | string[]): Dictionary =>
+  idDictionary

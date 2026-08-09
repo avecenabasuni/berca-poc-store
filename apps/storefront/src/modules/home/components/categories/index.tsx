@@ -17,11 +17,24 @@ const categoryImages: Record<string, string> = {
     "https://images.unsplash.com/photo-1523173077343-ce354eef2507?w=600&q=80",
 }
 
+const categoryLabels: Record<string, string> = {
+  shirts: "Kemeja & kaus",
+  sweatshirts: "Sweatshirt",
+  pants: "Celana",
+  shorts: "Celana pendek",
+  accessories: "Aksesori",
+  merch: "Koleksi Berca",
+}
+
 function getCategoryImage(handle: string): string {
   if (categoryImages[handle]) {
     return categoryImages[handle]
   }
   return "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80"
+}
+
+function getCategoryLabel(handle: string, fallback: string): string {
+  return categoryLabels[handle] ?? fallback
 }
 
 export default function CategoryGrid({
@@ -37,52 +50,59 @@ export default function CategoryGrid({
   }
 
   return (
-    <section id="categories" className="scroll-mt-28 border-y border-line-subtle/40 bg-surface-subtle py-16 small:py-24">
+    <section
+      id="categories"
+      className="scroll-mt-28 bg-surface-subtle py-16 small:py-20"
+    >
       <div className="content-container">
-        <div className="flex flex-col items-center mb-12">
-          <span className="text-content-interactive text-xs uppercase tracking-widest font-semibold mb-2">
+        <div className="mb-10 flex max-w-2xl flex-col items-start small:mb-12">
+          <span className="mb-3 text-xs font-semibold uppercase tracking-widest text-content-interactive">
             Kategori Terpopuler
           </span>
           <Heading
             level="h2"
-            className="text-3xl small:text-4xl text-content-primary font-bold text-center"
+            className="text-3xl font-bold text-content-primary small:text-4xl"
           >
             Jelajahi Kategori
           </Heading>
-          <Text className="text-content-secondary mt-3 text-center max-w-lg">
+          <Text className="mt-3 max-w-lg text-content-secondary">
             Temukan produk yang tepat untuk Anda berdasarkan kategori favorit
           </Text>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 small:gap-6">
-          {topLevelCategories.slice(0, 8).map((category) => (
-            <LocalizedClientLink
-              key={category.id}
-              href={`/categories/${category.handle}`}
-              className="surface-elevated-interactive group relative block aspect-[3/4] overflow-hidden rounded-xl motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:active:scale-[0.96]"
-            >
-              <Image
-                src={getCategoryImage(category.handle)}
-                alt={category.name}
-                fill
-                quality={80}
-                sizes="(min-width: 1024px) 25vw, 50vw"
-                className="object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-surface-inverse/90 via-surface-inverse-raised/50 to-transparent group-hover:from-surface-inverse/95 group-hover:via-brand-purple/70" />
-              <div className="absolute inset-0 flex flex-col items-center justify-end p-6 text-center">
-                <Heading
-                  level="h3"
-                  className="text-content-inverse text-lg small:text-xl font-bold tracking-tight"
-                >
-                  {category.name}
-                </Heading>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-content-inverse/30 bg-surface-inverse/80 px-3 py-1 text-xs font-semibold text-content-inverse motion-safe:transition-[background-color,color] motion-safe:duration-150 motion-safe:ease-out group-hover:bg-action-primary">
-                  Lihat Produk
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </span>
-              </div>
-            </LocalizedClientLink>
-          ))}
+        <div className="grid grid-cols-2 gap-4 small:gap-6 lg:grid-cols-4">
+          {topLevelCategories.slice(0, 8).map((category) => {
+            const label = getCategoryLabel(category.handle, category.name)
+
+            return (
+              <LocalizedClientLink
+                key={category.id}
+                href={`/categories/${category.handle}`}
+                aria-label={`Lihat kategori ${label}`}
+                className="surface-elevated-interactive group relative block aspect-[4/5] overflow-hidden rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out motion-safe:active:scale-[0.96]"
+              >
+                <Image
+                  src={getCategoryImage(category.handle)}
+                  alt=""
+                  fill
+                  quality={80}
+                  sizes="(min-width: 1024px) 25vw, 50vw"
+                  className="object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10 motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out motion-safe:group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-surface-inverse via-surface-inverse/35 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-content-inverse small:p-6">
+                  <Heading
+                    level="h3"
+                    className="text-lg font-bold tracking-tight small:text-xl"
+                  >
+                    {label}
+                  </Heading>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-content-inverse/30 bg-surface-inverse/70 motion-safe:transition-[background-color,transform] motion-safe:duration-150 motion-safe:ease-out group-hover:translate-x-0.5 group-hover:bg-action-primary">
+                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+              </LocalizedClientLink>
+            )
+          })}
         </div>
       </div>
     </section>
