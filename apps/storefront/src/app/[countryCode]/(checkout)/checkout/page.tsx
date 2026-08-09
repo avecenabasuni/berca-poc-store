@@ -9,7 +9,7 @@ import { Heading } from "@modules/common/components/ui"
 import { getDictionary } from "@lib/i18n"
 
 export const metadata: Metadata = {
-  title: "Checkout",
+  title: "Checkout Berca Store",
 }
 
 export default async function Checkout(props: {

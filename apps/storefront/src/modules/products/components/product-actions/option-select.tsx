@@ -21,11 +21,17 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
   disabled,
 }) => {
   const t = getDictionary().product
+  const localizedTitle =
+    title.toLowerCase() === "color"
+      ? "Warna"
+      : title.toLowerCase() === "size"
+        ? "Ukuran"
+        : title
   const filteredOptions = (option.values ?? []).map((v) => v.value)
 
   return (
     <div className="flex flex-col gap-y-3">
-      <span className="text-sm">{t.selectOption} {title}</span>
+      <span className="text-sm">{t.selectOption} {localizedTitle}</span>
       <div
         className="flex flex-wrap justify-between gap-2"
         data-testid={dataTestId}
@@ -36,7 +42,7 @@ const OptionSelect: React.FC<OptionSelectProps> = ({
               onClick={() => updateOption(option.id, v)}
               key={v}
               aria-pressed={v === current}
-              aria-label={`${title}: ${v}`}
+              aria-label={`${localizedTitle}: ${v}`}
               className={clx(
                 "min-h-11 flex-1 rounded-rounded border border-line-control bg-ui-bg-subtle p-2 text-small-regular focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
                 {

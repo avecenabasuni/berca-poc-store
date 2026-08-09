@@ -117,7 +117,6 @@ export default async function Footer({ countryCode = "id" }: { countryCode?: str
           <Text className="text-xs">
             © {new Date().getFullYear()} Berca Store. {t.allRightsReserved}
           </Text>
-          <Text className="text-xs font-medium uppercase text-content-inverse-muted">{countryCode}</Text>
         </div>
       </div>
     </footer>

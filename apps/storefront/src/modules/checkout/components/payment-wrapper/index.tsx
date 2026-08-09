@@ -16,12 +16,6 @@ const stripeKey =
   process.env.NEXT_PUBLIC_MEDUSA_PAYMENTS_PUBLISHABLE_KEY
 
 const medusaAccountId = process.env.NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID
-const stripePromise = stripeKey
-  ? loadStripe(
-      stripeKey,
-      medusaAccountId ? { stripeAccount: medusaAccountId } : undefined
-    )
-  : null
 
 const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ cart, children }) => {
   const paymentSession = cart.payment_collection?.payment_sessions?.find(
@@ -31,8 +25,13 @@ const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ cart, children }) => {
   if (
     isStripeLike(paymentSession?.provider_id) &&
     paymentSession &&
-    stripePromise
+    stripeKey
   ) {
+    const stripePromise = loadStripe(
+      stripeKey,
+      medusaAccountId ? { stripeAccount: medusaAccountId } : undefined
+    )
+
     return (
       <StripeWrapper
         paymentSession={paymentSession}

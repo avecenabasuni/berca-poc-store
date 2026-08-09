@@ -87,17 +87,29 @@ network. The browser must never call the VM's private HTTP backend directly.
 
 The Docker storefront is a production-only Next.js server. Its public URL and
 publishable key are compiled into the browser bundle, so changing either value
-requires rebuilding the storefront image:
+requires rebuilding the storefront image. Always confirm that the VM value is
+the public HTTPS URL, not the VM's private address:
 
 ```bash
 docker compose build storefront
 docker compose up -d storefront
 ```
 
-For an existing POC database, run the idempotent data repair once after
-deploying a new backend image. It ensures the Indonesia service zone and its
+The Medusa startup script now runs the idempotent POC commerce-data repair
+after database migrations. It ensures the Indonesia service zone and its
 approved Standard and Express shipping options exist without reseeding products
-or deleting commerce data:
+or deleting commerce data. Therefore, deploy the backend image together with
+the storefront whenever this checkout fix changes:
+
+```bash
+docker compose build --no-cache medusa storefront
+docker compose up -d --force-recreate medusa storefront
+docker compose logs --tail=100 medusa
+```
+
+The backend log must include both `Reconciling idempotent Berca POC commerce
+data...` and `Indonesia POC shipping options are ready.` (or the already-exist
+equivalent). To run the same repair manually for diagnosis, use:
 
 ```bash
 docker compose exec medusa ./node_modules/.bin/medusa exec \

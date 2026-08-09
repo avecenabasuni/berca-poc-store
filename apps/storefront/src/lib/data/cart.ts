@@ -489,16 +489,15 @@ export async function listCartOptions() {
   const headers = {
     ...(await getAuthHeaders()),
   }
-  const next = {
-    ...(await getCacheOptions("shippingOptions")),
-  }
 
   return await sdk.client.fetch<{
     shipping_options: HttpTypes.StoreCartShippingOption[]
   }>("/store/shipping-options", {
     query: { cart_id: cartId },
-    next,
     headers,
-    cache: "force-cache",
+    // Shipping availability depends on the current cart and delivery address.
+    // Caching this response can retain an empty pre-address result after the
+    // shopper continues to the delivery step.
+    cache: "no-store",
   })
 }
