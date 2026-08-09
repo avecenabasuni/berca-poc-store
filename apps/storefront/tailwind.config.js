@@ -1,48 +1,48 @@
 const path = require("path")
 
 const brandColors = {
-  // Calm blue scale for decorative surfaces. Interactive elements use the
-  // semantic `action` and `content.interactive` tokens below.
-  indigo: "#10233F",
-  purple: "#1B355B",
-  plum: "#24466F",
-  berry: "#1D4ED8",
-  crimson: "#1E40AF",
-  coral: "#38BDF8",
+  // Reconstructed from the Berca logo. Use semantic tokens below in UI
+  // components so brand hues keep a consistent meaning.
+  indigo: "#48527E",
+  purple: "#3C466D",
+  plum: "#5D668E",
+  berry: "#CB252A",
+  crimson: "#A71E23",
+  coral: "#EE6B70",
   white: "#FFFFFF",
-  offwhite: "#F4F7FB",
-  muted: "#D9E2EF",
-  black: "#0B172A",
+  offwhite: "#F6F7FA",
+  muted: "#DEE1EA",
+  black: "#222222",
 }
 
 const semanticColors = {
   content: {
-    primary: "#10233F",
-    secondary: "#475569",
-    muted: "#64748B",
+    primary: "#222222",
+    secondary: "#52525B",
+    muted: "#626B78",
     inverse: "#FFFFFF",
-    "inverse-muted": "#C9D4E3",
-    interactive: "#1D4ED8",
+    "inverse-muted": "#E4E7F0",
+    interactive: "#CB252A",
   },
   surface: {
     default: "#FFFFFF",
-    subtle: "#F4F7FB",
-    inverse: "#10233F",
-    "inverse-raised": "#1B355B",
+    subtle: "#F6F7FA",
+    inverse: "#48527E",
+    "inverse-raised": "#3C466D",
   },
   action: {
-    primary: "#1D4ED8",
-    "primary-hover": "#1E40AF",
+    primary: "#CB252A",
+    "primary-hover": "#A71E23",
   },
   line: {
-    subtle: "#D9E2EF",
-    control: "#718096",
-    strong: "#10233F",
+    subtle: "#DEE1EA",
+    control: "#707994",
+    strong: "#48527E",
   },
-  focus: "#2563EB",
+  focus: "#A71E23",
   accent: {
-    decorative: "#38BDF8",
-    "on-inverse": "#BAE6FD",
+    decorative: "#EE6B70",
+    "on-inverse": "#FFF0F0",
   },
   success: {
     foreground: "#166534",
@@ -60,9 +60,9 @@ const semanticColors = {
     indicator: "#D97706",
   },
   info: {
-    foreground: "#1D4ED8",
-    background: "#EFF6FF",
-    indicator: "#2563EB",
+    foreground: "#314B8A",
+    background: "#EFF4FF",
+    indicator: "#48527E",
   },
 }
 
