@@ -1,46 +1,48 @@
 const path = require("path")
 
 const brandColors = {
-  indigo: "#1E1F74",
-  purple: "#3A1E65",
-  plum: "#582158",
-  berry: "#782046",
-  crimson: "#9F2335",
-  coral: "#E53946",
+  // Calm blue scale for decorative surfaces. Interactive elements use the
+  // semantic `action` and `content.interactive` tokens below.
+  indigo: "#10233F",
+  purple: "#1B355B",
+  plum: "#24466F",
+  berry: "#1D4ED8",
+  crimson: "#1E40AF",
+  coral: "#38BDF8",
   white: "#FFFFFF",
-  offwhite: "#F5F5F7",
-  muted: "#CFCFD4",
-  black: "#000000",
+  offwhite: "#F4F7FB",
+  muted: "#D9E2EF",
+  black: "#0B172A",
 }
 
 const semanticColors = {
   content: {
-    primary: "#1E1F74",
-    secondary: "#52525B",
-    muted: "#63636F",
+    primary: "#10233F",
+    secondary: "#475569",
+    muted: "#64748B",
     inverse: "#FFFFFF",
-    "inverse-muted": "#CFCFD4",
-    interactive: "#9F2335",
+    "inverse-muted": "#C9D4E3",
+    interactive: "#1D4ED8",
   },
   surface: {
     default: "#FFFFFF",
-    subtle: "#F5F5F7",
-    inverse: "#1E1F74",
-    "inverse-raised": "#3A1E65",
+    subtle: "#F4F7FB",
+    inverse: "#10233F",
+    "inverse-raised": "#1B355B",
   },
   action: {
-    primary: "#9F2335",
-    "primary-hover": "#782046",
+    primary: "#1D4ED8",
+    "primary-hover": "#1E40AF",
   },
   line: {
-    subtle: "#CFCFD4",
-    control: "#8B8B96",
-    strong: "#1E1F74",
+    subtle: "#D9E2EF",
+    control: "#718096",
+    strong: "#10233F",
   },
-  focus: "#1E1F74",
+  focus: "#2563EB",
   accent: {
-    decorative: "#E53946",
-    "on-inverse": "#FFB3B8",
+    decorative: "#38BDF8",
+    "on-inverse": "#BAE6FD",
   },
   success: {
     foreground: "#166534",
@@ -48,18 +50,18 @@ const semanticColors = {
     indicator: "#16A34A",
   },
   error: {
-    foreground: "#BE123C",
+    foreground: "#B4233C",
     background: "#FFF1F2",
     indicator: "#E11D48",
   },
   warning: {
-    foreground: "#9A3412",
-    background: "#FFEDD5",
-    indicator: "#EA580C",
+    foreground: "#92400E",
+    background: "#FFFBEB",
+    indicator: "#D97706",
   },
   info: {
     foreground: "#1D4ED8",
-    background: "#DBEAFE",
+    background: "#EFF6FF",
     indicator: "#2563EB",
   },
 }
