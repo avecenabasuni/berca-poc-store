@@ -95,18 +95,18 @@ const CartDropdown = ({
                 />
               </Transition.Child>
 
-              <div className="fixed inset-0 flex items-start justify-end p-4 pt-20 small:p-6 small:pt-24">
+              <div className="fixed inset-0 flex items-center justify-center p-4 small:p-6">
                 <Transition.Child
                   as={Fragment}
                   enter="ease-out duration-200"
-                  enterFrom="translate-y-2 opacity-0"
-                  enterTo="translate-y-0 opacity-100"
+                  enterFrom="scale-95 opacity-0"
+                  enterTo="scale-100 opacity-100"
                   leave="ease-out duration-150"
-                  leaveFrom="translate-y-0 opacity-100"
-                  leaveTo="translate-y-2 opacity-0"
+                  leaveFrom="scale-100 opacity-100"
+                  leaveTo="scale-95 opacity-0"
                 >
                   <Dialog.Panel
-                    className="surface-elevated flex max-h-[calc(100dvh-7rem)] w-full max-w-[480px] flex-col overflow-hidden rounded-2xl bg-surface-default text-content-primary"
+                    className="surface-elevated flex max-h-[calc(100dvh-2rem)] w-full max-w-[480px] flex-col overflow-hidden rounded-2xl bg-surface-default text-content-primary small:max-h-[calc(100dvh-3rem)]"
                     data-testid="nav-cart-dropdown"
                   >
                     <div className="flex items-center justify-between gap-4 border-b border-line-subtle/40 p-4">
