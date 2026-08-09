@@ -71,6 +71,7 @@ export const idDictionary = {
   },
   cart: {
     title: "Keranjang belanja",
+    close: "Tutup keranjang belanja",
     items: "produk",
     product: "Produk",
     quantity: "Jumlah",

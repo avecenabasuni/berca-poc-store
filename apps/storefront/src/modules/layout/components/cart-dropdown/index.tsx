@@ -1,12 +1,7 @@
 "use client"
 
-import {
-  Popover,
-  PopoverButton,
-  PopoverPanel,
-  Transition,
-} from "@headlessui/react"
-import { ShoppingBag } from "@medusajs/icons"
+import { Dialog, Transition } from "@headlessui/react"
+import { ShoppingBag, XMark } from "@medusajs/icons"
 import { convertToLocale } from "@lib/util/money"
 import { HttpTypes } from "@medusajs/types"
 import DeleteButton from "@modules/common/components/delete-button"
@@ -46,6 +41,9 @@ const CartDropdown = ({
   const subtotal = cartState?.subtotal ?? 0
   const previousItemCount = useRef(totalItems)
   const [statusMessage, setStatusMessage] = useState("")
+  const [isOpen, setIsOpen] = useState(false)
+
+  const closeCart = () => setIsOpen(false)
 
   useEffect(() => {
     if (previousItemCount.current !== totalItems) {
@@ -68,154 +66,203 @@ const CartDropdown = ({
         >
           <CartIndicator totalItems={totalItems} />
         </LocalizedClientLink>
-        <Popover className="relative hidden h-full items-center small:flex">
-        {({ open, close }) => (
-          <>
-            <PopoverButton
-              className="relative flex h-full min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2.5 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
-              data-testid="nav-cart-button"
-              aria-label={`${t.title}, ${totalItems} ${t.items}`}
-            >
-              <CartIndicator totalItems={totalItems} />
-            </PopoverButton>
-            <Transition
-              show={open}
-              as={Fragment}
-              enter="transition ease-out duration-200"
-              enterFrom="opacity-0 translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-out duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 translate-y-1"
-            >
-              <PopoverPanel
-                static
-                aria-label={t.title}
-                className="surface-elevated hidden small:block absolute top-[calc(100%+12px)] right-0 z-[100] w-[min(480px,calc(100vw-3rem))] rounded-2xl bg-surface-default text-content-primary"
-                data-testid="nav-cart-dropdown"
+        <div className="hidden h-full items-center small:flex">
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            className="relative flex h-full min-h-11 min-w-11 touch-manipulation items-center justify-center rounded-full p-2.5 text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+            data-testid="nav-cart-button"
+            aria-label={`${t.title}, ${totalItems} ${t.items}`}
+          >
+            <CartIndicator totalItems={totalItems} />
+          </button>
+
+          <Transition appear show={isOpen} as={Fragment}>
+            <Dialog className="relative z-[100]" onClose={closeCart}>
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0"
+                enterTo="opacity-100"
+                leave="ease-out duration-150"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
               >
-            <div className="p-4 flex items-center justify-between border-b border-line-subtle/40">
-              <h3 className="text-base font-bold text-content-primary">{t.title}</h3>
-              <span className="text-xs text-content-muted font-medium">{totalItems} {t.items}</span>
-            </div>
-            {cartState && cartState.items?.length ? (
-              <>
-                <div className="overflow-y-scroll max-h-[380px] p-4 flex flex-col gap-y-6 no-scrollbar">
-                  {cartState.items
-                    .sort((a, b) => {
-                      return (a.created_at ?? "") > (b.created_at ?? "")
-                        ? -1
-                        : 1
-                    })
-                    .map((item) => (
-                      <div
-                        className="grid grid-cols-[72px_1fr] gap-x-4 pb-4 border-b border-line-subtle/30 last:border-b-0 last:pb-0"
-                        key={item.id}
-                        data-testid="cart-item"
+                <div
+                  className="fixed inset-0 bg-black/40"
+                  aria-hidden="true"
+                  data-testid="nav-cart-backdrop"
+                />
+              </Transition.Child>
+
+              <div className="fixed inset-0 flex items-start justify-end p-4 pt-20 small:p-6 small:pt-24">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-200"
+                  enterFrom="translate-y-2 opacity-0"
+                  enterTo="translate-y-0 opacity-100"
+                  leave="ease-out duration-150"
+                  leaveFrom="translate-y-0 opacity-100"
+                  leaveTo="translate-y-2 opacity-0"
+                >
+                  <Dialog.Panel
+                    className="surface-elevated flex max-h-[calc(100dvh-7rem)] w-full max-w-[480px] flex-col overflow-hidden rounded-2xl bg-surface-default text-content-primary"
+                    data-testid="nav-cart-dropdown"
+                  >
+                    <div className="flex items-center justify-between gap-4 border-b border-line-subtle/40 p-4">
+                      <div className="min-w-0">
+                        <Dialog.Title className="text-base font-bold text-content-primary">
+                          {t.title}
+                        </Dialog.Title>
+                        <span className="text-xs font-medium text-content-muted">
+                          {totalItems} {t.items}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        autoFocus
+                        onClick={closeCart}
+                        aria-label={t.close}
+                        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-content-secondary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+                        data-testid="close-cart-button"
                       >
-                        <LocalizedClientLink
-                          href={`/products/${item.product_handle}`}
-                          className="w-18 h-18 rounded-lg overflow-hidden border border-line-subtle/40 flex-shrink-0"
-                        >
-                          <Thumbnail
-                            thumbnail={item.thumbnail}
-                            images={item.variant?.product?.images}
-                            size="square"
-                            alt={item.product_title || item.title}
-                          />
-                        </LocalizedClientLink>
-                        <div className="flex flex-col justify-between flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-x-3">
-                            <div className="flex flex-col flex-1 min-w-0">
-                              <h3 className="text-sm font-semibold text-content-primary truncate">
+                        <XMark aria-hidden="true" />
+                      </button>
+                    </div>
+                    {cartState && cartState.items?.length ? (
+                      <>
+                        <div className="flex max-h-[min(380px,calc(100dvh-22rem))] flex-col gap-y-5 overflow-y-auto overscroll-contain p-4 pr-3">
+                          {cartState.items
+                            .sort((a, b) => {
+                              return (a.created_at ?? "") > (b.created_at ?? "")
+                                ? -1
+                                : 1
+                            })
+                            .map((item) => (
+                              <div
+                                className="grid grid-cols-[72px_minmax(0,1fr)] gap-4 border-b border-line-subtle/30 pb-5 last:border-b-0 last:pb-0"
+                                key={item.id}
+                                data-testid="cart-item"
+                              >
                                 <LocalizedClientLink
                                   href={`/products/${item.product_handle}`}
-                                  data-testid="product-link"
+                                  className="size-[72px] shrink-0 self-start overflow-hidden rounded-lg outline outline-1 -outline-offset-1 outline-black/10"
                                 >
-                                  {item.title}
+                                  <Thumbnail
+                                    thumbnail={item.thumbnail}
+                                    images={item.variant?.product?.images}
+                                    size="square"
+                                    className="size-full"
+                                    alt={item.product_title || item.title}
+                                  />
                                 </LocalizedClientLink>
-                              </h3>
-                              <LineItemOptions
-                                variant={item.variant}
-                                data-testid="cart-item-variant"
-                                data-value={item.variant}
-                              />
-                              <span
-                                className="text-xs text-content-secondary mt-0.5"
-                                data-testid="cart-item-quantity"
-                                data-value={item.quantity}
-                              >
-                                {t.quantity}: {item.quantity}
-                              </span>
-                            </div>
-                            <div className="flex justify-end flex-shrink-0 text-right text-sm font-bold text-content-primary">
-                              <LineItemPrice
-                                item={item}
-                                style="tight"
-                                currencyCode={cartState.currency_code}
-                              />
-                            </div>
+                                <div className="flex min-w-0 flex-1 flex-col">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-content-primary">
+                                        <LocalizedClientLink
+                                          href={`/products/${item.product_handle}`}
+                                          title={item.title}
+                                          data-testid="product-link"
+                                        >
+                                          {item.title}
+                                        </LocalizedClientLink>
+                                      </h3>
+                                      <div className="mt-1">
+                                        <LineItemOptions
+                                          variant={item.variant}
+                                          data-testid="cart-item-variant"
+                                          data-value={item.variant}
+                                        />
+                                      </div>
+                                      <span
+                                        className="mt-1 block text-xs text-content-secondary"
+                                        data-testid="cart-item-quantity"
+                                        data-value={item.quantity}
+                                      >
+                                        {t.quantity}: {item.quantity}
+                                      </span>
+                                    </div>
+                                    <div className="flex shrink-0 justify-end text-right text-sm font-bold tabular-nums text-content-primary">
+                                      <LineItemPrice
+                                        item={item}
+                                        style="tight"
+                                        currencyCode={cartState.currency_code}
+                                      />
+                                    </div>
+                                  </div>
+                                  <DeleteButton
+                                    id={item.id}
+                                    className="mt-1 self-start text-xs text-error-foreground"
+                                    data-testid="cart-item-remove-button"
+                                  >
+                                    {t.remove}
+                                  </DeleteButton>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                        <div className="flex flex-col gap-3 border-t border-line-subtle/40 bg-surface-subtle p-5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-content-primary">
+                              {t.subtotal}
+                            </span>
+                            <span
+                              className="text-lg font-bold tabular-nums text-content-primary"
+                              data-testid="cart-subtotal"
+                              data-value={subtotal}
+                            >
+                              {convertToLocale({
+                                amount: subtotal,
+                                currency_code: cartState.currency_code,
+                              })}
+                            </span>
                           </div>
-                          <DeleteButton
-                            id={item.id}
-                            className="mt-2 text-xs text-error-foreground hover:underline self-start"
-                            data-testid="cart-item-remove-button"
+                          <LocalizedClientLink
+                            href="/checkout"
+                            onClick={closeCart}
+                            className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-action-primary px-6 text-base font-semibold text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+                            data-testid="go-to-checkout-button"
                           >
-                            {t.remove}
-                          </DeleteButton>
+                            {t.goToCheckout}
+                          </LocalizedClientLink>
+                          <LocalizedClientLink
+                            href="/cart"
+                            onClick={closeCart}
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-line-control bg-surface-default px-6 text-sm font-semibold text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+                            data-testid="go-to-cart-button"
+                          >
+                            {t.viewCart}
+                          </LocalizedClientLink>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <div className="flex py-12 flex-col gap-y-4 items-center justify-center">
+                          <div className="bg-surface-inverse text-xs flex items-center justify-center w-8 h-8 rounded-full text-content-inverse font-bold">
+                            <span>0</span>
+                          </div>
+                          <span className="text-sm font-medium text-content-secondary">
+                            {t.empty}
+                          </span>
+                          <div>
+                            <LocalizedClientLink
+                              href="/store"
+                              className="inline-flex min-h-11 items-center justify-center rounded-md bg-action-primary px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+                              onClick={closeCart}
+                            >
+                              {t.explore}
+                            </LocalizedClientLink>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                </div>
-                <div className="p-5 flex flex-col gap-y-4 bg-surface-subtle rounded-b-2xl border-t border-line-subtle/40">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-content-primary">
-                      {t.subtotal}
-                    </span>
-                    <span
-                      className="text-lg font-bold tabular-nums text-content-primary"
-                      data-testid="cart-subtotal"
-                      data-value={subtotal}
-                    >
-                      {convertToLocale({
-                        amount: subtotal,
-                        currency_code: cartState.currency_code,
-                      })}
-                    </span>
-                  </div>
-                  <LocalizedClientLink
-                    href="/cart"
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-md bg-action-primary px-6 text-lg font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
-                    data-testid="go-to-cart-button"
-                  >
-                    {t.viewCart}
-                  </LocalizedClientLink>
-                </div>
-              </>
-            ) : (
-              <div>
-                <div className="flex py-12 flex-col gap-y-4 items-center justify-center">
-                  <div className="bg-surface-inverse text-xs flex items-center justify-center w-8 h-8 rounded-full text-content-inverse font-bold">
-                    <span>0</span>
-                  </div>
-                  <span className="text-sm font-medium text-content-secondary">{t.empty}</span>
-                  <div>
-                    <LocalizedClientLink
-                      href="/store"
-                      className="inline-flex min-h-11 items-center justify-center rounded-md bg-action-primary px-4 font-medium text-content-inverse motion-safe:transition-[background-color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-action-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
-                      onClick={close}
-                    >
-                      {t.explore}
-                    </LocalizedClientLink>
-                  </div>
-                </div>
+                    )}
+                  </Dialog.Panel>
+                </Transition.Child>
               </div>
-            )}
-              </PopoverPanel>
-            </Transition>
-          </>
-        )}
-        </Popover>
+            </Dialog>
+          </Transition>
+        </div>
       </div>
     </>
   )
