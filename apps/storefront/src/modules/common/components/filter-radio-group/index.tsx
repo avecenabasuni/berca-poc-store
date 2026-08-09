@@ -1,6 +1,6 @@
-import { EllipseMiniSolid } from "@medusajs/icons"
-import { Label, RadioGroup, Text, clx } from "@modules/common/components/ui"
+import { Label, RadioGroup, clx } from "@modules/common/components/ui"
 import { useId } from "react"
+
 type FilterRadioGroupProps = {
   title: string
   items: {
@@ -22,40 +22,60 @@ const FilterRadioGroup = ({
   const groupId = useId()
 
   return (
-    <div className="flex flex-col gap-y-3">
-      <Text className="txt-compact-small-plus text-ui-fg-muted">{title}</Text>
-      <RadioGroup data-testid={dataTestId}>
+    <section aria-labelledby={`${groupId}-title`}>
+      <h2
+        id={`${groupId}-title`}
+        className="text-sm font-semibold text-content-primary"
+      >
+        {title}
+      </h2>
+      <RadioGroup className="mt-3 gap-2" data-testid={dataTestId}>
         <legend className="sr-only">{title}</legend>
-        {items?.map((i) => (
-          <div key={i.value} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2">
-            <span className="flex h-5 w-5 items-center justify-center">
-              {i.value === value && <EllipseMiniSolid aria-hidden="true" />}
-            </span>
-            <RadioGroup.Item
-              checked={i.value === value}
-              onChange={() => handleChange(i.value)}
-              className="sr-only peer"
-              id={`${groupId}-${i.value}`}
-              name={groupId}
-              value={i.value}
-            />
-            <Label
-              htmlFor={`${groupId}-${i.value}`}
-              className={clx(
-                "flex min-h-11 min-w-0 items-center rounded-sm px-2 !txt-compact-small !transform-none text-ui-fg-subtle hover:cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus",
-                {
-                  "text-ui-fg-base": i.value === value,
-                }
-              )}
-              data-testid="radio-label"
-              data-active={i.value === value}
-            >
-              {i.label}
-            </Label>
-          </div>
-        ))}
+        {items.map((item) => {
+          const isSelected = item.value === value
+
+          return (
+            <div key={item.value} className="relative">
+              <RadioGroup.Item
+                checked={isSelected}
+                onChange={() => handleChange(item.value)}
+                className="peer sr-only"
+                id={`${groupId}-${item.value}`}
+                name={groupId}
+                value={item.value}
+              />
+              <Label
+                htmlFor={`${groupId}-${item.value}`}
+                className={clx(
+                  "flex min-h-11 items-center gap-3 rounded-lg border border-transparent px-3 text-sm leading-snug text-content-secondary motion-safe:transition-[background-color,border-color,color] motion-safe:duration-150 hover:cursor-pointer hover:bg-surface-subtle peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus",
+                  {
+                    "border-line-control bg-surface-subtle font-semibold text-content-primary":
+                      isSelected,
+                  },
+                )}
+                data-testid="radio-label"
+                data-active={isSelected}
+              >
+                <span
+                  aria-hidden="true"
+                  className={clx(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line-control",
+                    {
+                      "border-action-primary": isSelected,
+                    },
+                  )}
+                >
+                  {isSelected && (
+                    <span className="h-2 w-2 rounded-full bg-action-primary" />
+                  )}
+                </span>
+                <span>{item.label}</span>
+              </Label>
+            </div>
+          )
+        })}
       </RadioGroup>
-    </div>
+    </section>
   )
 }
 

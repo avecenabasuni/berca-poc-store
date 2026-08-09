@@ -44,7 +44,7 @@ const RefinementList = ({
         router.push(nextPath)
       }
     },
-    [pathname, router, searchParams]
+    [pathname, router, searchParams],
   )
 
   const setQueryParams = (name: string, value: string) =>
@@ -52,31 +52,33 @@ const RefinementList = ({
 
   const selectedOptionValueIds = useMemo(
     () => parseOptionValueIds(searchParams),
-    [searchParams]
+    [searchParams],
   )
 
   const setOptionValueIds = (valueIds: string[]) =>
     updateQueryParams((params) => {
       params.delete(OPTION_VALUE_QUERY_KEY)
       valueIds.forEach((valueId) =>
-        params.append(OPTION_VALUE_QUERY_KEY, valueId)
+        params.append(OPTION_VALUE_QUERY_KEY, valueId),
       )
     })
 
   return (
-    <div className="mb-8 flex w-full flex-col gap-12 py-4 small:mb-0 small:w-60 small:shrink-0">
-      <SortProducts
-        sortBy={sortBy}
-        setQueryParams={setQueryParams}
-        data-testid={dataTestId}
-      />
-      {!hideOptionsPicker && (
-        <OptionsPicker
-          selectedValueIds={selectedOptionValueIds}
-          setOptionValueIds={setOptionValueIds}
+    <aside className="mb-8 w-full rounded-2xl border border-line-subtle/60 bg-surface-default p-5 small:sticky small:top-28 small:mb-0 small:w-72 small:shrink-0">
+      <div className="flex flex-col gap-8">
+        <SortProducts
+          sortBy={sortBy}
+          setQueryParams={setQueryParams}
+          data-testid={dataTestId}
         />
-      )}
-    </div>
+        {!hideOptionsPicker && (
+          <OptionsPicker
+            selectedValueIds={selectedOptionValueIds}
+            setOptionValueIds={setOptionValueIds}
+          />
+        )}
+      </div>
+    </aside>
   )
 }
 

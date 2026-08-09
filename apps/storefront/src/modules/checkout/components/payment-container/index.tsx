@@ -35,24 +35,27 @@ const PaymentContainer: React.FC<PaymentContainerProps> = ({
       value={paymentProviderId}
       disabled={disabled}
       className={clx(
-        "mb-2 flex min-h-11 cursor-pointer flex-col gap-y-2 rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus xsmall:px-8",
+        "mb-3 flex min-h-11 cursor-pointer flex-col gap-y-2 rounded-xl border border-line-control bg-surface-default px-4 py-4 text-sm motion-safe:transition-[background-color,border-color,scale] motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.99] xsmall:px-6",
         {
-          "border-ui-border-interactive":
+          "border-action-primary bg-surface-subtle":
             selectedPaymentOptionId === paymentProviderId,
-        }
+        },
       )}
     >
       <div className="flex items-center justify-between ">
         <div className="flex items-center gap-x-4">
           <Radio checked={selectedPaymentOptionId === paymentProviderId} />
-          <Text className="text-base-regular">
+          <Text className="text-base font-medium text-content-primary">
             {paymentInfoMap[paymentProviderId]?.title || paymentProviderId}
           </Text>
           {isManual(paymentProviderId) && isDevelopment && (
             <PaymentTest className="hidden small:block" />
           )}
         </div>
-        <span className="justify-self-end text-ui-fg-base" aria-hidden="true">
+        <span
+          className="justify-self-end text-content-primary"
+          aria-hidden="true"
+        >
           {paymentInfoMap[paymentProviderId]?.icon}
         </span>
       </div>
@@ -109,14 +112,14 @@ export const StripeCardContainer = ({
       {selectedPaymentOptionId === paymentProviderId &&
         (stripeReady ? (
           <div className="my-4">
-            <Text className="txt-medium-plus text-ui-fg-base mb-1">
+            <Text className="mb-1 text-sm font-semibold text-content-primary">
               {t.enterCardDetails}:
             </Text>
             <CardElement
               options={useOptions as StripeCardElementOptions}
               onChange={(e) => {
                 setCardBrand(
-                  e.brand && e.brand.charAt(0).toUpperCase() + e.brand.slice(1)
+                  e.brand && e.brand.charAt(0).toUpperCase() + e.brand.slice(1),
                 )
                 setError(e.error?.message || null)
                 setCardComplete(e.complete)

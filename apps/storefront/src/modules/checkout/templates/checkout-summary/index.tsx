@@ -14,8 +14,8 @@ const CheckoutSummary = ({ cart }: { cart: HttpTypes.StoreCart }) => {
   const t = getDictionary(countryCode).checkout
 
   return (
-    <div className="sticky top-24 flex flex-col-reverse small:flex-col gap-y-8 py-8 small:py-0">
-      <div className="surface-elevated flex w-full flex-col rounded-2xl bg-surface-default p-6 sm:p-8">
+    <div className="sticky top-28 flex flex-col-reverse gap-y-8 py-8 small:flex-col small:py-0">
+      <div className="surface-elevated flex w-full flex-col rounded-2xl border border-line-subtle/60 bg-surface-default p-6 sm:p-8">
         <Divider className="my-4 small:hidden" />
         <Heading
           level="h2"

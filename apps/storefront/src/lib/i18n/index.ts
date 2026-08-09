@@ -32,7 +32,9 @@ export const idDictionary = {
     allRightsReserved: "Hak cipta dilindungi undang-undang.",
   },
   store: {
+    eyebrow: "Koleksi Berca",
     allProducts: "Semua produk",
+    description: "Jelajahi koleksi pilihan untuk melengkapi kebutuhan Anda.",
     sortBy: "Urutkan berdasarkan",
     options: "Pilihan",
     latest: "Produk terbaru",
@@ -92,7 +94,9 @@ export const idDictionary = {
     transferring: "Memindahkan…",
   },
   checkout: {
+    eyebrow: "Checkout",
     title: "Checkout",
+    description: "Lengkapi detail pesanan Anda dengan aman.",
     secureTitle: "Checkout aman dan terenkripsi",
     backToCart: "Kembali ke keranjang",
     summaryTitle: "Ringkasan pesanan",

@@ -30,12 +30,22 @@ const Addresses = ({
   const router = useRouter()
   const pathname = usePathname()
 
-  const isOpen = searchParams.get("step") === "address"
+  const hasCompleteShippingAddress = Boolean(
+    cart?.shipping_address?.first_name?.trim() &&
+    cart.shipping_address.last_name?.trim() &&
+    cart.shipping_address.address_1?.trim() &&
+    cart.shipping_address.postal_code?.trim() &&
+    cart.shipping_address.city?.trim() &&
+    cart.shipping_address.country_code?.trim() &&
+    cart.email?.trim(),
+  )
+  const isOpen =
+    searchParams.get("step") === "address" || !hasCompleteShippingAddress
 
   const { state: sameAsBilling, toggle: toggleSameAsBilling } = useToggleState(
     cart?.shipping_address && cart?.billing_address
       ? compareAddresses(cart?.shipping_address, cart?.billing_address)
-      : true
+      : true,
   )
 
   const handleEdit = () => {
@@ -45,14 +55,19 @@ const Addresses = ({
   const [message, formAction] = useActionState(setAddresses, null)
 
   return (
-    <div className="surface-elevated rounded-2xl bg-surface-default p-6 sm:p-8">
+    <div className="surface-elevated rounded-2xl border border-line-subtle/60 bg-surface-default p-6 sm:p-8">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
           className="flex flex-row items-center gap-x-3 text-2xl font-bold text-content-primary"
         >
           <span>{t.shippingAddress}</span>
-          {!isOpen && <CheckCircleSolid className="h-6 w-6 text-success-indicator" aria-hidden="true" />}
+          {!isOpen && (
+            <CheckCircleSolid
+              className="h-6 w-6 text-success-indicator"
+              aria-hidden="true"
+            />
+          )}
         </Heading>
         {!isOpen && cart?.shipping_address && (
           <Text>
@@ -96,7 +111,7 @@ const Addresses = ({
         </form>
       ) : (
         <div>
-          <div className="text-small-regular">
+          <div className="text-sm">
             {cart && cart.shipping_address ? (
               <div>
                 <div className="grid w-full grid-cols-1 gap-6 xsmall:grid-cols-2 small:grid-cols-3">
@@ -104,22 +119,22 @@ const Addresses = ({
                     className="flex min-w-0 flex-col"
                     data-testid="shipping-address-summary"
                   >
-                    <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                    <Text className="mb-1 text-sm font-semibold text-content-primary">
                       {t.shippingAddress}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="text-sm leading-relaxed text-content-secondary">
                       {cart.shipping_address.first_name}{" "}
                       {cart.shipping_address.last_name}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="text-sm leading-relaxed text-content-secondary">
                       {cart.shipping_address.address_1}{" "}
                       {cart.shipping_address.address_2}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="text-sm leading-relaxed text-content-secondary">
                       {cart.shipping_address.postal_code},{" "}
                       {cart.shipping_address.city}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="text-sm leading-relaxed text-content-secondary">
                       {cart.shipping_address.country_code?.toUpperCase()}
                     </Text>
                   </div>
@@ -128,13 +143,13 @@ const Addresses = ({
                     className="flex min-w-0 flex-col"
                     data-testid="shipping-contact-summary"
                   >
-                    <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                    <Text className="mb-1 text-sm font-semibold text-content-primary">
                       {t.contact}
                     </Text>
-                    <Text className="break-words txt-medium text-ui-fg-subtle">
+                    <Text className="break-words text-sm leading-relaxed text-content-secondary">
                       {cart.shipping_address.phone}
                     </Text>
-                    <Text className="txt-medium text-ui-fg-subtle">
+                    <Text className="break-words text-sm leading-relaxed text-content-secondary">
                       {cart.email}
                     </Text>
                   </div>
@@ -143,29 +158,29 @@ const Addresses = ({
                     className="flex min-w-0 flex-col"
                     data-testid="billing-address-summary"
                   >
-                    <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                    <Text className="mb-1 text-sm font-semibold text-content-primary">
                       {t.billingAddress}
                     </Text>
 
                     {sameAsBilling ? (
-                      <Text className="txt-medium text-ui-fg-subtle">
+                      <Text className="text-sm leading-relaxed text-content-secondary">
                         {t.billingSameAsShipping}
                       </Text>
                     ) : (
                       <>
-                        <Text className="txt-medium text-ui-fg-subtle">
+                        <Text className="text-sm leading-relaxed text-content-secondary">
                           {cart.billing_address?.first_name}{" "}
                           {cart.billing_address?.last_name}
                         </Text>
-                        <Text className="txt-medium text-ui-fg-subtle">
+                        <Text className="text-sm leading-relaxed text-content-secondary">
                           {cart.billing_address?.address_1}{" "}
                           {cart.billing_address?.address_2}
                         </Text>
-                        <Text className="txt-medium text-ui-fg-subtle">
+                        <Text className="text-sm leading-relaxed text-content-secondary">
                           {cart.billing_address?.postal_code},{" "}
                           {cart.billing_address?.city}
                         </Text>
-                        <Text className="txt-medium text-ui-fg-subtle">
+                        <Text className="text-sm leading-relaxed text-content-secondary">
                           {cart.billing_address?.country_code?.toUpperCase()}
                         </Text>
                       </>

@@ -59,9 +59,9 @@ const OptionsPicker = ({
   }
 
   return (
-    <div className="flex flex-col gap-y-4">
-      <div className="flex items-center justify-between px-1">
-        <span className="txt-compact-small-plus text-ui-fg-subtle">
+    <div className="border-t border-line-subtle/60 pt-6">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-content-primary">
           {t.store.options}
         </span>
       </div>
@@ -69,7 +69,7 @@ const OptionsPicker = ({
         type="multiple"
         value={openItems}
         onValueChange={(values) => setOpenItems(values as string[])}
-        className="flex flex-col gap-y-3 [padding-inline-end:1.5rem]"
+        className="mt-4 flex flex-col gap-2"
       >
         {options.map((option) => {
           const values =
@@ -80,7 +80,7 @@ const OptionsPicker = ({
               }))
               .filter(
                 (value): value is { id: string; label: string } =>
-                  !!value.id && !!value.label
+                  !!value.id && !!value.label,
               ) || []
 
           if (!values.length) {
@@ -98,38 +98,36 @@ const OptionsPicker = ({
 
           const isOpen = openItems.includes(option.id)
           const selectedCount = values.filter((value) =>
-            selectedValueIds.includes(value.id)
+            selectedValueIds.includes(value.id),
           ).length
 
           return (
             <Accordion.Item
               key={option.id}
               value={option.id}
-              className="overflow-hidden"
+              className="border-b border-line-subtle/60 last:border-b-0"
             >
               <Accordion.Header>
-                <Accordion.Trigger className="flex min-h-11 w-full items-center justify-between rounded-sm py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                <Accordion.Trigger className="flex min-h-11 w-full items-center justify-between rounded-lg px-1 py-2 text-left text-sm font-medium text-content-primary motion-safe:transition-colors motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
                   <div className="flex items-center gap-2">
-                    <span className="txt-compact-small-plus text-ui-fg-base">
-                      {option.title || t.store.options}
-                    </span>
-                    <span className="txt-compact-small-plus text-ui-fg-muted">
+                    <span>{option.title || t.store.options}</span>
+                    <span className="text-xs tabular-nums text-content-muted">
                       ({selectedCount})
                     </span>
                   </div>
                   <span
                     className={clsx(
-                      "flex h-7 w-7 items-center justify-center text-ui-fg-muted motion-safe:transition-transform duration-150",
+                      "flex h-8 w-8 items-center justify-center text-content-muted motion-safe:transition-transform motion-safe:duration-150",
                       {
                         "rotate-180": isOpen,
-                      }
+                      },
                     )}
                   >
                     <ChevronDownMini aria-hidden="true" />
                   </span>
                 </Accordion.Trigger>
               </Accordion.Header>
-              <Accordion.Content className="pb-4 pt-1">
+              <Accordion.Content className="pb-4 pt-2">
                 <div className="flex flex-wrap gap-2">
                   {values.map((value) => {
                     const isSelected = selectedValueIds.includes(value.id)
@@ -139,17 +137,18 @@ const OptionsPicker = ({
                         key={value.id}
                         onClick={() => toggleValue(value.id)}
                         className={clsx(
-                          "border-line-control border text-small-regular min-h-11 rounded-rounded px-3 flex items-center transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-border-interactive",
+                          "flex min-h-11 items-center rounded-lg border border-line-control px-3 text-sm text-content-secondary motion-safe:transition-[background-color,border-color,color,scale] motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]",
                           {
-                            "border-2 border-ui-border-interactive font-semibold text-ui-fg-base":
+                            "border-action-primary bg-surface-subtle font-semibold text-content-primary":
                               isSelected,
-                            "text-ui-fg-muted hover:text-ui-fg-base":
-                              !isSelected,
-                          }
+                            "hover:text-content-primary": !isSelected,
+                          },
                         )}
                         aria-pressed={isSelected}
                       >
-                        {isSelected && <span className="sr-only">{t.product.selected} </span>}
+                        {isSelected && (
+                          <span className="sr-only">{t.product.selected} </span>
+                        )}
                         {value.label}
                       </button>
                     )

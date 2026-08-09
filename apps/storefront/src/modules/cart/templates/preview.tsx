@@ -18,7 +18,7 @@ const ItemsPreviewTemplate = ({ cart }: ItemsTemplateProps) => {
   return (
     <div
       className={clx({
-        "pl-[1px] overflow-y-scroll overflow-x-hidden no-scrollbar max-h-[420px]":
+        "max-h-[420px] overflow-x-hidden overflow-y-auto overscroll-contain pr-1":
           hasOverflow,
       })}
     >

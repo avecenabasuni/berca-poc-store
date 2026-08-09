@@ -28,7 +28,10 @@ export default async function CheckoutForm({
     const t = getDictionary().checkout
 
     return (
-      <div className="surface-elevated rounded-2xl bg-surface-default p-6 sm:p-8" role="alert">
+      <div
+        className="surface-elevated rounded-2xl border border-line-subtle/60 bg-surface-default p-6 sm:p-8"
+        role="alert"
+      >
         <Heading level="h2" className="text-content-primary">
           {t.loadErrorTitle}
         </Heading>

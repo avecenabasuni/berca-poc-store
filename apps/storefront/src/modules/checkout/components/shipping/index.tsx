@@ -226,7 +226,7 @@ const Shipping: React.FC<ShippingProps> = ({
   }, [isOpen])
 
   return (
-    <div className="surface-elevated mt-6 rounded-2xl bg-surface-default p-6 sm:p-8">
+    <div className="surface-elevated mt-6 rounded-2xl border border-line-subtle/60 bg-surface-default p-6 sm:p-8">
       <div className="flex flex-row items-center justify-between mb-6">
         <Heading
           level="h2"
@@ -306,9 +306,9 @@ const Shipping: React.FC<ShippingProps> = ({
                           value={PICKUP_OPTION_ON}
                           data-testid="delivery-option-radio"
                           className={clx(
-                            "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
+                            "mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-line-control bg-surface-default px-4 py-4 text-sm motion-safe:transition-[background-color,border-color,scale] motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.99] xsmall:px-6",
                             {
-                              "border-ui-border-interactive":
+                              "border-action-primary bg-surface-subtle":
                                 showPickupOptions === PICKUP_OPTION_ON,
                             },
                           )}
@@ -349,9 +349,9 @@ const Shipping: React.FC<ShippingProps> = ({
                             data-testid="delivery-option-radio"
                             disabled={isDisabled}
                             className={clx(
-                              "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
+                              "mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-line-control bg-surface-default px-4 py-4 text-sm motion-safe:transition-[background-color,border-color,scale] motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.99] xsmall:px-6",
                               {
-                                "border-ui-border-interactive":
+                                "border-action-primary bg-surface-subtle":
                                   option.id === shippingMethodId,
                                 "hover:shadow-none cursor-not-allowed":
                                   isDisabled,
@@ -423,9 +423,9 @@ const Shipping: React.FC<ShippingProps> = ({
                           disabled={option.insufficient_inventory}
                           data-testid="delivery-option-radio"
                           className={clx(
-                            "mb-2 flex cursor-pointer items-center justify-between rounded-rounded border border-line-control px-4 py-4 text-small-regular hover:shadow-borders-interactive-with-active xsmall:px-8",
+                            "mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-line-control bg-surface-default px-4 py-4 text-sm motion-safe:transition-[background-color,border-color,scale] motion-safe:duration-150 hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.99] xsmall:px-6",
                             {
-                              "border-ui-border-interactive":
+                              "border-action-primary bg-surface-subtle":
                                 option.id === shippingMethodId,
                               "hover:shadow-none cursor-not-allowed":
                                 option.insufficient_inventory,
