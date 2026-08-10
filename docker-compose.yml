@@ -100,7 +100,9 @@ services:
   # POC-only edge proxy. It is the only service that publishes the storefront
   # port, so the stateless storefront can be scaled without changing its URL.
   traefik:
-    image: traefik:v3.2.1
+    # v3.7 uses the current Moby Docker client and supports Docker Engine
+    # releases whose minimum API version is newer than the legacy 1.24 API.
+    image: traefik:v3.7.9
     container_name: berca_traefik
     restart: unless-stopped
     command:
