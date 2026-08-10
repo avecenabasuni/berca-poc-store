@@ -35,13 +35,16 @@ const SideMenu = ({ regions }: SideMenuProps) => {
         type="button"
         data-testid="nav-menu-button"
         onClick={() => setIsOpen(true)}
-        className="relative flex h-full min-h-11 min-w-11 touch-manipulation items-center gap-2 rounded-full px-3 py-1.5 font-medium text-content-primary motion-safe:transition-[background-color,color,scale] motion-safe:duration-150 motion-safe:ease-out hover:bg-surface-subtle hover:text-content-interactive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
+        aria-expanded={isOpen}
+        aria-controls="store-navigation-drawer"
+        aria-haspopup="dialog"
+        className="group relative inline-flex min-h-11 shrink-0 touch-manipulation items-center gap-2 rounded-md border border-line-control bg-surface-default px-3 text-sm font-semibold leading-none text-content-primary shadow-sm motion-safe:transition-[background-color,border-color,color,scale,box-shadow] motion-safe:duration-150 motion-safe:ease-out hover:border-content-primary/30 hover:bg-surface-subtle hover:text-content-interactive hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus motion-safe:active:scale-[0.96]"
       >
-        <BarsThree className="h-5 w-5" aria-hidden="true" />
-        <span className="hidden text-xs font-semibold uppercase tracking-wider xsmall:inline">
-          {t.nav.menu}
-        </span>
-        <span className="sr-only xsmall:hidden">{t.nav.menu}</span>
+        <BarsThree
+          className="h-5 w-5 shrink-0 motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out group-hover:scale-110"
+          aria-hidden="true"
+        />
+        <span className="uppercase tracking-wide">{t.nav.menu}</span>
       </button>
 
       <Transition appear show={isOpen} as={Fragment}>
@@ -73,6 +76,7 @@ const SideMenu = ({ regions }: SideMenuProps) => {
               leaveTo="opacity-0 -translate-x-full"
             >
               <Dialog.Panel
+                id="store-navigation-drawer"
                 className="fixed inset-y-0 [inset-inline-start:0] flex h-full w-full max-w-[400px] flex-col overflow-y-auto overscroll-contain bg-surface-inverse text-sm text-content-inverse shadow-2xl"
                 data-testid="nav-menu-popup"
               >
