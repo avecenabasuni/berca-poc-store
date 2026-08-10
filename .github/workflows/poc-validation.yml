@@ -12,7 +12,7 @@ on:
       - "ops/**"
       - "apps/backend/src/api/demo/**"
       - ".yamllint.yml"
-      - ".github/workflows/poc-validation.yml"
+      - ".github/workflows/**"
   push:
     branches: [main]
     paths:
@@ -25,7 +25,7 @@ on:
       - "ops/**"
       - "apps/backend/src/api/demo/**"
       - ".yamllint.yml"
-      - ".github/workflows/poc-validation.yml"
+      - ".github/workflows/**"
 
 permissions:
   contents: read
@@ -75,7 +75,7 @@ jobs:
 
       - name: Validate YAML
         run: |
-          yamllint -c .yamllint.yml docker docker-compose.yml .github/workflows/poc-validation.yml
+          yamllint -c .yamllint.yml docker docker-compose.yml .github/workflows
 
       - name: Validate API service unit and patch hygiene
         run: |

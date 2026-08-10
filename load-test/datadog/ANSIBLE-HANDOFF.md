@@ -102,3 +102,13 @@ The Ansible owner must provide these outside Git:
 <POOL_JOB_TEMPLATE_ID_13>
 <DISK_JOB_TEMPLATE_ID_14>
 ```
+
+## Storefront deployment rollback handoff
+
+The rollout is documented in
+[`DEPLOYMENT-ROLLBACK-POC.md`](../DEPLOYMENT-ROLLBACK-POC.md). The final Ansible
+owner supplies fixed Job Templates **Rollback Storefront to Stable** and
+**Reset Storefront Deployment**. Target VM, GHCR digest, Compose path, and
+credential are fixed in Ansible inventory/configuration. Datadog must not send
+a host, registry, image, digest, tag, path, command, or arbitrary extra
+variable. The deployment API scope is a development and emergency fallback.

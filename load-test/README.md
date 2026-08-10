@@ -21,6 +21,9 @@ Active files in this directory:
   storefront, and starts the six-hour k6 traffic cycle.
 - `pgbench-saturation.sql`: bounded `pg_sleep` workload used only by the
   opt-in `pool-hog` Compose profile.
+- `AUTOSCALE-POC.md`: approval-gated storefront scale-out scenario.
+- `DEPLOYMENT-ROLLBACK-POC.md`: GHCR-backed storefront regression and
+  approval-gated rollback scenario.
 - `datadog/WORKFLOW-CONTRACT.md`: Datadog UI workflow, monitor, classifier,
   verification, and escalation contract.
 - `datadog/ANSIBLE-HANDOFF.md`: bounded EDA event contract and ownership

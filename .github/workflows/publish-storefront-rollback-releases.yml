@@ -1,0 +1,92 @@
+name: Publish POC storefront rollback releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref used for both immutable storefront releases
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/avecenabasuni/berca-storefront
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out requested release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set release metadata
+        id: release
+        run: |
+          echo "sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish stable release
+        id: stable
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.storefront
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:stable-${{ steps.release.outputs.sha }}
+          build-args: |
+            STOREFRONT_PUBLIC_URL=${{ vars.STOREFRONT_PUBLIC_URL }}
+            MEDUSA_PUBLISHABLE_KEY=${{ secrets.MEDUSA_PUBLISHABLE_KEY }}
+            POC_STOREFRONT_RELEASE_MODE=stable
+          labels: |
+            org.opencontainers.image.source=https://github.com/avecenabasuni/berca-poc-store
+            org.opencontainers.image.revision=${{ steps.release.outputs.commit }}
+            org.opencontainers.image.version=stable-${{ steps.release.outputs.sha }}
+            com.berca.poc.release-mode=stable
+
+      - name: Build and publish approved regression release
+        id: demo_bad
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.storefront
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:demo-bad-${{ steps.release.outputs.sha }}
+          build-args: |
+            STOREFRONT_PUBLIC_URL=${{ vars.STOREFRONT_PUBLIC_URL }}
+            MEDUSA_PUBLISHABLE_KEY=${{ secrets.MEDUSA_PUBLISHABLE_KEY }}
+            POC_STOREFRONT_RELEASE_MODE=demo-bad
+          labels: |
+            org.opencontainers.image.source=https://github.com/avecenabasuni/berca-poc-store
+            org.opencontainers.image.revision=${{ steps.release.outputs.commit }}
+            org.opencontainers.image.version=demo-bad-${{ steps.release.outputs.sha }}
+            com.berca.poc.release-mode=demo-bad
+
+      - name: Write immutable VM configuration values
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          Copy these immutable values to the VM release configuration after pulling them with a read-only GHCR credential:
+
+          \`\`\`dotenv
+          STOREFRONT_STABLE_IMAGE=${IMAGE_NAME}@${{ steps.stable.outputs.digest }}
+          STOREFRONT_STABLE_VERSION=stable-${{ steps.release.outputs.sha }}
+          STOREFRONT_BAD_IMAGE=${IMAGE_NAME}@${{ steps.demo_bad.outputs.digest }}
+          STOREFRONT_BAD_VERSION=demo-bad-${{ steps.release.outputs.sha }}
+          \`\`\`
+          EOF

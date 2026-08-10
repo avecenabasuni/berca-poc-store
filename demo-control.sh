@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK_FILE="${POC_DEMO_LOCK_FILE:-/tmp/berca-poc-demo-control.lock}"
 POOL_HOG_CONTAINER="berca_poc_pool_hog"
 STOREFRONT_SPIKE_CONTAINER="berca_poc_storefront_spike"
+STOREFRONT_RELEASE_CONFIG_FILE="${POC_STOREFRONT_RELEASE_CONFIG_FILE:-/etc/berca-poc/storefront-release.env}"
+STOREFRONT_RELEASE_IMAGE_PREFIX="ghcr.io/avecenabasuni/berca-storefront@sha256:"
 LOG_DIR="${SCRIPT_DIR}/docker/log-saturation/data"
 DISK_TRIGGER_FILE="${LOG_DIR}/.trigger_saturation"
 DISK_LOG_FILE="${LOG_DIR}/app-saturation.log"
@@ -38,6 +40,9 @@ Actions:
   stop-storefront-spike   Stop only the bounded storefront capacity spike.
   scale-storefront-to-2   Scale the storefront from one to two replicas.
   reset-storefront-scale  Return the storefront from two to one replica.
+  deploy-storefront-demo-bad  Deploy the pre-approved storefront regression release.
+  rollback-storefront-stable  Return the storefront to the pre-approved stable release.
+  reset-storefront-deployment Return the storefront to the stable release.
   reset         Run the canonical full baseline reset.
   status        Print the observed POC state as JSON.
 EOF
@@ -210,6 +215,122 @@ storefront_replicas_are_healthy() {
   done < <(docker compose ps -q storefront)
 }
 
+storefront_primary_container_id() {
+  docker compose ps -q storefront | head -n 1
+}
+
+storefront_image_reference() {
+  local container_id
+  container_id=$(storefront_primary_container_id)
+  [ -n "$container_id" ] || return 1
+  docker inspect -f '{{.Config.Image}}' "$container_id"
+}
+
+storefront_release_version() {
+  local container_id
+  container_id=$(storefront_primary_container_id)
+  [ -n "$container_id" ] || return 1
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | \
+    awk -F '=' '$1 == "DD_VERSION" { print $2; exit }'
+}
+
+load_storefront_release_config() {
+  local key value config_owner config_mode stable_digest bad_digest
+  STOREFRONT_STABLE_IMAGE=""
+  STOREFRONT_STABLE_VERSION=""
+  STOREFRONT_BAD_IMAGE=""
+  STOREFRONT_BAD_VERSION=""
+
+  [ -r "$STOREFRONT_RELEASE_CONFIG_FILE" ] || return 1
+  config_owner=$(stat -c '%u' "$STOREFRONT_RELEASE_CONFIG_FILE" 2>/dev/null || true)
+  config_mode=$(stat -c '%a' "$STOREFRONT_RELEASE_CONFIG_FILE" 2>/dev/null || true)
+  [ "$config_owner" = "0" ] && [ "$config_mode" = "600" ] || return 1
+
+  while IFS='=' read -r key value; do
+    value=${value%$'\r'}
+    case "$key" in
+      STOREFRONT_STABLE_IMAGE) STOREFRONT_STABLE_IMAGE="$value" ;;
+      STOREFRONT_STABLE_VERSION) STOREFRONT_STABLE_VERSION="$value" ;;
+      STOREFRONT_BAD_IMAGE) STOREFRONT_BAD_IMAGE="$value" ;;
+      STOREFRONT_BAD_VERSION) STOREFRONT_BAD_VERSION="$value" ;;
+      ""|\#*) ;;
+      *) return 1 ;;
+    esac
+  done < "$STOREFRONT_RELEASE_CONFIG_FILE"
+
+  [[ "$STOREFRONT_STABLE_IMAGE" == "${STOREFRONT_RELEASE_IMAGE_PREFIX}"* ]] || return 1
+  [[ "$STOREFRONT_BAD_IMAGE" == "${STOREFRONT_RELEASE_IMAGE_PREFIX}"* ]] || return 1
+  stable_digest=${STOREFRONT_STABLE_IMAGE#"$STOREFRONT_RELEASE_IMAGE_PREFIX"}
+  bad_digest=${STOREFRONT_BAD_IMAGE#"$STOREFRONT_RELEASE_IMAGE_PREFIX"}
+
+  [[ "$stable_digest" =~ ^[a-f0-9]{64}$ ]] && \
+    [[ "$bad_digest" =~ ^[a-f0-9]{64}$ ]] && \
+    [[ "$STOREFRONT_STABLE_VERSION" =~ ^stable-[a-f0-9]{12}$ ]] && \
+    [[ "$STOREFRONT_BAD_VERSION" =~ ^demo-bad-[a-f0-9]{12}$ ]] && \
+    [ "$STOREFRONT_STABLE_IMAGE" != "$STOREFRONT_BAD_IMAGE" ] && \
+    [ "$STOREFRONT_STABLE_VERSION" != "$STOREFRONT_BAD_VERSION" ]
+}
+
+storefront_release_state() {
+  local image_reference
+  load_storefront_release_config || {
+    printf 'unknown\n'
+    return 0
+  }
+  image_reference=$(storefront_image_reference 2>/dev/null || true)
+  case "$image_reference" in
+    "$STOREFRONT_STABLE_IMAGE") printf 'stable\n' ;;
+    "$STOREFRONT_BAD_IMAGE") printf 'demo_bad\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+storefront_catalog_http_status() {
+  local response
+  response=$(docker compose exec -T storefront wget -S --spider --timeout=10 \
+    http://127.0.0.1:8000/id/store 2>&1 || true)
+  printf '%s\n' "$response" | awk '/^  HTTP\// { status=$2 } END { print status }'
+}
+
+storefront_catalog_is_available() {
+  [ "$(storefront_catalog_http_status)" = "200" ]
+}
+
+storefront_catalog_is_regressed() {
+  [ "$(storefront_catalog_http_status)" = "503" ]
+}
+
+storefront_release_guardrails() {
+  disk_fault_is_active && fail "Disk fault is active. Refusing deployment action."
+  pool_hog_is_running && fail "Pool fault is active. Refusing deployment action."
+  autoscale_spike_is_running && fail "Storefront capacity spike is active. Refusing deployment action."
+  [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one replica for a deployment action."
+  traefik_is_healthy || fail "Traefik is not healthy. Refusing deployment action."
+  storefront_replicas_are_healthy 1 || fail "Storefront is not healthy. Refusing deployment action."
+}
+
+activate_storefront_release() {
+  local image="$1" version="$2"
+  docker image inspect "$image" >/dev/null 2>&1 || \
+    fail "Approved release image is not available locally. Pull the configured digest before the demo."
+
+  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" \
+    docker compose up -d --no-build --no-deps --force-recreate --scale storefront=1 storefront >/dev/null
+  wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
+  [ "$(storefront_image_reference)" = "$image" ] || fail "Storefront did not start the approved release image."
+  [ "$(storefront_release_version)" = "$version" ] || fail "Storefront did not expose the approved release version."
+}
+
+reconcile_storefront_replicas() {
+  local replicas="$1" image version
+  image=$(storefront_image_reference) || fail "Storefront image cannot be determined."
+  version=$(storefront_release_version) || fail "Storefront version cannot be determined."
+  [ -n "$image" ] && [ -n "$version" ] || fail "Storefront release metadata is incomplete."
+
+  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" \
+    docker compose up -d --no-build --no-deps --scale storefront="$replicas" storefront >/dev/null
+}
+
 traefik_is_healthy() {
   local container_id health_status
   container_id=$(docker compose ps -q traefik | head -n 1)
@@ -293,6 +414,7 @@ stop_pool_hog() {
 start_storefront_spike() {
   disk_fault_is_active && fail "Disk fault is active. Recover it before starting a storefront scale test."
   pool_hog_is_running && fail "Pool fault is active. Recover it before starting a storefront scale test."
+  [ "$(storefront_release_state)" != "demo_bad" ] || fail "A storefront regression release is active. Roll it back before starting a scale test."
 
   if autoscale_spike_is_running; then
     echo "[INFO] Storefront capacity spike is already running."
@@ -303,7 +425,7 @@ start_storefront_spike() {
   [[ "${AUTOSCALE_SPIKE_RATE:-}" =~ ^[0-9]+$ ]] || fail "AUTOSCALE_SPIKE_RATE must be a VM-configured positive integer."
   [ "${AUTOSCALE_SPIKE_RATE}" -ge 1 ] && [ "${AUTOSCALE_SPIKE_RATE}" -le 240 ] || fail "AUTOSCALE_SPIKE_RATE must be between 1 and 240."
 
-  docker compose up -d traefik storefront >/dev/null
+  docker compose up -d traefik >/dev/null
   wait_for "Traefik health" "$WAIT_TIMEOUT_SECONDS" traefik_is_healthy
   wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
   docker compose --profile autoscale-demo up -d traffic-spike >/dev/null
@@ -325,11 +447,12 @@ stop_storefront_spike() {
 scale_storefront_to_two() {
   disk_fault_is_active && fail "Disk fault is active. Refusing storefront scale-out."
   pool_hog_is_running && fail "Pool fault is active. Refusing storefront scale-out."
+  [ "$(storefront_release_state)" != "demo_bad" ] || fail "A storefront regression release is active. Refusing scale-out."
   autoscale_spike_is_running || fail "Storefront capacity spike is not active. Refusing scale-out without the approved test workload."
   [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one running replica before scale-out."
   traefik_is_healthy || fail "Traefik is not healthy. Refusing storefront scale-out."
 
-  docker compose up -d --no-deps --scale storefront=2 storefront >/dev/null
+  reconcile_storefront_replicas 2
   wait_for "two healthy storefront replicas" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 2
   echo "[OK] Storefront scaled from one to two healthy replicas."
 }
@@ -338,9 +461,47 @@ reset_storefront_scale() {
   autoscale_spike_is_running && fail "Stop the storefront capacity spike before resetting replica count."
   docker compose up -d traefik >/dev/null
   wait_for "Traefik health" "$WAIT_TIMEOUT_SECONDS" traefik_is_healthy
-  docker compose up -d --no-deps --scale storefront=1 storefront >/dev/null
+  reconcile_storefront_replicas 1
   wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
   echo "[OK] Storefront reset to one healthy replica."
+}
+
+deploy_storefront_demo_bad() {
+  load_storefront_release_config || fail "Storefront release configuration is missing, invalid, or not root-owned mode 0600."
+  storefront_release_guardrails
+  [ "$(storefront_release_state)" = "stable" ] || fail "Storefront must run the configured stable release before deploying the candidate."
+
+  activate_storefront_release "$STOREFRONT_BAD_IMAGE" "$STOREFRONT_BAD_VERSION"
+  wait_for "known storefront regression response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_regressed
+  echo "[OK] Approved storefront regression release deployed."
+}
+
+rollback_storefront_stable() {
+  load_storefront_release_config || fail "Storefront release configuration is missing, invalid, or not root-owned mode 0600."
+  storefront_release_guardrails
+  if [ "$(storefront_release_state)" = "stable" ] && storefront_catalog_is_available; then
+    echo "[INFO] Storefront is already running the configured stable release."
+    return 0
+  fi
+  [ "$(storefront_release_state)" = "demo_bad" ] || fail "Rollback is allowed only from the configured regression release."
+
+  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION"
+  wait_for "stable storefront catalog response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_available
+  echo "[OK] Storefront rolled back to the approved stable release."
+}
+
+reset_storefront_deployment() {
+  load_storefront_release_config || fail "Storefront release configuration is missing, invalid, or not root-owned mode 0600."
+  autoscale_spike_is_running && fail "Stop the storefront capacity spike before resetting the deployment."
+  traefik_is_healthy || fail "Traefik is not healthy. Refusing deployment reset."
+  if [ "$(storefront_release_state)" = "stable" ] && storefront_catalog_is_available; then
+    echo "[INFO] Storefront deployment is already at the configured stable release."
+    return 0
+  fi
+
+  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION"
+  wait_for "stable storefront catalog response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_available
+  echo "[OK] Storefront deployment reset to the approved stable release."
 }
 
 recreate_disk_consumers() {
@@ -452,6 +613,9 @@ recover_pool() {
 reset_demo() {
   stop_storefront_spike
   reset_storefront_scale
+  if [ -r "$STOREFRONT_RELEASE_CONFIG_FILE" ]; then
+    reset_storefront_deployment
+  fi
   stop_pool_hog
   "${SCRIPT_DIR}/cleanup-full-poc.sh"
 
@@ -482,6 +646,10 @@ print_status() {
   local storefront_healthy=false
   local traefik_healthy=false
   local autoscale_state=unavailable
+  local storefront_release_state=unknown
+  local storefront_version=unknown
+  local storefront_image=unknown
+  local deployment_demo_active=false
 
   if ! docker info >/dev/null 2>&1; then
     docker_available=false
@@ -502,6 +670,12 @@ print_status() {
     fi
     if autoscale_spike_is_running; then
       autoscale_spike_active=true
+    fi
+    storefront_release_state=$(storefront_release_state)
+    storefront_version=$(storefront_release_version 2>/dev/null || printf 'unknown')
+    storefront_image=$(storefront_image_reference 2>/dev/null || printf 'unknown')
+    if [ "$storefront_release_state" = "demo_bad" ]; then
+      deployment_demo_active=true
     fi
     if [ "$storefront_replicas" = "1" ] && [ "$autoscale_spike_active" = false ]; then
       autoscale_state=baseline
@@ -547,8 +721,10 @@ print_status() {
     "$disk_fault_active" "$disk_mounted" "$DISK_USAGE_PCT" "$LOG_BYTES"
   printf '"storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,' \
     "$storefront_replicas" "$storefront_healthy" "$traefik_healthy"
-  printf '"autoscale_spike_active":%s,"autoscale_state":"%s"}\n' \
+  printf '"autoscale_spike_active":%s,"autoscale_state":"%s",' \
     "$autoscale_spike_active" "$autoscale_state"
+  printf '"storefront_release_state":"%s","storefront_version":"%s","storefront_image":"%s","deployment_demo_active":%s}\n' \
+    "$storefront_release_state" "$storefront_version" "$storefront_image" "$deployment_demo_active"
 }
 
 if [ "$#" -ne 1 ]; then
@@ -559,7 +735,7 @@ fi
 ACTION="$1"
 
 case "$ACTION" in
-  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale)
+  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment)
     ;;
   *)
     usage >&2
@@ -603,6 +779,15 @@ case "$ACTION" in
     ;;
   reset-storefront-scale)
     reset_storefront_scale
+    ;;
+  deploy-storefront-demo-bad)
+    deploy_storefront_demo_bad
+    ;;
+  rollback-storefront-stable)
+    rollback_storefront_stable
+    ;;
+  reset-storefront-deployment)
+    reset_storefront_deployment
     ;;
   reset)
     reset_demo

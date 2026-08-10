@@ -34,6 +34,13 @@ SCALE_ACTIONS = frozenset(
         "reset-storefront-scale",
     }
 )
+DEPLOYMENT_ACTIONS = frozenset(
+    {
+        "deploy-storefront-demo-bad",
+        "rollback-storefront-stable",
+        "reset-storefront-deployment",
+    }
+)
 ACTIVE_JOB_STATES = frozenset({"accepted", "running"})
 TERMINAL_JOB_STATES = frozenset({"succeeded", "failed"})
 
@@ -48,6 +55,7 @@ class ApiConfig:
     fault_token: str
     remediation_token: str
     scale_token: str
+    deployment_token: str
     environment: str = "poc"
     bind_address: str = "127.0.0.1"
     port: int = 18080
@@ -321,6 +329,8 @@ class DemoControlHandler(BaseHTTPRequestHandler):
             return "remediation"
         if hmac.compare_digest(supplied, config.scale_token):
             return "scale"
+        if hmac.compare_digest(supplied, config.deployment_token):
+            return "deployment"
         return None
 
     def do_GET(self) -> None:
@@ -409,6 +419,7 @@ class DemoControlHandler(BaseHTTPRequestHandler):
             "fault": FAULT_ACTIONS,
             "remediation": REMEDIATION_ACTIONS,
             "scale": SCALE_ACTIONS,
+            "deployment": DEPLOYMENT_ACTIONS,
         }[scope]
         if not isinstance(action, str) or action not in allowed_actions:
             self.send_json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "action_forbidden"})
@@ -450,6 +461,7 @@ def load_config() -> ApiConfig:
     fault_token = os.environ.get("DEMO_CONTROL_FAULT_TOKEN", "").strip()
     remediation_token = os.environ.get("DEMO_CONTROL_REMEDIATION_TOKEN", "").strip()
     scale_token = os.environ.get("DEMO_SCALE_CONTROL_TOKEN", "").strip()
+    deployment_token = os.environ.get("DEMO_DEPLOYMENT_CONTROL_TOKEN", "").strip()
     environment = os.environ.get("DEMO_CONTROL_ENVIRONMENT", "poc").strip()
     bind_address = os.environ.get("DEMO_CONTROL_BIND", "127.0.0.1")
     job_log_path = Path(
@@ -463,14 +475,17 @@ def load_config() -> ApiConfig:
         raise ValueError("DEMO_CONTROL_PROJECT_PATH must be an existing directory")
     if not (project_path / "demo-control.sh").is_file():
         raise ValueError("demo-control.sh is missing from DEMO_CONTROL_PROJECT_PATH")
-    if any(len(token) < 32 for token in (fault_token, remediation_token, scale_token)):
+    if any(
+        len(token) < 32
+        for token in (fault_token, remediation_token, scale_token, deployment_token)
+    ):
         raise ValueError("all control tokens must contain at least 32 characters")
-    for token in (fault_token, remediation_token, scale_token):
+    for token in (fault_token, remediation_token, scale_token, deployment_token):
         normalized_token = token.lower()
         if token.startswith("<") or "replace" in normalized_token or "placeholder" in normalized_token:
             raise ValueError("control token placeholders must be replaced")
-    if len({fault_token, remediation_token, scale_token}) != 3:
-        raise ValueError("fault, remediation, and scale tokens must be different")
+    if len({fault_token, remediation_token, scale_token, deployment_token}) != 4:
+        raise ValueError("fault, remediation, scale, and deployment tokens must be different")
     if environment != "poc":
         raise ValueError("DEMO_CONTROL_ENVIRONMENT must be exactly 'poc'")
     if not job_log_path.is_absolute():
@@ -494,6 +509,7 @@ def load_config() -> ApiConfig:
         fault_token=fault_token,
         remediation_token=remediation_token,
         scale_token=scale_token,
+        deployment_token=deployment_token,
         environment=environment,
         bind_address=bind_address,
         port=port,

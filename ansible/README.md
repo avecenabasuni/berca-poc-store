@@ -648,3 +648,25 @@ shell argument. Template menolak pool/disk fault aktif dan concurrent run.
 Datadog mempertahankan policy `env:poc`, capacity-pressure monitor, Slack
 Approve/Reject, serta verification p95/error/health. AAP success hanya
 execution evidence; tidak menggantikan verification telemetry Datadog.
+
+## 16. Planned storefront deployment rollback handoff
+
+Setelah fallback API pada
+[`load-test/DEPLOYMENT-ROLLBACK-POC.md`](../load-test/DEPLOYMENT-ROLLBACK-POC.md)
+lulus, owner Ansible menambahkan dua Job Template fixed:
+
+| Job Template | Native outcome |
+|---|---|
+| `Rollback Storefront to Stable` | Recreate exactly one storefront replica with the pre-approved stable GHCR digest and wait for Docker health plus catalog `200` |
+| `Reset Storefront Deployment` | Reconcile the same pre-approved stable digest and one healthy storefront replica |
+
+The VM inventory/configuration owns the GHCR repository, stable digest, release
+version, Compose path, and registry credential. Datadog sends only audit IDs;
+it must not send an image, digest, tag, registry, host, path, command, or
+arbitrary extra variable. Both templates refuse pool/disk fault, autoscale
+spike, non-POC environment, or concurrent execution.
+
+Datadog keeps the generic deployment-regression monitor, Slack approval, and
+telemetry verification: stable `DD_VERSION`, `/api/healthz` and `/id/store`
+healthy, p95 normal, and error rate safe. AAP success remains execution
+evidence only.

@@ -173,6 +173,7 @@ services:
   # Storefront
   # This service runs the Next.js Starter Storefront
   storefront:
+    image: ${STOREFRONT_IMAGE:-berca-storefront:local}
     build:
       context: .
       dockerfile: Dockerfile.storefront
@@ -195,7 +196,7 @@ services:
       - DD_TRACE_STARTUP_LOGS=true
       - DD_SERVICE=berca-storefront
       - DD_ENV=poc
-      - DD_VERSION=1.0.0
+      - DD_VERSION=${STOREFRONT_RELEASE_VERSION:-1.0.0}
       - DD_LOGS_INJECTION=true
       - DD_DBM_PROPAGATION_MODE=full
     healthcheck:

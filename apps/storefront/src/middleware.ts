@@ -6,6 +6,8 @@ const BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL
 const PUBLISHABLE_API_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 const DEFAULT_REGION = process.env.NEXT_PUBLIC_DEFAULT_REGION || "id"
+const RELEASE_MODE = process.env.POC_STOREFRONT_RELEASE_MODE || "stable"
+const DEMO_BAD_RELEASE_DELAY_MS = 2500
 
 const regionMapCache = {
   regionMap: new Map<string, HttpTypes.StoreRegion>(),
@@ -101,6 +103,20 @@ async function getCountryCode(
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.includes(".")) {
     return NextResponse.next()
+  }
+
+  if (
+    RELEASE_MODE === "demo-bad" &&
+    request.nextUrl.pathname === `/${DEFAULT_REGION}/store`
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, DEMO_BAD_RELEASE_DELAY_MS))
+    return NextResponse.json(
+      { status: "temporarily_unavailable" },
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store" },
+      }
+    )
   }
 
   const cacheIdCookie = request.cookies.get("_medusa_cache_id")
