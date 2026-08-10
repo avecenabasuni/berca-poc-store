@@ -6,6 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK_FILE="${POC_DEMO_LOCK_FILE:-/tmp/berca-poc-demo-control.lock}"
 POOL_HOG_CONTAINER="berca_poc_pool_hog"
+STOREFRONT_SPIKE_CONTAINER="berca_poc_storefront_spike"
 LOG_DIR="${SCRIPT_DIR}/docker/log-saturation/data"
 DISK_TRIGGER_FILE="${LOG_DIR}/.trigger_saturation"
 DISK_LOG_FILE="${LOG_DIR}/app-saturation.log"
@@ -33,6 +34,10 @@ Actions:
   recover-pool  Stop only the dedicated pool-hog and verify recovery.
   disk          Start the isolated synthetic log-disk fault.
   recover-disk  Recover only the isolated synthetic log volume.
+  start-storefront-spike  Start the bounded storefront capacity spike.
+  stop-storefront-spike   Stop only the bounded storefront capacity spike.
+  scale-storefront-to-2   Scale the storefront from one to two replicas.
+  reset-storefront-scale  Return the storefront from two to one replica.
   reset         Run the canonical full baseline reset.
   status        Print the observed POC state as JSON.
 EOF
@@ -183,6 +188,40 @@ pool_hog_exists() {
   docker inspect "$POOL_HOG_CONTAINER" >/dev/null 2>&1
 }
 
+storefront_replica_count() {
+  local container_id running count=0
+  while IFS= read -r container_id; do
+    [ -n "$container_id" ] || continue
+    running=$(docker inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null || true)
+    if [ "$running" = "true" ]; then
+      count=$((count + 1))
+    fi
+  done < <(docker compose ps -q storefront)
+  printf '%s\n' "$count"
+}
+
+storefront_replicas_are_healthy() {
+  local expected="$1" container_id health_status
+  [ "$(storefront_replica_count)" -eq "$expected" ] || return 1
+  while IFS= read -r container_id; do
+    [ -n "$container_id" ] || continue
+    health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null || true)
+    [ "$health_status" = "healthy" ] || return 1
+  done < <(docker compose ps -q storefront)
+}
+
+traefik_is_healthy() {
+  local container_id health_status
+  container_id=$(docker compose ps -q traefik | head -n 1)
+  [ -n "$container_id" ] || return 1
+  health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id" 2>/dev/null || true)
+  [ "$health_status" = "healthy" ]
+}
+
+autoscale_spike_is_running() {
+  [ "$(docker inspect -f '{{.State.Running}}' "$STOREFRONT_SPIKE_CONTAINER" 2>/dev/null || true)" = "true" ]
+}
+
 disk_fault_is_active() {
   [ -e "$DISK_TRIGGER_FILE" ] || [ -e "$DISK_IMPACT_MARKER" ]
 }
@@ -249,6 +288,59 @@ stop_pool_hog() {
     docker compose --profile demo-fault stop -t 10 pool-hog >/dev/null
     docker compose --profile demo-fault rm -f pool-hog >/dev/null
   fi
+}
+
+start_storefront_spike() {
+  disk_fault_is_active && fail "Disk fault is active. Recover it before starting a storefront scale test."
+  pool_hog_is_running && fail "Pool fault is active. Recover it before starting a storefront scale test."
+
+  if autoscale_spike_is_running; then
+    echo "[INFO] Storefront capacity spike is already running."
+    return 0
+  fi
+
+  [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must be at the one-replica baseline before starting a capacity spike."
+  [[ "${AUTOSCALE_SPIKE_RATE:-}" =~ ^[0-9]+$ ]] || fail "AUTOSCALE_SPIKE_RATE must be a VM-configured positive integer."
+  [ "${AUTOSCALE_SPIKE_RATE}" -ge 1 ] && [ "${AUTOSCALE_SPIKE_RATE}" -le 240 ] || fail "AUTOSCALE_SPIKE_RATE must be between 1 and 240."
+
+  docker compose up -d traefik storefront >/dev/null
+  wait_for "Traefik health" "$WAIT_TIMEOUT_SECONDS" traefik_is_healthy
+  wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
+  docker compose --profile autoscale-demo up -d traffic-spike >/dev/null
+  wait_for "running storefront capacity spike" "$WAIT_TIMEOUT_SECONDS" autoscale_spike_is_running
+  echo "[OK] Storefront capacity spike started at the VM-configured fixed rate."
+}
+
+stop_storefront_spike() {
+  if ! docker inspect "$STOREFRONT_SPIKE_CONTAINER" >/dev/null 2>&1; then
+    echo "[INFO] Storefront capacity spike is already stopped."
+    return 0
+  fi
+  docker compose --profile autoscale-demo stop -t 10 traffic-spike >/dev/null
+  docker compose --profile autoscale-demo rm -f traffic-spike >/dev/null
+  autoscale_spike_is_running && fail "Storefront capacity spike is still running after stop."
+  echo "[OK] Storefront capacity spike stopped."
+}
+
+scale_storefront_to_two() {
+  disk_fault_is_active && fail "Disk fault is active. Refusing storefront scale-out."
+  pool_hog_is_running && fail "Pool fault is active. Refusing storefront scale-out."
+  autoscale_spike_is_running || fail "Storefront capacity spike is not active. Refusing scale-out without the approved test workload."
+  [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one running replica before scale-out."
+  traefik_is_healthy || fail "Traefik is not healthy. Refusing storefront scale-out."
+
+  docker compose up -d --no-deps --scale storefront=2 storefront >/dev/null
+  wait_for "two healthy storefront replicas" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 2
+  echo "[OK] Storefront scaled from one to two healthy replicas."
+}
+
+reset_storefront_scale() {
+  autoscale_spike_is_running && fail "Stop the storefront capacity spike before resetting replica count."
+  docker compose up -d traefik >/dev/null
+  wait_for "Traefik health" "$WAIT_TIMEOUT_SECONDS" traefik_is_healthy
+  docker compose up -d --no-deps --scale storefront=1 storefront >/dev/null
+  wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
+  echo "[OK] Storefront reset to one healthy replica."
 }
 
 recreate_disk_consumers() {
@@ -358,6 +450,8 @@ recover_pool() {
 }
 
 reset_demo() {
+  stop_storefront_spike
+  reset_storefront_scale
   stop_pool_hog
   "${SCRIPT_DIR}/cleanup-full-poc.sh"
 
@@ -383,6 +477,11 @@ print_status() {
   local pool_hog_running=false
   local disk_fault_active=false
   local disk_mounted=false
+  local autoscale_spike_active=false
+  local storefront_replicas=unknown
+  local storefront_healthy=false
+  local traefik_healthy=false
+  local autoscale_state=unavailable
 
   if ! docker info >/dev/null 2>&1; then
     docker_available=false
@@ -392,6 +491,27 @@ print_status() {
   fi
   if disk_fault_is_active; then
     disk_fault_active=true
+  fi
+  if [ "$docker_available" = true ]; then
+    storefront_replicas=$(storefront_replica_count 2>/dev/null || printf 'unknown')
+    if traefik_is_healthy; then
+      traefik_healthy=true
+    fi
+    if [[ "$storefront_replicas" =~ ^[1-9][0-9]*$ ]] && storefront_replicas_are_healthy "$storefront_replicas"; then
+      storefront_healthy=true
+    fi
+    if autoscale_spike_is_running; then
+      autoscale_spike_active=true
+    fi
+    if [ "$storefront_replicas" = "1" ] && [ "$autoscale_spike_active" = false ]; then
+      autoscale_state=baseline
+    elif [ "$storefront_replicas" = "1" ] && [ "$autoscale_spike_active" = true ]; then
+      autoscale_state=spike_running
+    elif [ "$storefront_replicas" = "2" ] && [ "$autoscale_spike_active" = true ]; then
+      autoscale_state=scaled_out
+    else
+      autoscale_state=unexpected
+    fi
   fi
   DISK_USAGE_PCT=unknown
   LOG_BYTES=unknown
@@ -423,8 +543,12 @@ print_status() {
     "$docker_available" "$pgbouncer_ready" "$pool_hog_running"
   printf '"pool_size":"%s","max_db_connections":"%s","sv_active":"%s","cl_waiting":"%s",' \
     "$POOL_SIZE" "$MAX_CONNECTIONS" "$SV_ACTIVE" "$CL_WAITING"
-  printf '"disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s"}\n' \
+  printf '"disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s",' \
     "$disk_fault_active" "$disk_mounted" "$DISK_USAGE_PCT" "$LOG_BYTES"
+  printf '"storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,' \
+    "$storefront_replicas" "$storefront_healthy" "$traefik_healthy"
+  printf '"autoscale_spike_active":%s,"autoscale_state":"%s"}\n' \
+    "$autoscale_spike_active" "$autoscale_state"
 }
 
 if [ "$#" -ne 1 ]; then
@@ -435,7 +559,7 @@ fi
 ACTION="$1"
 
 case "$ACTION" in
-  pool|recover-pool|reset|status|disk|recover-disk)
+  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale)
     ;;
   *)
     usage >&2
@@ -467,6 +591,18 @@ case "$ACTION" in
     ;;
   recover-disk)
     recover_disk
+    ;;
+  start-storefront-spike)
+    start_storefront_spike
+    ;;
+  stop-storefront-spike)
+    stop_storefront_spike
+    ;;
+  scale-storefront-to-2)
+    scale_storefront_to_two
+    ;;
+  reset-storefront-scale)
+    reset_storefront_scale
     ;;
   reset)
     reset_demo

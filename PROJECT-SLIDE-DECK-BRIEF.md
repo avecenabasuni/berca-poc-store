@@ -58,6 +58,8 @@ Datadog Agent mengumpulkan APM, logs, container, DBM, pool, disk, dan health
 | `postgres` | Database commerce dan DBM telemetry |
 | `redis` | Dependency aplikasi |
 | `traffic-generator` | k6 workload organik dan real guest order |
+| `traefik` | Edge proxy untuk use case approval-gated storefront scale-out |
+| `traffic-spike` | Generator SSR capacity spike opt-in untuk autoscaling demo |
 | `pool-hog` | Fault generator pool opt-in, tidak jalan di baseline |
 | `log-generator` | Fault generator log synthetic opt-in |
 | `datadog-agent` | APM, metrics, logs, DBM, Autodiscovery, HTTP health |
@@ -131,6 +133,14 @@ truncate only app-saturation.log, sync, disk <20%, growth = 0, health = 200
 ```
 
 Kedua fault tidak boleh aktif bersamaan.
+
+### Use case tambahan: approval-gated storefront scale-out
+
+Use case capacity ini berdiri sendiri dari fault pool/disk. Traffic spike yang
+terkontrol meningkatkan request storefront; Datadog meminta approval Slack
+sebelum Demo Control API menskalakan storefront dari satu menjadi dua replica
+di belakang Traefik. Datadog kemudian memverifikasi latency, error rate, health,
+dan dua replica sehat. Reset selalu mengembalikan ke satu replica.
 
 ## Closed-loop automation
 
@@ -220,6 +230,10 @@ VM Linux menyediakan interface deterministic:
 ./demo-control.sh recover-pool
 ./demo-control.sh disk
 ./demo-control.sh recover-disk
+./demo-control.sh start-storefront-spike
+./demo-control.sh stop-storefront-spike
+./demo-control.sh scale-storefront-to-2
+./demo-control.sh reset-storefront-scale
 ./demo-control.sh reset
 ```
 
@@ -264,6 +278,7 @@ jika perlu demo disk sebagai skenario kedua yang independen.
 Termasuk:
 
 - dua fault deterministic yang terpisah;
+- satu scale-out storefront `1 -> 2` dengan Slack approval;
 - traffic e-commerce organik dan guest checkout nyata;
 - generic monitor, Bits investigation, bounded classifier;
 - Datadog Workflow ke AAP, telemetry verification, safe escalation;
@@ -310,7 +325,7 @@ AAP credential, connection settings, dan notification destination.
 | 3 | Solution principle | Observe → Investigate → Approved response → Automate → Verify |
 | 4 | Berca demo environment | Storefront, backend, database, traffic, dan observability |
 | 5 | Realistic customer workload | User storefront dan guest checkout memberikan service demand |
-| 6 | Two isolated fault scenarios | Pool exhaustion dan synthetic disk saturation |
+| 6 | Three controlled use cases | Pool, synthetic disk, dan approval-gated storefront scale-out |
 | 7 | Datadog detection and Bits | Monitor generic, telemetry context, bounded diagnosis |
 | 8 | Automation governance | POOL/DISK/UNKNOWN, tanpa arbitrary AI command |
 | 9 | Datadog-to-AAP handoff | Fixed Job Templates dan payload audit minimal |
@@ -324,3 +339,4 @@ AAP credential, connection settings, dan notification destination.
 - [`load-test/datadog/WORKFLOW-CONTRACT.md`](load-test/datadog/WORKFLOW-CONTRACT.md) — konfigurasi Datadog Workflow.
 - [`ansible/README.md`](ansible/README.md) — spesifikasi untuk owner Ansible dan AAP handoff.
 - [`load-test/datadog/ANSIBLE-HANDOFF.md`](load-test/datadog/ANSIBLE-HANDOFF.md) — kontrak ringkas Datadog ke Ansible.
+- [`load-test/AUTOSCALE-POC.md`](load-test/AUTOSCALE-POC.md) — runbook autoscaling storefront dengan Slack approval.

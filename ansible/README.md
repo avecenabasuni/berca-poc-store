@@ -628,3 +628,23 @@ Handoff Ansible selesai setelah tersedia:
 - private connectivity dari Datadog Private Action Runner ke AAP;
 - konfirmasi bahwa AAP status hanya execution evidence dan Datadog telemetry
   tetap menjadi final recovery authority.
+
+## 15. Planned storefront scale-out handoff
+
+Setelah direct Demo Control API transport pada
+[`load-test/AUTOSCALE-POC.md`](../load-test/AUTOSCALE-POC.md) lulus, owner
+Ansible menambahkan dua Job Template fixed untuk VM POC yang sama:
+
+| Job Template | Native outcome |
+|---|---|
+| `Scale Storefront to 2` | Pastikan Traefik sehat, lalu scale Compose service `storefront` dari tepat 1 menjadi tepat 2 replica dan tunggu keduanya healthy |
+| `Reset Storefront Scale` | Hanya sesudah spike berhenti, scale service `storefront` kembali tepat 1 replica dan verifikasi health |
+
+Kedua template menggunakan Inventory, Machine Credential, absolute project
+path, service name, dan replica count yang fixed di Ansible. Datadog tidak
+mengirim `host`, `compose_path`, `service`, `replica_count`, command, atau
+shell argument. Template menolak pool/disk fault aktif dan concurrent run.
+
+Datadog mempertahankan policy `env:poc`, capacity-pressure monitor, Slack
+Approve/Reject, serta verification p95/error/health. AAP success hanya
+execution evidence; tidak menggantikan verification telemetry Datadog.

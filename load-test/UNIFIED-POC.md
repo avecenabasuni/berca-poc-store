@@ -19,10 +19,15 @@ Backend Service Degraded
 Pool and disk are always demonstrated separately. There is no combined fault,
 random fault, scheduler, or production soak test.
 
+The approval-gated storefront scale-out use case is also separate from this
+incident-remediation flow. Its Docker, Demo Control API, and Datadog Workflow
+contract is documented in [`AUTOSCALE-POC.md`](AUTOSCALE-POC.md).
+
 ## Components
 
 ```text
-Storefront :8000
+Traefik :8000
+  -> Storefront (Next.js, scalable 1 -> 2 replicas for the separate autoscale POC)
   -> Berca backend :9000
   -> PgBouncer :6432 (5/5 baseline)
   -> PostgreSQL :5432
@@ -212,7 +217,7 @@ VM, not inside a privileged control container.
 
 1. Copy `ops/demo-control-api.env.example` to
    `/etc/berca-poc/demo-control-api.env`.
-2. Replace both token placeholders with different random values of at least 32
+2. Replace all three token placeholders with different random values of at least 32
    characters and set mode `0600`.
 3. Copy `ops/demo-control-api.service.example` to
    `/etc/systemd/system/berca-poc-demo-control.service` and replace
@@ -235,6 +240,7 @@ Token scopes:
 |---|---|
 | Workflow 1 fault-control | `pool`, `disk`, `reset` |
 | Workflow 2 direct remediation | `recover-pool`, `recover-disk` |
+| Storefront scale test / scale-out | `start-storefront-spike`, `stop-storefront-spike`, `scale-storefront-to-2`, `reset-storefront-scale` |
 
 The API rejects additional JSON fields, query-string commands, arbitrary
 arguments, and cross-scope actions. `POST /v1/demo/action` returns HTTP `202`
@@ -283,7 +289,7 @@ export DD_API_KEY='<INJECTED_ON_VM>'
 cp -n .env.example .env
 # Set MEDUSA_PUBLISHABLE_KEY and STOREFRONT_PUBLIC_URL.
 # Add the Lab storefront origin to apps/backend/.env CORS values.
-docker compose up -d --build postgres redis pgbouncer medusa storefront \
+docker compose up -d --build postgres redis pgbouncer medusa traefik storefront \
   traffic-generator log-generator datadog-agent
 ./demo-control.sh reset
 ./demo-control.sh status
@@ -294,7 +300,7 @@ Verify organic traffic before injecting a fault:
 ```bash
 docker compose run --rm --no-deps --entrypoint k6 traffic-generator \
   inspect /scripts/baseline-traffic.js
-docker compose ps medusa storefront traffic-generator
+docker compose ps medusa traefik storefront traffic-generator
 docker compose logs --since 6m traffic-generator | grep 'order_completed'
 ```
 
@@ -342,7 +348,7 @@ commands.
 
 ```text
 DD_API_KEY / Datadog Application Key
-Demo Control fault and remediation tokens
+Demo Control fault, remediation, and scale-control tokens
 Private Action Runner enrollment and Connections
 VM address and TLS material
 Datadog monitor/workflow IDs

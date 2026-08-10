@@ -97,6 +97,33 @@ services:
     networks:
       - medusa_network
 
+  # POC-only edge proxy. It is the only service that publishes the storefront
+  # port, so the stateless storefront can be scaled without changing its URL.
+  traefik:
+    image: traefik:v3.2.1
+    container_name: berca_traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:8000
+      - --ping=true
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels:
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-edge"
+      com.datadoghq.tags.version: "1.0.0"
+    networks:
+      - medusa_network
+
   # Medusa Server
   # This service runs the Medusa backend application
   # and its prebuilt production admin dashboard.
@@ -150,13 +177,10 @@ services:
       args:
         STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:?STOREFRONT_PUBLIC_URL must be set}
         MEDUSA_PUBLISHABLE_KEY: ${MEDUSA_PUBLISHABLE_KEY:?MEDUSA_PUBLISHABLE_KEY must be set}
-    container_name: medusa_storefront
     restart: unless-stopped
     depends_on:
       medusa:
         condition: service_healthy
-    ports:
-      - "8000:8000"
     environment:
       - NODE_ENV=production
       - MEDUSA_BACKEND_URL_INTERNAL=http://medusa:9000
@@ -178,6 +202,14 @@ services:
       timeout: 5s
       retries: 30
       start_period: 120s
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.berca-storefront.entrypoints: "web"
+      traefik.http.routers.berca-storefront.rule: "PathPrefix(`/`)"
+      traefik.http.services.berca-storefront.loadbalancer.server.port: "8000"
+      traefik.http.services.berca-storefront.loadbalancer.healthcheck.path: "/api/healthz"
+      traefik.http.services.berca-storefront.loadbalancer.healthcheck.interval: "5s"
+      traefik.http.services.berca-storefront.loadbalancer.healthcheck.timeout: "3s"
     networks:
       - medusa_network
 
@@ -238,13 +270,13 @@ services:
     depends_on:
       medusa:
         condition: service_healthy
-      storefront:
+      traefik:
         condition: service_healthy
     env_file:
       - apps/storefront/.env
     environment:
       - MEDUSA_BASE_URL=http://medusa:9000
-      - STOREFRONT_BASE_URL=http://storefront:8000
+      - STOREFRONT_BASE_URL=http://traefik:8000
       - MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY:-${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:-}}
     labels:
       com.datadoghq.tags.env: "poc"
@@ -253,6 +285,31 @@ services:
     volumes:
       - ./load-test:/scripts
     entrypoint: ["/bin/sh", "/scripts/entrypoint.sh"]
+    networks:
+      - medusa_network
+
+  # Dedicated, opt-in SSR traffic spike for the storefront scale-out demo.
+  # It never creates carts or orders and only runs when the autoscale-demo
+  # profile is explicitly started by the bounded control surface.
+  traffic-spike:
+    image: grafana/k6:1.0.0
+    container_name: berca_poc_storefront_spike
+    profiles: ["autoscale-demo"]
+    restart: "no"
+    depends_on:
+      traefik:
+        condition: service_healthy
+    environment:
+      - STOREFRONT_BASE_URL=http://traefik:8000
+      - AUTOSCALE_SPIKE_RATE
+    labels:
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-traffic-spike"
+      com.datadoghq.tags.version: "1.0.0"
+      com.datadoghq.tags.traffic_profile: "autoscale-spike"
+    volumes:
+      - ./load-test:/scripts:ro
+    entrypoint: ["k6", "run", "/scripts/storefront-scale-spike.js"]
     networks:
       - medusa_network
 
