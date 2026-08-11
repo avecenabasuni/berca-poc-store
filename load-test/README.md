@@ -24,6 +24,9 @@ Active files in this directory:
 - `AUTOSCALE-POC.md`: approval-gated storefront scale-out scenario.
 - `DEPLOYMENT-ROLLBACK-POC.md`: GHCR-backed storefront regression and
   approval-gated rollback scenario.
+- `RHEL10-NUTANIX-VULNERABILITY-REMEDIATION-POC.md`: isolated RHEL 10 host
+  vulnerability detection, approval-gated Red Hat advisory patching, and
+  Nutanix snapshot-based demo reset.
 - `datadog/WORKFLOW-CONTRACT.md`: Datadog UI workflow, monitor, classifier,
   verification, and escalation contract.
 - `datadog/ANSIBLE-HANDOFF.md`: bounded EDA event contract and ownership
