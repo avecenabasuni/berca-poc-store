@@ -190,6 +190,7 @@ services:
       - NEXT_PUBLIC_BASE_URL=${STOREFRONT_PUBLIC_URL}
       - NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=${MEDUSA_PUBLISHABLE_KEY}
       - NEXT_PUBLIC_DEFAULT_REGION=id
+      - POC_STOREFRONT_RELEASE_MODE=${POC_STOREFRONT_RELEASE_MODE:-stable}
       - NODE_OPTIONS=--import dd-trace/initialize.mjs
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_URL=http://datadog-agent:8126

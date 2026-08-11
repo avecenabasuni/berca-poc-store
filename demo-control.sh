@@ -310,11 +310,15 @@ storefront_release_guardrails() {
 }
 
 activate_storefront_release() {
-  local image="$1" version="$2"
+  local image="$1" version="$2" release_mode="$3"
+  case "$release_mode" in
+    stable|demo-bad) ;;
+    *) fail "Invalid fixed storefront release mode." ;;
+  esac
   docker image inspect "$image" >/dev/null 2>&1 || \
     fail "Approved release image is not available locally. Pull the configured digest before the demo."
 
-  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" \
+  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" POC_STOREFRONT_RELEASE_MODE="$release_mode" \
     docker compose up -d --no-build --no-deps --force-recreate --scale storefront=1 storefront >/dev/null
   wait_for "one healthy storefront replica" "$DISK_WAIT_TIMEOUT_SECONDS" storefront_replicas_are_healthy 1
   [ "$(storefront_image_reference)" = "$image" ] || fail "Storefront did not start the approved release image."
@@ -322,12 +326,17 @@ activate_storefront_release() {
 }
 
 reconcile_storefront_replicas() {
-  local replicas="$1" image version
+  local replicas="$1" image version release_mode
   image=$(storefront_image_reference) || fail "Storefront image cannot be determined."
   version=$(storefront_release_version) || fail "Storefront version cannot be determined."
   [ -n "$image" ] && [ -n "$version" ] || fail "Storefront release metadata is incomplete."
+  if [ "$(storefront_release_state)" = "demo_bad" ]; then
+    release_mode=demo-bad
+  else
+    release_mode=stable
+  fi
 
-  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" \
+  STOREFRONT_IMAGE="$image" STOREFRONT_RELEASE_VERSION="$version" POC_STOREFRONT_RELEASE_MODE="$release_mode" \
     docker compose up -d --no-build --no-deps --scale storefront="$replicas" storefront >/dev/null
 }
 
@@ -471,7 +480,7 @@ deploy_storefront_demo_bad() {
   storefront_release_guardrails
   [ "$(storefront_release_state)" = "stable" ] || fail "Storefront must run the configured stable release before deploying the candidate."
 
-  activate_storefront_release "$STOREFRONT_BAD_IMAGE" "$STOREFRONT_BAD_VERSION"
+  activate_storefront_release "$STOREFRONT_BAD_IMAGE" "$STOREFRONT_BAD_VERSION" demo-bad
   wait_for "known storefront regression response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_regressed
   echo "[OK] Approved storefront regression release deployed."
 }
@@ -485,7 +494,7 @@ rollback_storefront_stable() {
   fi
   [ "$(storefront_release_state)" = "demo_bad" ] || fail "Rollback is allowed only from the configured regression release."
 
-  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION"
+  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION" stable
   wait_for "stable storefront catalog response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_available
   echo "[OK] Storefront rolled back to the approved stable release."
 }
@@ -499,7 +508,7 @@ reset_storefront_deployment() {
     return 0
   fi
 
-  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION"
+  activate_storefront_release "$STOREFRONT_STABLE_IMAGE" "$STOREFRONT_STABLE_VERSION" stable
   wait_for "stable storefront catalog response" "$WAIT_TIMEOUT_SECONDS" storefront_catalog_is_available
   echo "[OK] Storefront deployment reset to the approved stable release."
 }

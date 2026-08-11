@@ -42,9 +42,12 @@ FROM node:20-alpine AS runner
 
 WORKDIR /server/apps/storefront
 
+ARG POC_STOREFRONT_RELEASE_MODE=stable
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV MEDUSA_BACKEND_URL_INTERNAL=http://medusa:9000
+ENV POC_STOREFRONT_RELEASE_MODE=$POC_STOREFRONT_RELEASE_MODE
 
 COPY --from=builder /server/node_modules /server/node_modules
 COPY --from=builder /server/apps/storefront/node_modules ./node_modules

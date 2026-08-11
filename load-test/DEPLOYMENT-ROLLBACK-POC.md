@@ -22,7 +22,7 @@ ghcr.io/avecenabasuni/berca-storefront:demo-bad-<12-char-git-sha>
 
 Set repository variable `STOREFRONT_PUBLIC_URL` dan repository secret `MEDUSA_PUBLISHABLE_KEY`, lalu pastikan package GHCR private. Salin digest yang dihasilkan workflow ke VM; tag tidak dipakai sebagai runtime release.
 
-Candidate hanya memengaruhi `/id/store`: response menunggu 2,5 detik lalu memberi `503`. `/api/healthz` tetap `200`, sehingga demo menunjukkan release yang lolos startup healthcheck namun merusak pengalaman pengguna.
+Candidate hanya memengaruhi `/id/store`: response menunggu 2,5 detik lalu memberi `503`. `/api/healthz` tetap `200`, sehingga demo menunjukkan release yang lolos startup healthcheck namun merusak pengalaman pengguna. Saat deploy, control script meneruskan mode runtime fixed `demo-bad`; stable dan reset selalu meneruskan `stable`. Mode tersebut tidak berasal dari request API atau input presenter.
 
 ## Konfigurasi VM
 
