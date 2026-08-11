@@ -217,7 +217,7 @@ VM, not inside a privileged control container.
 
 1. Copy `ops/demo-control-api.env.example` to
    `/etc/berca-poc/demo-control-api.env`.
-2. Replace all four token placeholders with different random values of at least 32
+2. Replace both token placeholders with different random values of at least 32
    characters and set mode `0600`.
 3. Copy `ops/demo-control-api.service.example` to
    `/etc/systemd/system/berca-poc-demo-control.service` and replace
@@ -239,9 +239,8 @@ Token scopes:
 | Connection | Allowed actions |
 |---|---|
 | Workflow 1 fault-control | `pool`, `disk`, `reset` |
-| Workflow 2 direct remediation | `recover-pool`, `recover-disk` |
-| Storefront scale test / scale-out | `start-storefront-spike`, `stop-storefront-spike`, `scale-storefront-to-2`, `reset-storefront-scale` |
-| Storefront deployment rollback | `deploy-storefront-demo-bad`, `rollback-storefront-stable`, `reset-storefront-deployment` |
+| Fault-control extensions | `start-storefront-spike`, `stop-storefront-spike`, `deploy-storefront-demo-bad`, `reset-storefront-deployment` |
+| Workflow 2 remediation | `recover-pool`, `recover-disk`, `scale-storefront-to-2`, `reset-storefront-scale`, `rollback-storefront-stable` |
 
 The API rejects additional JSON fields, query-string commands, arbitrary
 arguments, and cross-scope actions. `POST /v1/demo/action` returns HTTP `202`
@@ -352,7 +351,7 @@ commands.
 
 ```text
 DD_API_KEY / Datadog Application Key
-Demo Control fault, remediation, and scale-control tokens
+Demo Control fault-control and remediation tokens
 Private Action Runner enrollment and Connections
 VM address and TLS material
 Datadog monitor/workflow IDs

@@ -35,8 +35,8 @@ replica di belakang load balancer.
 
 ## API contract
 
-Gunakan Datadog Connection dengan `DEMO_SCALE_CONTROL_TOKEN`, terpisah dari
-token fault dan remediation.
+Workflow manual scale test memakai Datadog Connection fault-control. Workflow
+scale-out yang disetujui memakai Connection remediation.
 
 | Action | Tujuan |
 |---|---|
@@ -62,7 +62,8 @@ Tambahkan ke file root-owned systemd API, misalnya
 `/etc/berca-poc/demo-control-api.env`:
 
 ```text
-DEMO_SCALE_CONTROL_TOKEN=<RANDOM_32_PLUS_CHARACTERS>
+DEMO_CONTROL_FAULT_TOKEN=<RANDOM_32_PLUS_CHARACTERS>
+DEMO_CONTROL_REMEDIATION_TOKEN=<DIFFERENT_RANDOM_32_PLUS_CHARACTERS>
 DEMO_CONTROL_ENVIRONMENT=poc
 AUTOSCALE_SPIKE_RATE=<CALIBRATED_INTEGER_1_TO_240>
 ```
@@ -119,7 +120,8 @@ Pressure`.
 7. Sukses hanya bila dua replica sehat, p95 normal, error rate aman, dan
    `/api/healthz` OK. Jika gagal, Slack escalation dikirim tanpa action lain.
 
-Gunakan service account dan Connection yang hanya memiliki token scale-control.
+Gunakan Connection fault-control untuk start/stop spike dan Connection
+remediation untuk action `scale-storefront-to-2`.
 
 ## Live demo dan validation
 

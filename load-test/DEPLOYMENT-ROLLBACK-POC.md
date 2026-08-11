@@ -51,26 +51,20 @@ sudo ./demo-control.sh reset-storefront-deployment
 sudo ./demo-control.sh status | jq
 ```
 
-Tambahkan token unik ke `/etc/berca-poc/demo-control-api.env` dan restart API:
-
-```dotenv
-DEMO_DEPLOYMENT_CONTROL_TOKEN=<random-32-plus-character-token>
-```
-
-```bash
-sudo chmod 0600 /etc/berca-poc/demo-control-api.env
-sudo systemctl restart berca-poc-demo-control.service
-```
+Gunakan token fault-control yang sudah ada untuk deploy/reset candidate, dan
+token remediation yang sudah ada untuk rollback. Tidak ada token deployment
+tambahan.
 
 ## API dan workflow Datadog
 
-Connection deployment-control hanya memakai token deployment. Request selalu berisi satu action fixed:
+Connection fault-control hanya memakai deploy/reset candidate; Connection
+remediation hanya memakai rollback. Request selalu berisi satu action fixed:
 
 | Action | Tujuan |
 |---|---|
-| `deploy-storefront-demo-bad` | Memasang candidate digest yang di-whitelist |
-| `rollback-storefront-stable` | Mengembalikan candidate ke stable digest |
-| `reset-storefront-deployment` | Memastikan stable release aktif |
+| `deploy-storefront-demo-bad` | Fault-control: memasang candidate digest yang di-whitelist |
+| `rollback-storefront-stable` | Remediation: mengembalikan candidate ke stable digest |
+| `reset-storefront-deployment` | Fault-control: memastikan stable release aktif |
 
 Workflow **POC - Deploy Storefront Regression** memiliki enum `deploy | reset` dan mapping fixed ke action deploy atau reset. Setelah deploy sukses, kirim deployment/change event dengan `service:berca-storefront`, `env:poc`, version, digest, dan Git SHA.
 

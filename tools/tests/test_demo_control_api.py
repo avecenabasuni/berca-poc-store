@@ -25,15 +25,11 @@ class DemoControlApiTest(unittest.TestCase):
     def setUp(self):
         self.fault_token = "f" * 40
         self.remediation_token = "r" * 40
-        self.scale_token = "s" * 40
-        self.deployment_token = "d" * 40
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.config = API.ApiConfig(
             project_path=Path(__file__).resolve().parents[2],
             fault_token=self.fault_token,
             remediation_token=self.remediation_token,
-            scale_token=self.scale_token,
-            deployment_token=self.deployment_token,
             bind_address="127.0.0.1",
             port=0,
             job_log_path=Path(self.temporary_directory.name) / "jobs.log",
@@ -135,31 +131,11 @@ class DemoControlApiTest(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(body["error"], "action_forbidden")
 
-    def test_scale_token_can_only_dispatch_fixed_storefront_actions(self):
+    def test_fault_token_can_only_dispatch_fixed_demo_conditions(self):
         status, body = self.request(
             "POST",
             "/v1/demo/action",
-            token=self.scale_token,
-            payload={"action": "scale-storefront-to-2"},
-        )
-        self.assertEqual(status, 202)
-        self.assertEqual(body["action"], "scale-storefront-to-2")
-        self.wait_for_job_state("succeeded")
-
-        status, body = self.request(
-            "POST",
-            "/v1/demo/action",
-            token=self.scale_token,
-            payload={"action": "pool"},
-        )
-        self.assertEqual(status, 403)
-        self.assertEqual(body["error"], "action_forbidden")
-
-    def test_deployment_token_can_only_dispatch_fixed_release_actions(self):
-        status, body = self.request(
-            "POST",
-            "/v1/demo/action",
-            token=self.deployment_token,
+            token=self.fault_token,
             payload={"action": "deploy-storefront-demo-bad"},
         )
         self.assertEqual(status, 202)
@@ -169,8 +145,28 @@ class DemoControlApiTest(unittest.TestCase):
         status, body = self.request(
             "POST",
             "/v1/demo/action",
-            token=self.deployment_token,
-            payload={"action": "scale-storefront-to-2"},
+            token=self.fault_token,
+            payload={"action": "rollback-storefront-stable"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"], "action_forbidden")
+
+    def test_remediation_token_can_only_dispatch_fixed_remediation_actions(self):
+        status, body = self.request(
+            "POST",
+            "/v1/demo/action",
+            token=self.remediation_token,
+            payload={"action": "rollback-storefront-stable"},
+        )
+        self.assertEqual(status, 202)
+        self.assertEqual(body["action"], "rollback-storefront-stable")
+        self.wait_for_job_state("succeeded")
+
+        status, body = self.request(
+            "POST",
+            "/v1/demo/action",
+            token=self.remediation_token,
+            payload={"action": "start-storefront-spike"},
         )
         self.assertEqual(status, 403)
         self.assertEqual(body["error"], "action_forbidden")
@@ -333,25 +329,17 @@ class DemoControlApiTest(unittest.TestCase):
             "DEMO_CONTROL_REMEDIATION_TOKEN": (
                 "<REPLACE_WITH_DIFFERENT_RANDOM_32_PLUS_CHARACTER_TOKEN>"
             ),
-            "DEMO_SCALE_CONTROL_TOKEN": (
-                "<REPLACE_WITH_THIRD_RANDOM_32_PLUS_CHARACTER_TOKEN>"
-            ),
-            "DEMO_DEPLOYMENT_CONTROL_TOKEN": (
-                "<REPLACE_WITH_FOURTH_RANDOM_32_PLUS_CHARACTER_TOKEN>"
-            ),
         }
         with mock.patch.dict(API.os.environ, environment, clear=True):
             with self.assertRaisesRegex(ValueError, "placeholders must be replaced"):
                 API.load_config()
 
-    def test_scale_control_service_refuses_non_poc_environment(self):
+    def test_demo_control_service_refuses_non_poc_environment(self):
         project_path = str(Path(__file__).resolve().parents[2])
         environment = {
             "DEMO_CONTROL_PROJECT_PATH": project_path,
             "DEMO_CONTROL_FAULT_TOKEN": "f" * 40,
             "DEMO_CONTROL_REMEDIATION_TOKEN": "r" * 40,
-            "DEMO_SCALE_CONTROL_TOKEN": "s" * 40,
-            "DEMO_DEPLOYMENT_CONTROL_TOKEN": "d" * 40,
             "DEMO_CONTROL_ENVIRONMENT": "production",
         }
         with mock.patch.dict(API.os.environ, environment, clear=True):
