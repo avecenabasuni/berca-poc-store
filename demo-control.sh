@@ -44,7 +44,7 @@ Actions:
   rollback-storefront-stable  Return the storefront to the pre-approved stable release.
   reset-storefront-deployment Return the storefront to the stable release.
   reset         Run the canonical full baseline reset.
-  status        Print the observed POC state as JSON.
+  status        Print the observed POC state as JSON (pretty in an interactive terminal).
 EOF
 }
 
@@ -713,18 +713,20 @@ print_status() {
     pgbouncer_ready=false
   fi
 
-  printf '{"docker_available":%s,"pgbouncer_ready":%s,"pool_hog_running":%s,' \
-    "$docker_available" "$pgbouncer_ready" "$pool_hog_running"
-  printf '"pool_size":"%s","max_db_connections":"%s","sv_active":"%s","cl_waiting":"%s",' \
-    "$POOL_SIZE" "$MAX_CONNECTIONS" "$SV_ACTIVE" "$CL_WAITING"
-  printf '"disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s",' \
-    "$disk_fault_active" "$disk_mounted" "$DISK_USAGE_PCT" "$LOG_BYTES"
-  printf '"storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,' \
-    "$storefront_replicas" "$storefront_healthy" "$traefik_healthy"
-  printf '"autoscale_spike_active":%s,"autoscale_state":"%s",' \
-    "$autoscale_spike_active" "$autoscale_state"
-  printf '"storefront_release_state":"%s","storefront_version":"%s","storefront_image":"%s","deployment_demo_active":%s}\n' \
-    "$storefront_release_state" "$storefront_version" "$storefront_image" "$deployment_demo_active"
+  local status_json
+  printf -v status_json '{"docker_available":%s,"pgbouncer_ready":%s,"pool_hog_running":%s,"pool_size":"%s","max_db_connections":"%s","sv_active":"%s","cl_waiting":"%s","disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s","storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,"autoscale_spike_active":%s,"autoscale_state":"%s","storefront_release_state":"%s","storefront_version":"%s","storefront_image":"%s","deployment_demo_active":%s}' \
+    "$docker_available" "$pgbouncer_ready" "$pool_hog_running" \
+    "$POOL_SIZE" "$MAX_CONNECTIONS" "$SV_ACTIVE" "$CL_WAITING" \
+    "$disk_fault_active" "$disk_mounted" "$DISK_USAGE_PCT" "$LOG_BYTES" \
+    "$storefront_replicas" "$storefront_healthy" "$traefik_healthy" \
+    "$autoscale_spike_active" "$autoscale_state" "$storefront_release_state" \
+    "$storefront_version" "$storefront_image" "$deployment_demo_active"
+
+  if [ -t 1 ] && command -v jq >/dev/null 2>&1; then
+    jq -M . <<<"$status_json"
+  else
+    printf '%s\n' "$status_json"
+  fi
 }
 
 if [ "$#" -ne 1 ]; then
