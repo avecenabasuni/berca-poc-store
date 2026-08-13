@@ -129,7 +129,7 @@
     ((_poll_pools.stdout_lines
       | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
       | first
-      | split('|'))[5] | int) >= (poc_baseline_pool_size | int)
+      | split('|'))[6] | int) >= (poc_baseline_pool_size | int)
     and
     ((_poll_pools.stdout_lines
       | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')

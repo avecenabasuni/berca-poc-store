@@ -86,7 +86,7 @@
   ansible.builtin.set_fact:
     poc_pool_row_count: "{{ _target_pool_rows | length }}"
     poc_cl_waiting: "{{ (_target_pool_rows[0] | split('|'))[3] | int if _target_pool_rows | length > 0 else 0 }}"
-    poc_sv_active: "{{ (_target_pool_rows[0] | split('|'))[5] | int if _target_pool_rows | length > 0 else 0 }}"
+    poc_sv_active: "{{ (_target_pool_rows[0] | split('|'))[6] | int if _target_pool_rows | length > 0 else 0 }}"
 
 - name: Check if pool-hog container is running
   ansible.builtin.command:
