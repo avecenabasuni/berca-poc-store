@@ -74,18 +74,28 @@
         creates: "{{ poc_disk_image }}"
 
     - name: Create ext4 filesystem without journal and without reserved blocks
-      community.general.filesystem:
-        fstype: ext4
-        dev: "{{ poc_disk_image }}"
-        opts: "-O ^has_journal -m 0"
+      ansible.builtin.command:
+        argv:
+          - mkfs.ext4
+          - -O
+          - ^has_journal
+          - -m
+          - "0"
+          - -F
+          - "{{ poc_disk_image }}"
+      changed_when: true
 
     - name: Mount image to log directory (ephemeral)
-      ansible.posix.mount:
-        path: "{{ poc_log_dir }}"
-        src: "{{ poc_disk_image }}"
-        fstype: ext4
-        state: ephemeral
-        opts: loop
+      ansible.builtin.command:
+        argv:
+          - mount
+          - -t
+          - ext4
+          - -o
+          - loop
+          - "{{ poc_disk_image }}"
+          - "{{ poc_log_dir }}"
+      changed_when: true
 
 - name: Re-read disk state after mount setup
   ansible.builtin.include_tasks: read-disk-state.yml

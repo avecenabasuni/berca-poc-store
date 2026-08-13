@@ -199,10 +199,13 @@
       changed_when: false
 
     - name: Unmount POC loopback volume
-      ansible.posix.mount:
-        path: "{{ poc_log_dir }}"
-        state: unmounted
+      ansible.builtin.command:
+        argv:
+          - umount
+          - "{{ poc_log_dir }}"
       when: poc_disk_mounted | bool
+      changed_when: true
+      failed_when: false
 
     - name: Find loop devices for POC image
       ansible.builtin.command:
