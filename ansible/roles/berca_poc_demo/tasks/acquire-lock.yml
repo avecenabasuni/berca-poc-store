@@ -23,7 +23,7 @@
 
     - name: Calculate lock age
       ansible.builtin.set_fact:
-        _lock_age_seconds: "{{ (now(utc=true) | to_datetime('%Y-%m-%d %H:%M:%S.%f%z')).timestamp() | float - (_lock_metadata.timestamp | default(0) | float) }}"
+        _lock_age_seconds: "{{ (now(utc=true, fmt='%s') | float) - (_lock_metadata.timestamp | default(0) | float) }}"
       when: _lock_metadata.timestamp is defined
 
     - name: Fail if lock is active (not stale)
@@ -57,7 +57,7 @@
     dest: "{{ poc_lock_dir }}/metadata"
     content: |
       job_id: "{{ lookup('env', 'AWX_JOB_ID') | default(ansible_play_name, true) }}"
-      timestamp: {{ now(utc=true).timestamp() | int }}
+      timestamp: {{ now(utc=true, fmt='%s') }}
       host: "{{ inventory_hostname }}"
     mode: "0644"
 
