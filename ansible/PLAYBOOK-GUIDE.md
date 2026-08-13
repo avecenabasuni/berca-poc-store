@@ -26,21 +26,21 @@ fixed, pre-approved action.
 
 | Playbook | Job Template | Purpose |
 |---|---|---|
-| `recover-pool.yml` | Pool Remediation (JT 13) | Stop the dedicated `pool-hog` process that saturates PgBouncer connection pools. Verifies `cl_waiting=0` and pool config at baseline `5/5`. Does NOT restart PgBouncer or PostgreSQL. |
-| `recover-disk.yml` | Disk Remediation (JT 14) | Remove the synthetic saturation trigger and impact marker, truncate the exact saturation log file, verify disk usage drops below 20%. Does NOT unmount the loopback volume. |
+| `recover-pool.yml` | Pool Remediation (JT 18) | Stop the dedicated `pool-hog` process that saturates PgBouncer connection pools. Verifies `cl_waiting=0` and pool config at baseline `5/5`. Does NOT restart PgBouncer or PostgreSQL. |
+| `recover-disk.yml` | Disk Remediation (JT 19) | Remove the synthetic saturation trigger and impact marker, truncate the exact saturation log file, verify disk usage drops below 20%. Does NOT unmount the loopback volume. |
 
 ### Fault Injection Playbooks (called by Datadog Workflow 1)
 
 | Playbook | Job Template | Purpose |
 |---|---|---|
-| `fault-pool.yml` | Pool Fault | Start the dedicated `pool-hog` container to saturate all PgBouncer connections. Polls until `sv_active>=5` and `cl_waiting>0`. |
-| `fault-disk.yml` | Disk Fault | Create a constrained 200 MB loopback ext4 volume, mount it, place a saturation trigger, and re-create the log generator. Polls until disk usage reaches >=85%. |
+| `fault-pool.yml` | Pool Fault (JT 21) | Start the dedicated `pool-hog` container to saturate all PgBouncer connections. Polls until `sv_active>=5` and `cl_waiting>0`. |
+| `fault-disk.yml` | Disk Fault (JT 22) | Create a constrained 200 MB loopback ext4 volume, mount it, place a saturation trigger, and re-create the log generator. Polls until disk usage reaches >=85%. |
 
 ### Reset Playbook (manual or Workflow 1 reset)
 
 | Playbook | Job Template | Purpose |
 |---|---|---|
-| `reset.yml` | Full Reset (JT 15) | Restore full baseline: stop pool-hog, reset PgBouncer config, clean all disk artifacts (trigger, marker, log, unmount, detach, remove image), re-create consumers, and run full verification. |
+| `reset.yml` | Full Reset (JT 20) | Restore full baseline: stop pool-hog, reset PgBouncer config, clean all disk artifacts (trigger, marker, log, unmount, detach, remove image), re-create consumers, and run full verification. |
 
 ### Status Playbook (operator use)
 
@@ -89,8 +89,8 @@ You will receive two scoped OAuth2 tokens from the Ansible administrator:
 
 | Token | Scope | Allowed Job Templates |
 |---|---|---|
-| Remediation token | `write` | JT 13 (Pool Remediation), JT 14 (Disk Remediation) |
-| Fault control token | `write` | Pool Fault JT, Disk Fault JT, JT 15 (Full Reset) |
+| Remediation token | `write` | JT 18 (Pool Remediation), JT 19 (Disk Remediation) |
+| Fault control token | `write` | JT 21 (Pool Fault), JT 22 (Disk Fault), JT 20 (Full Reset) |
 
 The remediation token cannot trigger faults or reset. The fault control token
 cannot trigger remediation. Store tokens in the Datadog HTTP Connection
@@ -102,21 +102,17 @@ screenshots.
 After Bits classifies the issue, select the fixed endpoint:
 
 ```
-POOL → POST https://192.168.2.66/api/controller/v2/job_templates/<JT_13_ID>/launch/
-DISK → POST https://192.168.2.66/api/controller/v2/job_templates/<JT_14_ID>/launch/
+POOL → POST https://192.168.2.66/api/controller/v2/job_templates/18/launch/
+DISK → POST https://192.168.2.66/api/controller/v2/job_templates/19/launch/
 UNKNOWN → no request; escalate
 ```
 
-> Replace `<JT_13_ID>` and `<JT_14_ID>` with the actual numeric IDs assigned
-> by AAP when the Job Templates are created. The Ansible administrator will
-> share these IDs with you.
-
 #### Launch Request
 
-Both JT 13 and JT 14 accept the same payload. Send only audit identifiers:
+Both JT 18 and JT 19 accept the same payload. Send only audit identifiers:
 
 ```http
-POST https://192.168.2.66/api/controller/v2/job_templates/<ID>/launch/
+POST https://192.168.2.66/api/controller/v2/job_templates/18/launch/
 Authorization: Bearer <REMEDIATION_TOKEN>
 Content-Type: application/json
 
@@ -198,9 +194,9 @@ not confirm recovery — escalate.
 The presenter triggers Workflow 1 to inject a fault for the demo:
 
 ```
-pool  → POST https://192.168.2.66/api/controller/v2/job_templates/<POOL_FAULT_JT_ID>/launch/
-disk  → POST https://192.168.2.66/api/controller/v2/job_templates/<DISK_FAULT_JT_ID>/launch/
-reset → POST https://192.168.2.66/api/controller/v2/job_templates/<JT_15_ID>/launch/
+pool  → POST https://192.168.2.66/api/controller/v2/job_templates/21/launch/
+disk  → POST https://192.168.2.66/api/controller/v2/job_templates/22/launch/
+reset → POST https://192.168.2.66/api/controller/v2/job_templates/20/launch/
 ```
 
 Fault and reset launches do not require audit IDs. Send an empty body or:
@@ -264,7 +260,7 @@ launch should result in escalation.
 
 - [ ] Receive the remediation OAuth2 token from the Ansible administrator
 - [ ] Receive the fault control OAuth2 token from the Ansible administrator
-- [ ] Receive the actual Job Template IDs (they may not be 13/14/15)
+- [ ] Confirm Job Template IDs: Pool Remediation=18, Disk Remediation=19, Full Reset=20, Pool Fault=21, Disk Fault=22
 - [ ] Deploy a Datadog Private Action Runner that can reach `192.168.2.66`
 - [ ] Configure two Datadog HTTP Connections (remediation + fault control)
 - [ ] Wire Workflow 2 POOL branch to the Pool Remediation JT endpoint
