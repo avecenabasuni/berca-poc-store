@@ -33,6 +33,9 @@
           Pool fault already active: sv_active={{ poc_sv_active }},
           cl_waiting={{ poc_cl_waiting }}, pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.
 
+    - name: Release lock before ending play
+      ansible.builtin.include_tasks: release-lock.yml
+
     - name: End play for idempotent case
       ansible.builtin.meta: end_host
 

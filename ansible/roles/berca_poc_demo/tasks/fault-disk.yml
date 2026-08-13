@@ -35,6 +35,9 @@
       ansible.builtin.debug:
         msg: "Disk fault already active at {{ poc_disk_usage_pct }}% usage."
 
+    - name: Release lock before ending play
+      ansible.builtin.include_tasks: release-lock.yml
+
     - name: End play for idempotent case
       ansible.builtin.meta: end_host
 

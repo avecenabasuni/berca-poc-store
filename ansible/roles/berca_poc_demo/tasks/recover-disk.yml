@@ -45,6 +45,9 @@
           poc_disk_after: "{{ _recover_disk_before }}"
           poc_disk_changed: false
 
+    - name: Release lock before ending play
+      ansible.builtin.include_tasks: release-lock.yml
+
     - name: End play for idempotent case
       ansible.builtin.meta: end_host
 

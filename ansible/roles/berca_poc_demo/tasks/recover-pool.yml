@@ -36,6 +36,9 @@
           poc_pool_after: "{{ _recover_pool_before }}"
           poc_pool_changed: false
 
+    - name: Release lock before ending play
+      ansible.builtin.include_tasks: release-lock.yml
+
     - name: End play for idempotent case
       ansible.builtin.meta: end_host
 
