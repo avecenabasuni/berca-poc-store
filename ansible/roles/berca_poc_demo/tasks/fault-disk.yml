@@ -53,12 +53,15 @@
   when: not (poc_disk_is_poc_owned | default(false) | bool)
   block:
     - name: Stop filesystem consumers before mount setup
-      community.docker.docker_compose_v2:
-        project_src: "{{ poc_project_path }}"
-        services:
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - stop
           - log-generator
           - datadog-agent
-        state: stopped
+        chdir: "{{ poc_project_path }}"
+      changed_when: true
 
     - name: Create exact disk image
       ansible.builtin.command:
@@ -112,13 +115,17 @@
     mode: "0644"
 
 - name: Re-create filesystem consumers with new bind mount
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    services:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - up
+      - -d
+      - --force-recreate
       - log-generator
       - datadog-agent
-    state: present
-    recreate: always
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
 
 - name: Wait for log-generator bind mount
   ansible.builtin.command:

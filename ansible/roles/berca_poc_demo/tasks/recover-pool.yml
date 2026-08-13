@@ -40,23 +40,31 @@
       ansible.builtin.meta: end_host
 
 - name: Stop pool-hog service
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    profiles:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
       - demo-fault
-    services:
+      - stop
       - pool-hog
-    state: stopped
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
   when: poc_pool_hog_running | bool
 
 - name: Remove pool-hog container
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    profiles:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
       - demo-fault
-    services:
+      - rm
+      - -s
+      - -f
       - pool-hog
-    state: absent
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
 
 - name: Wait for PgBouncer queue to drain (cl_waiting = 0)
   ansible.builtin.command:

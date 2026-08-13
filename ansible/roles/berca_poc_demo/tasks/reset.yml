@@ -9,22 +9,30 @@
 # --- Pool cleanup ---
 
 - name: Stop and remove pool-hog
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    profiles:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
       - demo-fault
-    services:
+      - rm
+      - -s
+      - -f
       - pool-hog
-    state: absent
+    chdir: "{{ poc_project_path }}"
   failed_when: false
 
 - name: Ensure PgBouncer and PostgreSQL are running
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    services:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - up
+      - -d
       - postgres
       - pgbouncer
-    state: present
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
 
 - name: Wait for PgBouncer admin console
   ansible.builtin.command:
@@ -163,12 +171,14 @@
         state: absent
 
     - name: Stop filesystem consumers
-      community.docker.docker_compose_v2:
-        project_src: "{{ poc_project_path }}"
-        services:
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - stop
           - log-generator
           - datadog-agent
-        state: stopped
+        chdir: "{{ poc_project_path }}"
       failed_when: false
 
     - name: Truncate saturation log if mount is safe
@@ -246,13 +256,17 @@
     force: false
 
 - name: Re-create log-generator and datadog-agent
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    services:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - up
+      - -d
+      - --force-recreate
       - log-generator
       - datadog-agent
-    state: present
-    recreate: always
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
 
 - name: Wait for log-generator bind mount
   ansible.builtin.command:

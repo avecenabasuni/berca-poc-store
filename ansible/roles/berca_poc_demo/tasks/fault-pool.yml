@@ -64,23 +64,32 @@
   failed_when: false
 
 - name: Clean up stopped pool-hog container
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    profiles:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
       - demo-fault
-    services:
+      - rm
+      - -s
+      - -f
       - pool-hog
-    state: absent
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
   when: _pool_hog_exists.rc == 0
 
 - name: Start pool-hog via demo-fault profile
-  community.docker.docker_compose_v2:
-    project_src: "{{ poc_project_path }}"
-    profiles:
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
       - demo-fault
-    services:
+      - up
+      - -d
       - pool-hog
-    state: present
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
 
 - name: Poll for PgBouncer saturation
   ansible.builtin.include_tasks: read-pool-state.yml
