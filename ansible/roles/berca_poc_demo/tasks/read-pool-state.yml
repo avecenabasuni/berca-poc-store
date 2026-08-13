@@ -1,0 +1,105 @@
+---
+# Read PgBouncer pool configuration and metrics.
+# Sets facts: poc_current_pool_size, poc_current_max_connections,
+#              poc_pool_row_count, poc_cl_waiting, poc_sv_active,
+#              poc_pool_hog_running
+
+- name: Query PgBouncer SHOW CONFIG
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -F
+      - "|"
+      - -c
+      - "SHOW CONFIG;"
+    chdir: "{{ poc_project_path }}"
+  register: _pgbouncer_config
+  changed_when: false
+
+- name: Extract pool configuration values
+  ansible.builtin.set_fact:
+    poc_current_pool_size: >-
+      {{ (_pgbouncer_config.stdout_lines
+          | select('match', '^default_pool_size\|')
+          | first
+          | split('|'))[1] | int }}
+    poc_current_max_connections: >-
+      {{ (_pgbouncer_config.stdout_lines
+          | select('match', '^max_db_connections\|')
+          | first
+          | split('|'))[1] | int }}
+
+- name: Query PgBouncer SHOW POOLS
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -F
+      - "|"
+      - -c
+      - "SHOW POOLS;"
+    chdir: "{{ poc_project_path }}"
+  register: _pgbouncer_pools
+  changed_when: false
+
+# SHOW POOLS columns (pipe-delimited, no header):
+# database|user|cl_active|cl_waiting|cl_cancel_req|sv_active|sv_idle|
+# sv_used|sv_tested|sv_login|maxwait|maxwait_us|pool_mode
+
+- name: Filter pool rows for target database and user
+  ansible.builtin.set_fact:
+    _target_pool_rows: >-
+      {{ _pgbouncer_pools.stdout_lines
+         | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+         | list }}
+
+- name: Extract pool metrics from target row
+  ansible.builtin.set_fact:
+    poc_pool_row_count: "{{ _target_pool_rows | length }}"
+    poc_cl_waiting: "{{ (_target_pool_rows[0] | split('|'))[3] | int if _target_pool_rows | length > 0 else 0 }}"
+    poc_sv_active: "{{ (_target_pool_rows[0] | split('|'))[5] | int if _target_pool_rows | length > 0 else 0 }}"
+
+- name: Check if pool-hog container is running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ poc_pool_hog_container }}"
+  register: _pool_hog_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Set pool-hog running state
+  ansible.builtin.set_fact:
+    poc_pool_hog_running: "{{ _pool_hog_inspect.rc == 0 and _pool_hog_inspect.stdout | trim == 'true' }}"

@@ -1,0 +1,45 @@
+---
+# Thin playbook for Pool Fault injection.
+# Called by Datadog Workflow 1 (pool branch) or operator.
+# No audit survey fields required.
+
+- name: Pool Fault
+  hosts: berca_poc_vm
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: fault_pool
+  tasks:
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute pool fault with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Run pool fault tasks
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: fault-pool
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"

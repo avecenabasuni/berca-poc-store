@@ -1,0 +1,67 @@
+---
+# Thin playbook for Disk Remediation (Job Template 14).
+# Launched by Datadog Workflow 2 on DISK classification.
+# Requires three audit survey fields: monitor_id, investigation_id,
+# workflow_instance_id.
+
+- name: Disk Remediation
+  hosts: berca_poc_vm
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: recover_disk
+    schema_version: "1.0"
+    poc_environment: poc
+    poc_service: berca-backend
+    poc_classification: DISK
+    poc_resource_id: synthetic-log-volume
+    poc_requested_action: recover_disk
+  tasks:
+    - name: Validate audit IDs from survey
+      ansible.builtin.assert:
+        that:
+          - monitor_id is defined
+          - (monitor_id | string | length) > 0
+          - investigation_id is defined
+          - (investigation_id | string | length) > 0
+          - workflow_instance_id is defined
+          - (workflow_instance_id | string | length) > 0
+        fail_msg: "All three audit IDs (monitor_id, investigation_id, workflow_instance_id) must be non-empty strings"
+
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute disk recovery with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Run disk recovery tasks
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: recover-disk
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_classification: "{{ poc_classification }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"
+              monitor_id: "{{ monitor_id }}"
+              investigation_id: "{{ investigation_id }}"
+              workflow_instance_id: "{{ workflow_instance_id }}"

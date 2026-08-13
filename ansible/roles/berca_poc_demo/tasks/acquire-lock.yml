@@ -1,0 +1,66 @@
+---
+# Acquire a shared host lock to prevent concurrent operations.
+# The lock uses a root-owned directory at poc_lock_dir.
+# Metadata (awx_job_id and timestamp) is stored inside the lock directory.
+
+- name: Check for existing lock directory
+  ansible.builtin.stat:
+    path: "{{ poc_lock_dir }}"
+  register: _lock_stat
+
+- name: Handle stale lock
+  when: _lock_stat.stat.exists
+  block:
+    - name: Read lock metadata
+      ansible.builtin.slurp:
+        src: "{{ poc_lock_dir }}/metadata"
+      register: _lock_metadata_raw
+      failed_when: false
+
+    - name: Parse lock metadata
+      ansible.builtin.set_fact:
+        _lock_metadata: "{{ (_lock_metadata_raw.content | default('') | b64decode | from_yaml) if _lock_metadata_raw is not failed and _lock_metadata_raw.content is defined else {} }}"
+
+    - name: Calculate lock age
+      ansible.builtin.set_fact:
+        _lock_age_seconds: "{{ (now(utc=true) | to_datetime('%Y-%m-%d %H:%M:%S.%f%z')).timestamp() | float - (_lock_metadata.timestamp | default(0) | float) }}"
+      when: _lock_metadata.timestamp is defined
+
+    - name: Fail if lock is active (not stale)
+      ansible.builtin.assert:
+        that:
+          - _lock_age_seconds is defined
+          - (_lock_age_seconds | float) >= (poc_lock_stale_seconds | float)
+        fail_msg: >-
+          Another operation holds the lock (job_id={{ _lock_metadata.job_id | default('unknown') }},
+          age={{ _lock_age_seconds | default('unknown') }}s).
+          Concurrent execution is not allowed.
+
+    - name: Remove stale lock directory
+      ansible.builtin.file:
+        path: "{{ poc_lock_dir }}"
+        state: absent
+      when:
+        - _lock_age_seconds is defined
+        - (_lock_age_seconds | float) >= (poc_lock_stale_seconds | float)
+
+- name: Create lock directory atomically
+  ansible.builtin.command:
+    argv:
+      - mkdir
+      - "{{ poc_lock_dir }}"
+  register: _lock_mkdir
+  changed_when: _lock_mkdir.rc == 0
+
+- name: Write lock metadata
+  ansible.builtin.copy:
+    dest: "{{ poc_lock_dir }}/metadata"
+    content: |
+      job_id: "{{ lookup('env', 'AWX_JOB_ID') | default(ansible_play_name, true) }}"
+      timestamp: {{ now(utc=true).timestamp() | int }}
+      host: "{{ inventory_hostname }}"
+    mode: "0644"
+
+- name: Record lock acquired
+  ansible.builtin.set_fact:
+    _poc_lock_acquired: true

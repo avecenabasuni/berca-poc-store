@@ -1,0 +1,12 @@
+---
+# Release the shared host lock. Always run in an 'always' block.
+
+- name: Remove lock directory
+  ansible.builtin.file:
+    path: "{{ poc_lock_dir }}"
+    state: absent
+  when: _poc_lock_acquired | default(false) | bool
+
+- name: Clear lock state
+  ansible.builtin.set_fact:
+    _poc_lock_acquired: false

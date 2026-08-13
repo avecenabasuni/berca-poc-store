@@ -1,0 +1,141 @@
+---
+# Disk remediation (JT 14): remove trigger/marker, truncate log, verify recovery.
+# Does NOT unmount the loopback volume (unmount is part of reset only).
+# Idempotent: already-recovered state produces success.
+
+- name: Read current disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Verify target is POC-owned loopback ext4
+  ansible.builtin.assert:
+    that:
+      - poc_disk_mounted | bool
+      - poc_disk_is_loopback_ext4 | bool
+      - poc_disk_is_poc_owned | bool
+    fail_msg: >-
+      Refusing recovery: target is not the POC-owned loopback ext4 volume
+      (mounted={{ poc_disk_mounted }}, source={{ poc_disk_mount_source }},
+      fstype={{ poc_disk_mount_fstype }}, poc_owned={{ poc_disk_is_poc_owned }}).
+      No changes made.
+
+- name: Record before-state
+  ansible.builtin.set_fact:
+    _recover_disk_before:
+      usage_pct: "{{ poc_disk_usage_pct }}"
+      log_bytes: "{{ poc_disk_log_bytes }}"
+      trigger: "{{ poc_disk_trigger_exists }}"
+      marker: "{{ poc_disk_marker_exists }}"
+
+- name: Check if already recovered (idempotent)
+  when:
+    - not (poc_disk_trigger_exists | bool)
+    - not (poc_disk_marker_exists | bool)
+    - (poc_disk_usage_pct | int) < (poc_safe_disk_usage_pct | int)
+  block:
+    - name: Report idempotent disk recovery success
+      ansible.builtin.debug:
+        msg: >-
+          Disk is already recovered: trigger removed, marker removed,
+          usage={{ poc_disk_usage_pct }}%.
+
+    - name: Publish idempotent evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_disk_before: "{{ _recover_disk_before }}"
+          poc_disk_after: "{{ _recover_disk_before }}"
+          poc_disk_changed: false
+
+    - name: End play for idempotent case
+      ansible.builtin.meta: end_host
+
+- name: Remove saturation trigger file
+  ansible.builtin.file:
+    path: "{{ poc_disk_trigger }}"
+    state: absent
+
+- name: Remove backend impact marker
+  ansible.builtin.file:
+    path: "{{ poc_impact_marker }}"
+    state: absent
+
+- name: Assert target is safe before truncating log
+  ansible.builtin.assert:
+    that:
+      - poc_disk_is_poc_owned | bool
+      - poc_disk_mount_fstype == 'ext4'
+    fail_msg: "Safety check failed before log truncation."
+
+- name: Truncate saturation log
+  ansible.builtin.command:
+    argv:
+      - truncate
+      - --size
+      - "0"
+      - "{{ poc_disk_log }}"
+  changed_when: true
+
+- name: Sync filesystem
+  ansible.builtin.command:
+    argv:
+      - sync
+  changed_when: false
+
+- name: Wait for disk usage to drop below threshold
+  ansible.builtin.command:
+    argv:
+      - df
+      - -P
+      - "{{ poc_log_dir }}"
+  register: _poll_df_recovery
+  changed_when: false
+  until: >-
+    (_poll_df_recovery.stdout_lines[1].split()[4] | replace('%', '') | int) < (poc_safe_disk_usage_pct | int)
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Capture first log size for growth check
+  ansible.builtin.stat:
+    path: "{{ poc_disk_log }}"
+  register: _growth_check_first
+
+- name: Wait before second growth sample
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: Capture second log size for growth check
+  ansible.builtin.stat:
+    path: "{{ poc_disk_log }}"
+  register: _growth_check_second
+
+- name: Verify log growth has stopped
+  ansible.builtin.assert:
+    that:
+      - (_growth_check_first.stat.size | default(0) | int) == (_growth_check_second.stat.size | default(0) | int)
+    fail_msg: >-
+      Log file is still growing
+      ({{ _growth_check_first.stat.size | default(0) }} ->
+      {{ _growth_check_second.stat.size | default(0) }} bytes).
+
+- name: Read final disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Record after-state
+  ansible.builtin.set_fact:
+    _recover_disk_after:
+      usage_pct: "{{ poc_disk_usage_pct }}"
+      log_bytes: "{{ poc_disk_log_bytes }}"
+      trigger: "{{ poc_disk_trigger_exists }}"
+      marker: "{{ poc_disk_marker_exists }}"
+
+- name: Publish disk recovery evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_disk_before: "{{ _recover_disk_before }}"
+      poc_disk_after: "{{ _recover_disk_after }}"
+      poc_disk_changed: true
+
+- name: Report disk recovery success
+  ansible.builtin.debug:
+    msg: >-
+      Disk recovered: usage={{ poc_disk_usage_pct }}%,
+      log_bytes={{ poc_disk_log_bytes }}, trigger removed, marker removed.

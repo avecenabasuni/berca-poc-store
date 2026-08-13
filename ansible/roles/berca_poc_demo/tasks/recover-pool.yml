@@ -1,0 +1,136 @@
+---
+# Pool remediation (JT 13): stop the dedicated pool-hog and verify recovery.
+# Does NOT restart PgBouncer or PostgreSQL.
+# Does NOT change default_pool_size or max_db_connections.
+# Idempotent: already-recovered state produces success.
+
+- name: Read current pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Record before-state
+  ansible.builtin.set_fact:
+    _recover_pool_before:
+      pool_hog_running: "{{ poc_pool_hog_running }}"
+      sv_active: "{{ poc_sv_active }}"
+      cl_waiting: "{{ poc_cl_waiting }}"
+      pool_size: "{{ poc_current_pool_size }}"
+      max_connections: "{{ poc_current_max_connections }}"
+
+- name: Check if already recovered (idempotent)
+  when:
+    - not (poc_pool_hog_running | bool)
+    - (poc_cl_waiting | int) == 0
+    - (poc_current_pool_size | int) == (poc_baseline_pool_size | int)
+    - (poc_current_max_connections | int) == (poc_baseline_max_connections | int)
+  block:
+    - name: Report idempotent pool recovery success
+      ansible.builtin.debug:
+        msg: >-
+          Pool is already recovered: pool-hog stopped, cl_waiting=0,
+          pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.
+
+    - name: Publish idempotent evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_pool_before: "{{ _recover_pool_before }}"
+          poc_pool_after: "{{ _recover_pool_before }}"
+          poc_pool_changed: false
+
+    - name: End play for idempotent case
+      ansible.builtin.meta: end_host
+
+- name: Stop pool-hog service
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    profiles:
+      - demo-fault
+    services:
+      - pool-hog
+    state: stopped
+  when: poc_pool_hog_running | bool
+
+- name: Remove pool-hog container
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    profiles:
+      - demo-fault
+    services:
+      - pool-hog
+    state: absent
+
+- name: Wait for PgBouncer queue to drain (cl_waiting = 0)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -F
+      - "|"
+      - -c
+      - "SHOW POOLS;"
+    chdir: "{{ poc_project_path }}"
+  register: _poll_recovery
+  changed_when: false
+  until: >-
+    _poll_recovery.stdout_lines
+    | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+    | list
+    | length > 0
+    and
+    ((_poll_recovery.stdout_lines
+      | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+      | first
+      | split('|'))[3] | int) == 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Read final pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Verify pool is at baseline after recovery
+  ansible.builtin.assert:
+    that:
+      - not (poc_pool_hog_running | bool)
+      - (poc_cl_waiting | int) == 0
+      - (poc_current_pool_size | int) == (poc_baseline_pool_size | int)
+      - (poc_current_max_connections | int) == (poc_baseline_max_connections | int)
+    fail_msg: >-
+      Pool recovery verification failed:
+      pool_hog={{ poc_pool_hog_running }},
+      cl_waiting={{ poc_cl_waiting }},
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.
+
+- name: Record after-state
+  ansible.builtin.set_fact:
+    _recover_pool_after:
+      pool_hog_running: "{{ poc_pool_hog_running }}"
+      sv_active: "{{ poc_sv_active }}"
+      cl_waiting: "{{ poc_cl_waiting }}"
+      pool_size: "{{ poc_current_pool_size }}"
+      max_connections: "{{ poc_current_max_connections }}"
+
+- name: Publish pool recovery evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_pool_before: "{{ _recover_pool_before }}"
+      poc_pool_after: "{{ _recover_pool_after }}"
+      poc_pool_changed: true
+
+- name: Report pool recovery success
+  ansible.builtin.debug:
+    msg: >-
+      Pool recovered: pool-hog stopped, cl_waiting={{ poc_cl_waiting }},
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.

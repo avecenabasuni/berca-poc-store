@@ -1,0 +1,130 @@
+---
+# Read disk/mount state for the POC synthetic log volume.
+# Sets facts: poc_disk_mounted, poc_disk_mount_source, poc_disk_mount_fstype,
+#              poc_disk_is_loopback_ext4, poc_disk_is_poc_owned,
+#              poc_disk_usage_pct, poc_disk_log_bytes,
+#              poc_disk_trigger_exists, poc_disk_marker_exists,
+#              poc_disk_fault_active
+
+- name: Check if log directory is a mountpoint
+  ansible.builtin.command:
+    argv:
+      - mountpoint
+      - -q
+      - "{{ poc_log_dir }}"
+  register: _mountpoint_check
+  changed_when: false
+  failed_when: false
+
+- name: Set disk mounted state
+  ansible.builtin.set_fact:
+    poc_disk_mounted: "{{ _mountpoint_check.rc == 0 }}"
+
+- name: Get mount source and filesystem type
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - -n
+      - -o
+      - SOURCE,FSTYPE
+      - --target
+      - "{{ poc_log_dir }}"
+  register: _findmnt_result
+  changed_when: false
+  failed_when: false
+  when: poc_disk_mounted | bool
+
+- name: Parse mount information
+  ansible.builtin.set_fact:
+    poc_disk_mount_source: "{{ _findmnt_result.stdout.split()[0] | default('') }}"
+    poc_disk_mount_fstype: "{{ _findmnt_result.stdout.split()[1] | default('') }}"
+  when: poc_disk_mounted | bool and _findmnt_result.rc == 0
+
+- name: Set empty mount info when not mounted
+  ansible.builtin.set_fact:
+    poc_disk_mount_source: ""
+    poc_disk_mount_fstype: ""
+  when: not (poc_disk_mounted | bool)
+
+- name: Determine if mount is loopback ext4
+  ansible.builtin.set_fact:
+    poc_disk_is_loopback_ext4: >-
+      {{ poc_disk_mounted | bool
+         and poc_disk_mount_source is match('^/dev/loop[0-9]+$')
+         and poc_disk_mount_fstype == 'ext4' }}
+
+- name: Check loop device backing file
+  ansible.builtin.command:
+    argv:
+      - losetup
+      - -j
+      - "{{ poc_disk_image }}"
+  register: _losetup_result
+  changed_when: false
+  failed_when: false
+  when: poc_disk_is_loopback_ext4 | bool
+
+- name: Determine if mount is POC-owned
+  ansible.builtin.set_fact:
+    poc_disk_is_poc_owned: >-
+      {{ poc_disk_is_loopback_ext4 | bool
+         and _losetup_result is not failed
+         and _losetup_result.stdout_lines | select('match', '^' ~ poc_disk_mount_source ~ ':') | list | length > 0 }}
+  when: poc_disk_is_loopback_ext4 | bool
+
+- name: Set POC ownership to false when not loopback ext4
+  ansible.builtin.set_fact:
+    poc_disk_is_poc_owned: false
+  when: not (poc_disk_is_loopback_ext4 | bool)
+
+- name: Read disk usage percentage
+  ansible.builtin.command:
+    argv:
+      - df
+      - -P
+      - "{{ poc_log_dir }}"
+  register: _df_result
+  changed_when: false
+  failed_when: false
+  when: poc_disk_mounted | bool
+
+- name: Parse disk usage
+  ansible.builtin.set_fact:
+    poc_disk_usage_pct: >-
+      {{ _df_result.stdout_lines[1].split()[4] | replace('%', '') | int
+         if _df_result is not failed and _df_result.stdout_lines | length > 1
+         else 0 }}
+  when: poc_disk_mounted | bool
+
+- name: Set disk usage to 0 when not mounted
+  ansible.builtin.set_fact:
+    poc_disk_usage_pct: 0
+  when: not (poc_disk_mounted | bool)
+
+- name: Check saturation log file size
+  ansible.builtin.stat:
+    path: "{{ poc_disk_log }}"
+  register: _log_stat
+
+- name: Set log file size
+  ansible.builtin.set_fact:
+    poc_disk_log_bytes: "{{ _log_stat.stat.size | default(0) | int }}"
+
+- name: Check trigger file existence
+  ansible.builtin.stat:
+    path: "{{ poc_disk_trigger }}"
+  register: _trigger_stat
+
+- name: Check impact marker existence
+  ansible.builtin.stat:
+    path: "{{ poc_impact_marker }}"
+  register: _marker_stat
+
+- name: Set trigger and marker states
+  ansible.builtin.set_fact:
+    poc_disk_trigger_exists: "{{ _trigger_stat.stat.exists | default(false) }}"
+    poc_disk_marker_exists: "{{ _marker_stat.stat.exists | default(false) }}"
+
+- name: Set disk fault active flag
+  ansible.builtin.set_fact:
+    poc_disk_fault_active: "{{ poc_disk_trigger_exists | bool or poc_disk_marker_exists | bool }}"

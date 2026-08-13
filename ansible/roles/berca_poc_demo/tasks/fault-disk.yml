@@ -1,0 +1,190 @@
+---
+# Disk fault injection: create a constrained loopback ext4 volume,
+# mount it, place the saturation trigger, and re-create consumers.
+# Idempotent: if fault is already active and valid, succeeds.
+
+- name: Read current pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Verify pool fault is not active
+  ansible.builtin.assert:
+    that:
+      - not (poc_pool_hog_running | bool)
+    fail_msg: "Pool fault is active. Recover it before starting a disk fault."
+
+- name: Read current disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Handle already-active disk fault (idempotent)
+  when: poc_disk_fault_active | bool
+  block:
+    - name: Verify existing fault is fully observed
+      ansible.builtin.assert:
+        that:
+          - poc_disk_is_loopback_ext4 | bool
+          - poc_disk_trigger_exists | bool
+          - poc_disk_marker_exists | bool
+          - (poc_disk_usage_pct | int) >= 85
+        fail_msg: >-
+          Disk fault markers exist but expected state is not observed
+          (mounted={{ poc_disk_mounted }}, loopback_ext4={{ poc_disk_is_loopback_ext4 }},
+          trigger={{ poc_disk_trigger_exists }}, marker={{ poc_disk_marker_exists }},
+          usage={{ poc_disk_usage_pct }}%). Run reset.
+
+    - name: Report idempotent disk fault success
+      ansible.builtin.debug:
+        msg: "Disk fault already active at {{ poc_disk_usage_pct }}% usage."
+
+    - name: End play for idempotent case
+      ansible.builtin.meta: end_host
+
+- name: Ensure state directory exists
+  ansible.builtin.file:
+    path: "{{ poc_state_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Remove stale impact marker
+  ansible.builtin.file:
+    path: "{{ poc_impact_marker }}"
+    state: absent
+
+- name: Set up loopback volume if not already mounted
+  when: not (poc_disk_is_poc_owned | default(false) | bool)
+  block:
+    - name: Stop filesystem consumers before mount setup
+      community.docker.docker_compose_v2:
+        project_src: "{{ poc_project_path }}"
+        services:
+          - log-generator
+          - datadog-agent
+        state: stopped
+
+    - name: Create exact disk image
+      ansible.builtin.command:
+        argv:
+          - dd
+          - if=/dev/zero
+          - "of={{ poc_disk_image }}"
+          - bs=1M
+          - "count={{ poc_disk_image_size_mb }}"
+        creates: "{{ poc_disk_image }}"
+
+    - name: Create ext4 filesystem without journal and without reserved blocks
+      community.general.filesystem:
+        fstype: ext4
+        dev: "{{ poc_disk_image }}"
+        opts: "-O ^has_journal -m 0"
+
+    - name: Mount image to log directory (ephemeral)
+      ansible.posix.mount:
+        path: "{{ poc_log_dir }}"
+        src: "{{ poc_disk_image }}"
+        fstype: ext4
+        state: ephemeral
+        opts: loop
+
+- name: Re-read disk state after mount setup
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Verify mount is POC-owned loopback ext4
+  ansible.builtin.assert:
+    that:
+      - poc_disk_is_loopback_ext4 | bool
+      - poc_disk_is_poc_owned | bool
+    fail_msg: >-
+      Disk target is not the POC-owned loopback ext4 volume
+      (source={{ poc_disk_mount_source }}, fstype={{ poc_disk_mount_fstype }}).
+
+- name: Truncate saturation log before fault
+  ansible.builtin.command:
+    argv:
+      - truncate
+      - --size
+      - "0"
+      - "{{ poc_disk_log }}"
+  changed_when: true
+
+- name: Create saturation trigger file
+  ansible.builtin.file:
+    path: "{{ poc_disk_trigger }}"
+    state: touch
+    mode: "0644"
+
+- name: Re-create filesystem consumers with new bind mount
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    services:
+      - log-generator
+      - datadog-agent
+    state: present
+    recreate: always
+
+- name: Wait for log-generator bind mount
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - log-generator
+      - test
+      - -d
+      - /var/log/poc-app
+    chdir: "{{ poc_project_path }}"
+  register: _log_mount_check
+  changed_when: false
+  until: _log_mount_check.rc == 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Wait for Datadog Agent health
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - datadog-agent
+      - agent
+      - health
+    chdir: "{{ poc_project_path }}"
+  register: _dd_health
+  changed_when: false
+  until: _dd_health.rc == 0
+  retries: "{{ poc_disk_wait_retries }}"
+  delay: "{{ poc_disk_wait_delay }}"
+
+- name: Poll for disk saturation (usage >= 85% and impact marker present)
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Wait for disk saturation
+  ansible.builtin.command:
+    argv:
+      - df
+      - -P
+      - "{{ poc_log_dir }}"
+  register: _poll_df
+  changed_when: false
+  until: >-
+    (_poll_df.stdout_lines[1].split()[4] | replace('%', '') | int) >= 85
+  retries: "{{ poc_disk_wait_retries }}"
+  delay: "{{ poc_disk_wait_delay }}"
+
+- name: Wait for backend impact marker
+  ansible.builtin.stat:
+    path: "{{ poc_impact_marker }}"
+  register: _poll_marker
+  until: _poll_marker.stat.exists
+  retries: "{{ poc_disk_wait_retries }}"
+  delay: "{{ poc_disk_wait_delay }}"
+
+- name: Read final disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Report disk fault success
+  ansible.builtin.debug:
+    msg: >-
+      Disk fault active: usage={{ poc_disk_usage_pct }}%,
+      trigger={{ poc_disk_trigger_exists }},
+      marker={{ poc_disk_marker_exists }}.

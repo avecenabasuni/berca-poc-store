@@ -1,0 +1,69 @@
+---
+# Read-only status collection. Publishes observed state as AAP job artifact
+# via set_stats. No lock needed.
+
+- name: Read pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Read disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Check log-generator container health
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - --format
+      - json
+      - log-generator
+    chdir: "{{ poc_project_path }}"
+  register: _log_gen_status
+  changed_when: false
+  failed_when: false
+
+- name: Check datadog-agent container health
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - --format
+      - json
+      - datadog-agent
+    chdir: "{{ poc_project_path }}"
+  register: _dd_agent_status
+  changed_when: false
+  failed_when: false
+
+- name: Publish comprehensive status
+  ansible.builtin.set_stats:
+    data:
+      poc_status:
+        pool_hog_running: "{{ poc_pool_hog_running }}"
+        pool_size: "{{ poc_current_pool_size }}"
+        max_db_connections: "{{ poc_current_max_connections }}"
+        sv_active: "{{ poc_sv_active }}"
+        cl_waiting: "{{ poc_cl_waiting }}"
+        pool_row_count: "{{ poc_pool_row_count }}"
+        disk_mounted: "{{ poc_disk_mounted }}"
+        disk_mount_source: "{{ poc_disk_mount_source | default('') }}"
+        disk_mount_fstype: "{{ poc_disk_mount_fstype | default('') }}"
+        disk_is_loopback_ext4: "{{ poc_disk_is_loopback_ext4 | default(false) }}"
+        disk_is_poc_owned: "{{ poc_disk_is_poc_owned | default(false) }}"
+        disk_usage_pct: "{{ poc_disk_usage_pct }}"
+        disk_log_bytes: "{{ poc_disk_log_bytes }}"
+        disk_trigger_exists: "{{ poc_disk_trigger_exists }}"
+        disk_marker_exists: "{{ poc_disk_marker_exists }}"
+        disk_fault_active: "{{ poc_disk_fault_active }}"
+        log_generator_status: "{{ _log_gen_status.stdout | default('unavailable') }}"
+        datadog_agent_status: "{{ _dd_agent_status.stdout | default('unavailable') }}"
+
+- name: Display status summary
+  ansible.builtin.debug:
+    msg: >-
+      Status: pool_hog={{ poc_pool_hog_running }},
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }},
+      sv_active={{ poc_sv_active }}, cl_waiting={{ poc_cl_waiting }},
+      disk_mounted={{ poc_disk_mounted }}, usage={{ poc_disk_usage_pct }}%,
+      trigger={{ poc_disk_trigger_exists }}, marker={{ poc_disk_marker_exists }}.

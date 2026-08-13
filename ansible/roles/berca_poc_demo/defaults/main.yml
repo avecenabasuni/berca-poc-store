@@ -1,0 +1,36 @@
+---
+# Project paths (override from inventory/group/host vars)
+poc_project_path: ""
+poc_state_dir: "{{ poc_project_path }}/docker/demo-state"
+poc_log_dir: "{{ poc_project_path }}/docker/log-saturation/data"
+
+# Disk fault configuration
+poc_disk_image: /tmp/poc-log-disk.img
+poc_disk_image_size_mb: 200
+poc_disk_trigger: "{{ poc_log_dir }}/.trigger_saturation"
+poc_disk_log: "{{ poc_log_dir }}/app-saturation.log"
+poc_impact_marker: "{{ poc_state_dir }}/disk-degraded"
+
+# PgBouncer configuration
+poc_pgbouncer_target_db: medusa-store
+poc_pgbouncer_target_user: postgres
+poc_baseline_pool_size: 5
+poc_baseline_max_connections: 5
+
+# Container names
+poc_pool_hog_container: berca_poc_pool_hog
+
+# Disk recovery threshold
+poc_safe_disk_usage_pct: 20
+
+# Shared lock
+poc_lock_dir: /run/lock/berca-poc-demo
+
+# Polling bounds
+poc_wait_retries: 30
+poc_wait_delay: 2
+poc_disk_wait_retries: 90
+poc_disk_wait_delay: 2
+
+# Stale lock threshold (seconds)
+poc_lock_stale_seconds: 600

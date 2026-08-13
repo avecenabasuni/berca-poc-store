@@ -1,0 +1,140 @@
+---
+# Pool fault injection: start the dedicated pool-hog to saturate PgBouncer.
+# Idempotent: if pool-hog is already running and fault is observed, succeeds.
+
+- name: Read current disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Verify disk fault is not active
+  ansible.builtin.assert:
+    that:
+      - not (poc_disk_fault_active | bool)
+    fail_msg: "Disk fault is active. Recover it before starting a pool fault."
+
+- name: Read current pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Handle already-running pool-hog (idempotent)
+  when: poc_pool_hog_running | bool
+  block:
+    - name: Verify fault is observed with running pool-hog
+      ansible.builtin.assert:
+        that:
+          - (poc_sv_active | int) >= (poc_baseline_pool_size | int)
+          - (poc_cl_waiting | int) > 0
+        fail_msg: >-
+          Pool-hog is running but expected fault state is not observed
+          (sv_active={{ poc_sv_active }}, cl_waiting={{ poc_cl_waiting }}).
+          Run reset.
+
+    - name: Report idempotent pool fault success
+      ansible.builtin.debug:
+        msg: >-
+          Pool fault already active: sv_active={{ poc_sv_active }},
+          cl_waiting={{ poc_cl_waiting }}, pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.
+
+    - name: End play for idempotent case
+      ansible.builtin.meta: end_host
+
+- name: Verify PgBouncer is at baseline
+  ansible.builtin.assert:
+    that:
+      - (poc_current_pool_size | int) == (poc_baseline_pool_size | int)
+      - (poc_current_max_connections | int) == (poc_baseline_max_connections | int)
+    fail_msg: >-
+      PgBouncer is {{ poc_current_pool_size }}/{{ poc_current_max_connections }};
+      expected baseline {{ poc_baseline_pool_size }}/{{ poc_baseline_max_connections }}.
+      Run reset first.
+
+- name: Record before-state
+  ansible.builtin.set_fact:
+    _fault_pool_before:
+      sv_active: "{{ poc_sv_active }}"
+      cl_waiting: "{{ poc_cl_waiting }}"
+      pool_size: "{{ poc_current_pool_size }}"
+
+- name: Remove stale pool-hog container if it exists
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - "{{ poc_pool_hog_container }}"
+  register: _pool_hog_exists
+  changed_when: false
+  failed_when: false
+
+- name: Clean up stopped pool-hog container
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    profiles:
+      - demo-fault
+    services:
+      - pool-hog
+    state: absent
+  when: _pool_hog_exists.rc == 0
+
+- name: Start pool-hog via demo-fault profile
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    profiles:
+      - demo-fault
+    services:
+      - pool-hog
+    state: present
+
+- name: Poll for PgBouncer saturation
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Wait for pool saturation (sv_active >= baseline and cl_waiting > 0)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -F
+      - "|"
+      - -c
+      - "SHOW POOLS;"
+    chdir: "{{ poc_project_path }}"
+  register: _poll_pools
+  changed_when: false
+  until: >-
+    _poll_pools.stdout_lines
+    | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+    | list
+    | length > 0
+    and
+    ((_poll_pools.stdout_lines
+      | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+      | first
+      | split('|'))[5] | int) >= (poc_baseline_pool_size | int)
+    and
+    ((_poll_pools.stdout_lines
+      | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+      | first
+      | split('|'))[3] | int) > 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Read final pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Report pool fault success
+  ansible.builtin.debug:
+    msg: >-
+      Pool fault active: sv_active={{ poc_sv_active }},
+      cl_waiting={{ poc_cl_waiting }},
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }}.

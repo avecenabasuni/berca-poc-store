@@ -1,0 +1,53 @@
+---
+# Thin playbook for Full Reset (Job Template 15).
+# Called manually by operator or by Datadog Workflow 1 reset.
+# No audit survey fields required.
+
+- name: Full Reset
+  hosts: berca_poc_vm
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: reset
+  tasks:
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute full reset with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Run reset tasks
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: reset
+      rescue:
+        - name: Report reset failure
+          ansible.builtin.debug:
+            msg: "Reset encountered an error. Lock will be released. Review the output above."
+
+        - name: Propagate the failure
+          ansible.builtin.fail:
+            msg: "Reset failed. See previous task output for details."
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"

@@ -1,0 +1,350 @@
+---
+# Full reset (JT 15): restore complete baseline for next demo run.
+# Uses block/rescue/always to ensure all safe cleanup stages run.
+
+- name: Record reset start
+  ansible.builtin.set_fact:
+    _reset_start: "{{ now(utc=true) }}"
+
+# --- Pool cleanup ---
+
+- name: Stop and remove pool-hog
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    profiles:
+      - demo-fault
+    services:
+      - pool-hog
+    state: absent
+  failed_when: false
+
+- name: Ensure PgBouncer and PostgreSQL are running
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    services:
+      - postgres
+      - pgbouncer
+    state: present
+
+- name: Wait for PgBouncer admin console
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -c
+      - "SHOW VERSION;"
+    chdir: "{{ poc_project_path }}"
+  register: _pgb_version
+  changed_when: false
+  until: _pgb_version.rc == 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Read pool configuration
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Reset PgBouncer pool size to baseline if different
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -c
+      - "SET default_pool_size = {{ poc_baseline_pool_size }}"
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
+  when: (poc_current_pool_size | int) != (poc_baseline_pool_size | int)
+
+- name: Reset PgBouncer max connections to baseline if different
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -c
+      - "SET max_db_connections = {{ poc_baseline_max_connections }}"
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
+  when: (poc_current_max_connections | int) != (poc_baseline_max_connections | int)
+
+- name: Wait for pool baseline (one target row, cl_waiting = 0)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - postgres
+      - psql
+      - -v
+      - ON_ERROR_STOP=1
+      - -h
+      - pgbouncer
+      - -p
+      - "6432"
+      - -U
+      - postgres
+      - pgbouncer
+      - -tA
+      - -F
+      - "|"
+      - -c
+      - "SHOW POOLS;"
+    chdir: "{{ poc_project_path }}"
+  register: _poll_reset_pools
+  changed_when: false
+  until: >-
+    _poll_reset_pools.stdout_lines
+    | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+    | list
+    | length == 1
+    and
+    ((_poll_reset_pools.stdout_lines
+      | select('match', '^' ~ poc_pgbouncer_target_db ~ '\|' ~ poc_pgbouncer_target_user ~ '\|')
+      | first
+      | split('|'))[3] | int) == 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+# --- Disk cleanup ---
+
+- name: Read disk state for cleanup
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Clean up disk fault artifacts
+  when: poc_disk_mounted | bool or poc_disk_fault_active | bool
+  block:
+    - name: Remove trigger file
+      ansible.builtin.file:
+        path: "{{ poc_disk_trigger }}"
+        state: absent
+
+    - name: Remove impact marker
+      ansible.builtin.file:
+        path: "{{ poc_impact_marker }}"
+        state: absent
+
+    - name: Stop filesystem consumers
+      community.docker.docker_compose_v2:
+        project_src: "{{ poc_project_path }}"
+        services:
+          - log-generator
+          - datadog-agent
+        state: stopped
+      failed_when: false
+
+    - name: Truncate saturation log if mount is safe
+      ansible.builtin.command:
+        argv:
+          - truncate
+          - --size
+          - "0"
+          - "{{ poc_disk_log }}"
+      when: poc_disk_is_poc_owned | default(false) | bool
+      changed_when: true
+      failed_when: false
+
+    - name: Sync before unmount
+      ansible.builtin.command:
+        argv:
+          - sync
+      changed_when: false
+
+    - name: Unmount POC loopback volume
+      ansible.posix.mount:
+        path: "{{ poc_log_dir }}"
+        state: unmounted
+      when: poc_disk_mounted | bool
+
+    - name: Find loop devices for POC image
+      ansible.builtin.command:
+        argv:
+          - losetup
+          - -j
+          - "{{ poc_disk_image }}"
+      register: _reset_loop_devices
+      changed_when: false
+      failed_when: false
+
+    - name: Detach loop devices with exact backing image
+      ansible.builtin.command:
+        argv:
+          - losetup
+          - -d
+          - "{{ item.split(':')[0] }}"
+      loop: "{{ _reset_loop_devices.stdout_lines | default([]) }}"
+      when: _reset_loop_devices.stdout_lines | default([]) | length > 0
+      changed_when: true
+
+    - name: Verify unmount and detach before image removal
+      ansible.builtin.command:
+        argv:
+          - mountpoint
+          - -q
+          - "{{ poc_log_dir }}"
+      register: _post_unmount_check
+      changed_when: false
+      failed_when: false
+
+    - name: Remove disk image only after verified unmount
+      ansible.builtin.file:
+        path: "{{ poc_disk_image }}"
+        state: absent
+      when: _post_unmount_check.rc != 0
+
+# --- Rebuild baseline ---
+
+- name: Ensure log directory exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ poc_log_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create readiness log
+  ansible.builtin.copy:
+    dest: "{{ poc_log_dir }}/ready.log"
+    content: "POC log directory ready\n"
+    mode: "0644"
+    force: false
+
+- name: Re-create log-generator and datadog-agent
+  community.docker.docker_compose_v2:
+    project_src: "{{ poc_project_path }}"
+    services:
+      - log-generator
+      - datadog-agent
+    state: present
+    recreate: always
+
+- name: Wait for log-generator bind mount
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - log-generator
+      - test
+      - -d
+      - /var/log/poc-app
+    chdir: "{{ poc_project_path }}"
+  register: _reset_log_mount
+  changed_when: false
+  until: _reset_log_mount.rc == 0
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Wait for Datadog Agent health
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - exec
+      - -T
+      - datadog-agent
+      - agent
+      - health
+    chdir: "{{ poc_project_path }}"
+  register: _reset_dd_health
+  changed_when: false
+  until: _reset_dd_health.rc == 0
+  retries: "{{ poc_disk_wait_retries }}"
+  delay: "{{ poc_disk_wait_delay }}"
+
+# --- Final verification ---
+
+- name: Verify pool-hog container does not exist
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - "{{ poc_pool_hog_container }}"
+  register: _verify_pool_hog
+  changed_when: false
+  failed_when: false
+
+- name: Assert pool-hog is gone
+  ansible.builtin.assert:
+    that:
+      - _verify_pool_hog.rc != 0
+    fail_msg: "Reset validation failed: pool-hog container still exists."
+
+- name: Read final disk state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Assert disk fault artifacts are cleared
+  ansible.builtin.assert:
+    that:
+      - not (poc_disk_trigger_exists | bool)
+      - not (poc_disk_marker_exists | bool)
+      - not (poc_disk_mounted | bool) or not (poc_disk_is_loopback_ext4 | default(false) | bool)
+    fail_msg: "Reset validation failed: disk trigger, marker, or loopback mount still present."
+
+- name: Read final pool state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Assert pool is at baseline
+  ansible.builtin.assert:
+    that:
+      - (poc_current_pool_size | int) == (poc_baseline_pool_size | int)
+      - (poc_current_max_connections | int) == (poc_baseline_max_connections | int)
+      - (poc_cl_waiting | int) == 0
+    fail_msg: >-
+      Reset verification failed:
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }},
+      cl_waiting={{ poc_cl_waiting }}.
+
+- name: Publish reset evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_reset_start: "{{ _reset_start }}"
+      poc_reset_end: "{{ now(utc=true) }}"
+      poc_pool_baseline: "{{ poc_baseline_pool_size }}/{{ poc_baseline_max_connections }}"
+      poc_cl_waiting: "{{ poc_cl_waiting }}"
+      poc_disk_mounted: "{{ poc_disk_mounted }}"
+
+- name: Report reset success
+  ansible.builtin.debug:
+    msg: >-
+      Demo reset completed: pool-hog removed,
+      pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }},
+      cl_waiting={{ poc_cl_waiting }}, disk artifacts cleared,
+      consumers re-created.

@@ -1,0 +1,47 @@
+---
+# Preflight checks run before any state-changing task.
+
+- name: Verify poc_project_path is set
+  ansible.builtin.assert:
+    that:
+      - poc_project_path | length > 0
+    fail_msg: "poc_project_path must be set in inventory variables"
+    quiet: true
+
+- name: Verify project directory exists
+  ansible.builtin.stat:
+    path: "{{ poc_project_path }}"
+  register: _preflight_project_dir
+
+- name: Assert project directory is present
+  ansible.builtin.assert:
+    that:
+      - _preflight_project_dir.stat.exists
+      - _preflight_project_dir.stat.isdir
+    fail_msg: "Project directory {{ poc_project_path }} does not exist or is not a directory"
+
+- name: Verify docker-compose.yml exists
+  ansible.builtin.stat:
+    path: "{{ poc_project_path }}/docker-compose.yml"
+  register: _preflight_compose_file
+
+- name: Assert docker-compose.yml is present
+  ansible.builtin.assert:
+    that:
+      - _preflight_compose_file.stat.exists
+    fail_msg: "docker-compose.yml not found in {{ poc_project_path }}"
+
+- name: Verify Docker Compose v2 is available
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - version
+  changed_when: false
+
+- name: Verify Docker daemon is operational
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+  changed_when: false

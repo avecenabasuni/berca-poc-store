@@ -1,0 +1,22 @@
+---
+# Thin playbook for read-only Status collection.
+# No lock needed (read-only). No audit survey fields.
+# Results are published as AAP job artifacts via set_stats.
+
+- name: POC Status
+  hosts: berca_poc_vm
+  serial: 1
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: status
+  tasks:
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Collect and publish status
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: status
