@@ -19,6 +19,17 @@ poc_baseline_max_connections: 5
 
 # Container names
 poc_pool_hog_container: berca_poc_pool_hog
+poc_storefront_spike_container: berca_poc_storefront_spike
+
+# Storefront autoscale configuration (set the rate in protected inventory)
+poc_autoscale_spike_rate: 0
+poc_storefront_baseline_replicas: 1
+poc_storefront_scaleout_replicas: 2
+
+# Storefront deployment rollback configuration
+poc_storefront_release_config_file: /etc/berca-poc/storefront-release.env
+poc_storefront_release_image_prefix: "ghcr.io/avecenabasuni/berca-storefront@sha256:"
+poc_storefront_catalog_probe_url: http://127.0.0.1:8000/id/store
 
 # Disk recovery threshold
 poc_safe_disk_usage_pct: 20
@@ -31,6 +42,8 @@ poc_wait_retries: 30
 poc_wait_delay: 2
 poc_disk_wait_retries: 90
 poc_disk_wait_delay: 2
+poc_storefront_wait_retries: 60
+poc_storefront_wait_delay: 2
 
 # Stale lock threshold (seconds)
 poc_lock_stale_seconds: 600

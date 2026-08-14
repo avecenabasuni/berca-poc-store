@@ -1,0 +1,15 @@
+---
+- name: Read pool scenario state
+  ansible.builtin.include_tasks: read-pool-state.yml
+
+- name: Read disk scenario state
+  ansible.builtin.include_tasks: read-disk-state.yml
+
+- name: Verify pool and disk scenarios are inactive
+  ansible.builtin.assert:
+    that:
+      - not (poc_pool_hog_running | bool)
+      - not (poc_disk_fault_active | bool)
+    fail_msg: >-
+      Pool or disk fault is active. Storefront autoscale and deployment
+      scenarios must run in isolation.

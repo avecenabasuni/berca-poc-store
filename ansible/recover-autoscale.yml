@@ -1,0 +1,71 @@
+---
+# Fixed remediation Job Template: scale storefront from one to two replicas.
+
+- name: Storefront Autoscale Remediation
+  hosts: berca_poc_vm
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: recover_autoscale
+    schema_version: "1.0"
+    poc_environment: poc
+    poc_service: berca-storefront
+    poc_classification: AUTOSCALE
+    poc_resource_id: berca-storefront
+    poc_requested_action: scale_storefront_to_2
+  tasks:
+    - name: Validate audit IDs from survey
+      ansible.builtin.assert:
+        that:
+          - (monitor_id | default(none)) is string
+          - (monitor_id | default('') | length) > 0
+          - (monitor_id | default('') | length) <= 128
+          - (monitor_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+          - (investigation_id | default(none)) is string
+          - (investigation_id | default('') | length) > 0
+          - (investigation_id | default('') | length) <= 128
+          - (investigation_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+          - (workflow_instance_id | default(none)) is string
+          - (workflow_instance_id | default('') | length) > 0
+          - (workflow_instance_id | default('') | length) <= 128
+          - (workflow_instance_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+        fail_msg: "All audit IDs must be bounded non-empty strings."
+
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute autoscale remediation with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Scale storefront to fixed target
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: recover-autoscale
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_classification: "{{ poc_classification }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"
+              monitor_id: "{{ monitor_id }}"
+              investigation_id: "{{ investigation_id }}"
+              workflow_instance_id: "{{ workflow_instance_id }}"

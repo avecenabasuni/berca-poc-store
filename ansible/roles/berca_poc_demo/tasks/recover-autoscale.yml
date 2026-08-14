@@ -1,0 +1,91 @@
+---
+# Scale the observed storefront release from exactly one to exactly two replicas.
+
+- name: Verify other fault scenarios are inactive
+  ansible.builtin.include_tasks: read-scenario-conflicts.yml
+
+- name: Read storefront state before scale-out
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Record autoscale before-state
+  ansible.builtin.set_fact:
+    _autoscale_before:
+      replicas: "{{ poc_storefront_replica_count }}"
+      healthy: "{{ poc_storefront_healthy }}"
+      spike_active: "{{ poc_autoscale_spike_active }}"
+      image: "{{ poc_storefront_image }}"
+      version: "{{ poc_storefront_version }}"
+
+- name: Handle already-scaled storefront
+  when:
+    - (poc_storefront_replica_count | int) == (poc_storefront_scaleout_replicas | int)
+  block:
+    - name: Verify idempotent scaled-out state
+      ansible.builtin.assert:
+        that:
+          - poc_storefront_healthy | bool
+          - poc_traefik_healthy | bool
+          - poc_autoscale_spike_active | bool
+          - poc_autoscale_state == 'scaled_out'
+          - poc_storefront_release_mode != 'demo-bad'
+        fail_msg: "Two replicas exist, but the approved scaled-out state is not healthy."
+
+    - name: Publish idempotent autoscale remediation evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_autoscale_before: "{{ _autoscale_before }}"
+          poc_autoscale_after: "{{ _autoscale_before }}"
+          poc_autoscale_changed: false
+
+    - name: Release lock before ending idempotent remediation
+      ansible.builtin.include_tasks: release-lock.yml
+
+    - name: End host after idempotent autoscale remediation
+      ansible.builtin.meta: end_host
+
+- name: Verify approved scale-out preconditions
+  ansible.builtin.assert:
+    that:
+      - (poc_storefront_replica_count | int) == (poc_storefront_baseline_replicas | int)
+      - (poc_storefront_scaleout_replicas | int) == 2
+      - poc_storefront_healthy | bool
+      - poc_traefik_healthy | bool
+      - poc_autoscale_spike_active | bool
+      - poc_autoscale_state == 'spike_running'
+      - poc_storefront_release_mode == 'stable'
+      - poc_storefront_image | length > 0
+      - poc_storefront_version | length > 0
+    fail_msg: >-
+      Scale-out requires one healthy stable replica, a healthy Traefik, and the
+      approved traffic spike. Replica count cannot be supplied by the event.
+
+- name: Scale storefront to the fixed two-replica target
+  ansible.builtin.include_tasks: reconcile-storefront.yml
+  vars:
+    _storefront_target_image: "{{ poc_storefront_image }}"
+    _storefront_target_version: "{{ poc_storefront_version }}"
+    _storefront_target_mode: stable
+    _storefront_target_replicas: 2
+    _storefront_force_recreate: false
+
+- name: Verify final autoscale remediation state
+  ansible.builtin.assert:
+    that:
+      - poc_autoscale_spike_active | bool
+      - poc_autoscale_state == 'scaled_out'
+      - poc_traefik_healthy | bool
+      - (poc_storefront_replica_count | int) == 2
+      - (poc_storefront_healthy_count | int) == 2
+    fail_msg: "Storefront scale-out did not reach two healthy replicas."
+
+- name: Publish autoscale remediation evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_autoscale_before: "{{ _autoscale_before }}"
+      poc_autoscale_after:
+        replicas: "{{ poc_storefront_replica_count }}"
+        healthy_replicas: "{{ poc_storefront_healthy_count }}"
+        spike_active: "{{ poc_autoscale_spike_active }}"
+        image: "{{ poc_storefront_image }}"
+        version: "{{ poc_storefront_version }}"
+      poc_autoscale_changed: true

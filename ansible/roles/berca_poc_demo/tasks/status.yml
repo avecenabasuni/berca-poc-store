@@ -8,6 +8,9 @@
 - name: Read disk state
   ansible.builtin.include_tasks: read-disk-state.yml
 
+- name: Read storefront state
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
 - name: Check log-generator container health
   ansible.builtin.command:
     argv:
@@ -56,6 +59,16 @@
         disk_trigger_exists: "{{ poc_disk_trigger_exists }}"
         disk_marker_exists: "{{ poc_disk_marker_exists }}"
         disk_fault_active: "{{ poc_disk_fault_active }}"
+        storefront_replicas: "{{ poc_storefront_replica_count }}"
+        storefront_healthy_replicas: "{{ poc_storefront_healthy_count }}"
+        storefront_healthy: "{{ poc_storefront_healthy }}"
+        storefront_image: "{{ poc_storefront_image }}"
+        storefront_version: "{{ poc_storefront_version }}"
+        storefront_release_mode: "{{ poc_storefront_release_mode }}"
+        deployment_demo_active: "{{ poc_storefront_release_mode == 'demo-bad' }}"
+        traefik_healthy: "{{ poc_traefik_healthy }}"
+        autoscale_spike_active: "{{ poc_autoscale_spike_active }}"
+        autoscale_state: "{{ poc_autoscale_state }}"
         log_generator_status: "{{ _log_gen_status.stdout | default('unavailable') }}"
         datadog_agent_status: "{{ _dd_agent_status.stdout | default('unavailable') }}"
 
@@ -66,4 +79,7 @@
       pool={{ poc_current_pool_size }}/{{ poc_current_max_connections }},
       sv_active={{ poc_sv_active }}, cl_waiting={{ poc_cl_waiting }},
       disk_mounted={{ poc_disk_mounted }}, usage={{ poc_disk_usage_pct }}%,
-      trigger={{ poc_disk_trigger_exists }}, marker={{ poc_disk_marker_exists }}.
+      trigger={{ poc_disk_trigger_exists }}, marker={{ poc_disk_marker_exists }},
+      storefront_replicas={{ poc_storefront_replica_count }},
+      storefront_healthy={{ poc_storefront_healthy }},
+      autoscale={{ poc_autoscale_state }}, release={{ poc_storefront_release_mode }}.

@@ -1,0 +1,114 @@
+---
+# Start the fixed storefront-only capacity spike. Does not scale replicas.
+
+- name: Initialize autoscale fault mutation state
+  ansible.builtin.set_fact:
+    _autoscale_fault_started_by_job: false
+
+- name: Verify other fault scenarios are inactive
+  ansible.builtin.include_tasks: read-scenario-conflicts.yml
+
+- name: Read storefront state before traffic spike
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Validate fixed autoscale spike rate
+  ansible.builtin.assert:
+    that:
+      - (poc_autoscale_spike_rate | string) is match('^[0-9]+$')
+      - (poc_autoscale_spike_rate | int) >= 1
+      - (poc_autoscale_spike_rate | int) <= 240
+    fail_msg: >-
+      poc_autoscale_spike_rate must be fixed in protected inventory between
+      1 and 240 iterations per second.
+
+- name: Handle already-running traffic spike
+  when: poc_autoscale_spike_active | bool
+  block:
+    - name: Verify existing autoscale fault state
+      ansible.builtin.assert:
+        that:
+          - (poc_storefront_replica_count | int) == (poc_storefront_baseline_replicas | int)
+          - poc_storefront_healthy | bool
+          - poc_traefik_healthy | bool
+          - poc_storefront_release_mode != 'demo-bad'
+          - poc_autoscale_state == 'spike_running'
+        fail_msg: "Traffic spike exists, but the expected one-replica fault state is not valid."
+
+    - name: Publish idempotent autoscale fault evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_autoscale_fault_changed: false
+          poc_autoscale_state: "{{ poc_autoscale_state }}"
+          poc_storefront_replicas: "{{ poc_storefront_replica_count }}"
+
+    - name: Release lock before ending idempotent fault
+      ansible.builtin.include_tasks: release-lock.yml
+
+    - name: End host after idempotent autoscale fault
+      ansible.builtin.meta: end_host
+
+- name: Verify storefront autoscale baseline
+  ansible.builtin.assert:
+    that:
+      - (poc_storefront_replica_count | int) == (poc_storefront_baseline_replicas | int)
+      - poc_storefront_healthy | bool
+      - poc_traefik_healthy | bool
+      - poc_storefront_release_mode != 'demo-bad'
+      - poc_autoscale_state == 'baseline'
+    fail_msg: >-
+      Autoscale fault requires one healthy stable storefront replica, healthy
+      Traefik, and no active traffic spike.
+
+- name: Record traffic-spike ownership by this job
+  ansible.builtin.set_fact:
+    _autoscale_fault_started_by_job: true
+
+- name: Start fixed storefront capacity spike
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - autoscale-demo
+      - up
+      - -d
+      - traffic-spike
+    chdir: "{{ poc_project_path }}"
+  environment:
+    AUTOSCALE_SPIKE_RATE: "{{ poc_autoscale_spike_rate | string }}"
+  changed_when: true
+
+- name: Wait for traffic-spike container to run
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ poc_storefront_spike_container }}"
+  register: _autoscale_spike_wait
+  changed_when: false
+  until: (_autoscale_spike_wait.stdout | trim) == 'true'
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Read final autoscale fault state
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Verify autoscale fault is active
+  ansible.builtin.assert:
+    that:
+      - poc_autoscale_spike_active | bool
+      - poc_autoscale_state == 'spike_running'
+      - (poc_storefront_replica_count | int) == 1
+      - poc_storefront_healthy | bool
+      - poc_traefik_healthy | bool
+    fail_msg: "Storefront capacity spike did not reach the approved fault state."
+
+- name: Publish autoscale fault evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_autoscale_fault_changed: true
+      poc_autoscale_state: "{{ poc_autoscale_state }}"
+      poc_storefront_replicas: "{{ poc_storefront_replica_count }}"
+      poc_autoscale_spike_rate: "{{ poc_autoscale_spike_rate }}"

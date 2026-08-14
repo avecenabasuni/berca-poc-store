@@ -19,7 +19,11 @@
 
     - name: Parse lock metadata
       ansible.builtin.set_fact:
-        _lock_metadata: "{{ (_lock_metadata_raw.content | default('') | b64decode | from_yaml) if _lock_metadata_raw is not failed and _lock_metadata_raw.content is defined else {} }}"
+        _lock_metadata: >-
+          {{ (_lock_metadata_raw.content | default('') | b64decode | from_yaml)
+             if _lock_metadata_raw is not failed
+             and _lock_metadata_raw.content is defined
+             else {} }}
 
     - name: Calculate lock age
       ansible.builtin.set_fact:

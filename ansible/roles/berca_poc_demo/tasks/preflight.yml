@@ -45,3 +45,41 @@
       - docker
       - info
   changed_when: false
+
+- name: Validate Docker Compose configuration
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - config
+      - --quiet
+    chdir: "{{ poc_project_path }}"
+  changed_when: false
+
+- name: Read complete Docker Compose service catalog
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - demo-fault
+      - --profile
+      - autoscale-demo
+      - config
+      - --services
+    chdir: "{{ poc_project_path }}"
+  register: _preflight_compose_services
+  changed_when: false
+
+- name: Verify required Docker Compose services exist
+  ansible.builtin.assert:
+    that:
+      - item in _preflight_compose_services.stdout_lines
+    fail_msg: "Required Compose service '{{ item }}' is missing."
+  loop:
+    - postgres
+    - pgbouncer
+    - pool-hog
+    - traefik
+    - storefront
+    - traffic-spike

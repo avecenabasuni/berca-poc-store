@@ -1,0 +1,85 @@
+---
+# Required internal vars: _storefront_target_image, _storefront_target_version,
+# _storefront_target_mode, _storefront_target_replicas, _storefront_force_recreate.
+
+- name: Verify fixed storefront reconciliation inputs
+  ansible.builtin.assert:
+    that:
+      - _storefront_target_image is string
+      - _storefront_target_image | length > 0
+      - _storefront_target_version is string
+      - _storefront_target_version | length > 0
+      - _storefront_target_mode in ['stable', 'demo-bad']
+      - (_storefront_target_replicas | int) in [1, 2]
+      - _storefront_force_recreate is boolean
+    fail_msg: "Invalid internal storefront reconciliation target."
+
+- name: Verify target storefront image exists locally
+  ansible.builtin.command:
+    argv:
+      - docker
+      - image
+      - inspect
+      - "{{ _storefront_target_image }}"
+  changed_when: false
+
+- name: Reconcile storefront replica set
+  ansible.builtin.command:
+    argv: >-
+      {{ ['docker', 'compose', 'up', '-d', '--no-build', '--no-deps']
+         + (['--force-recreate'] if _storefront_force_recreate else [])
+         + ['--scale', 'storefront=' ~ (_storefront_target_replicas | string), 'storefront'] }}
+    chdir: "{{ poc_project_path }}"
+  environment:
+    STOREFRONT_IMAGE: "{{ _storefront_target_image }}"
+    STOREFRONT_RELEASE_VERSION: "{{ _storefront_target_version }}"
+    POC_STOREFRONT_RELEASE_MODE: "{{ _storefront_target_mode }}"
+  changed_when: true
+
+- name: Wait for expected running storefront replica count
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - --status
+      - running
+      - -q
+      - storefront
+    chdir: "{{ poc_project_path }}"
+  register: _storefront_reconcile_running
+  changed_when: false
+  until: >-
+    (_storefront_reconcile_running.stdout_lines | length)
+    == (_storefront_target_replicas | int)
+  retries: "{{ poc_storefront_wait_retries }}"
+  delay: "{{ poc_storefront_wait_delay }}"
+
+- name: Wait for every storefront replica to become healthy
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' }}"
+      - "{{ item }}"
+  loop: "{{ _storefront_reconcile_running.stdout_lines }}"
+  register: _storefront_reconcile_health
+  changed_when: false
+  until: (_storefront_reconcile_health.stdout | trim) == 'healthy'
+  retries: "{{ poc_storefront_wait_retries }}"
+  delay: "{{ poc_storefront_wait_delay }}"
+
+- name: Read reconciled storefront state
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Verify reconciled storefront image, version, mode, and health
+  ansible.builtin.assert:
+    that:
+      - (poc_storefront_replica_count | int) == (_storefront_target_replicas | int)
+      - (poc_storefront_healthy_count | int) == (_storefront_target_replicas | int)
+      - poc_storefront_healthy | bool
+      - poc_storefront_image == _storefront_target_image
+      - poc_storefront_version == _storefront_target_version
+      - poc_storefront_release_mode == _storefront_target_mode
+    fail_msg: "Storefront reconciliation did not reach the approved target state."

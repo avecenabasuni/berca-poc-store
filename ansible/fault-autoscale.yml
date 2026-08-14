@@ -1,0 +1,65 @@
+---
+# Fixed fault Job Template: start the bounded storefront capacity spike.
+
+- name: Storefront Autoscale Fault
+  hosts: berca_poc_vm
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: fault_autoscale
+  tasks:
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute autoscale fault with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Start storefront capacity spike
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: fault-autoscale
+      rescue:
+        - name: Stop failed traffic-spike workload
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - --profile
+              - autoscale-demo
+              - rm
+              - -s
+              - -f
+              - traffic-spike
+            chdir: "{{ poc_project_path }}"
+          register: _autoscale_fault_cleanup
+          changed_when: _autoscale_fault_cleanup.rc == 0
+          failed_when: false
+          when: _autoscale_fault_started_by_job | default(false) | bool
+
+        - name: Propagate autoscale fault failure
+          ansible.builtin.fail:
+            msg: "Autoscale fault injection failed; the traffic-spike cleanup was attempted."
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"

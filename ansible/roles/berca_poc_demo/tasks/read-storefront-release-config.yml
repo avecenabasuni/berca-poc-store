@@ -1,0 +1,78 @@
+---
+# Load and validate the root-owned immutable storefront release allowlist.
+
+- name: Inspect storefront release configuration
+  ansible.builtin.stat:
+    path: "{{ poc_storefront_release_config_file }}"
+  register: _storefront_release_config_stat
+
+- name: Verify storefront release configuration ownership
+  ansible.builtin.assert:
+    that:
+      - _storefront_release_config_stat.stat.exists
+      - _storefront_release_config_stat.stat.isreg
+      - not (_storefront_release_config_stat.stat.islnk | default(false))
+      - (_storefront_release_config_stat.stat.uid | int) == 0
+      - _storefront_release_config_stat.stat.mode == '0600'
+    fail_msg: >-
+      {{ poc_storefront_release_config_file }} must be a root-owned regular
+      file with mode 0600.
+
+- name: Read storefront release configuration
+  ansible.builtin.slurp:
+    src: "{{ poc_storefront_release_config_file }}"
+  register: _storefront_release_config_raw
+  no_log: true
+
+- name: Parse storefront release configuration lines
+  ansible.builtin.set_fact:
+    _storefront_release_config_lines: >-
+      {{ (_storefront_release_config_raw.content | b64decode | replace('\r', ''))
+         .split('\n')
+         | reject('equalto', '')
+         | reject('match', '^#')
+         | list }}
+  no_log: true
+
+- name: Reject unknown or duplicate release configuration keys
+  ansible.builtin.assert:
+    that:
+      - _storefront_release_config_lines | length == 4
+      - (_storefront_release_config_lines | select('match', '^STOREFRONT_STABLE_IMAGE=') | list | length) == 1
+      - (_storefront_release_config_lines | select('match', '^STOREFRONT_STABLE_VERSION=') | list | length) == 1
+      - (_storefront_release_config_lines | select('match', '^STOREFRONT_BAD_IMAGE=') | list | length) == 1
+      - (_storefront_release_config_lines | select('match', '^STOREFRONT_BAD_VERSION=') | list | length) == 1
+    fail_msg: "Storefront release configuration must contain exactly four approved keys."
+  no_log: true
+
+- name: Extract approved storefront releases
+  ansible.builtin.set_fact:
+    poc_storefront_stable_image: >-
+      {{ (_storefront_release_config_lines
+          | select('match', '^STOREFRONT_STABLE_IMAGE=') | first)
+         | regex_replace('^STOREFRONT_STABLE_IMAGE=', '') }}
+    poc_storefront_stable_version: >-
+      {{ (_storefront_release_config_lines
+          | select('match', '^STOREFRONT_STABLE_VERSION=') | first)
+         | regex_replace('^STOREFRONT_STABLE_VERSION=', '') }}
+    poc_storefront_bad_image: >-
+      {{ (_storefront_release_config_lines
+          | select('match', '^STOREFRONT_BAD_IMAGE=') | first)
+         | regex_replace('^STOREFRONT_BAD_IMAGE=', '') }}
+    poc_storefront_bad_version: >-
+      {{ (_storefront_release_config_lines
+          | select('match', '^STOREFRONT_BAD_VERSION=') | first)
+         | regex_replace('^STOREFRONT_BAD_VERSION=', '') }}
+  no_log: true
+
+- name: Verify approved image digests and versions
+  ansible.builtin.assert:
+    that:
+      - poc_storefront_stable_image is match('^' ~ (poc_storefront_release_image_prefix | regex_escape) ~ '[a-f0-9]{64}$')
+      - poc_storefront_bad_image is match('^' ~ (poc_storefront_release_image_prefix | regex_escape) ~ '[a-f0-9]{64}$')
+      - poc_storefront_stable_version is match('^stable-[a-f0-9]{12}$')
+      - poc_storefront_bad_version is match('^demo-bad-[a-f0-9]{12}$')
+      - poc_storefront_stable_image != poc_storefront_bad_image
+      - poc_storefront_stable_version != poc_storefront_bad_version
+    fail_msg: "Storefront release allowlist contains an invalid or non-immutable release."
+  no_log: true

@@ -1,0 +1,106 @@
+---
+# Deploy the pre-approved demo-bad storefront digest and prove catalog impact.
+
+- name: Verify other fault scenarios are inactive
+  ansible.builtin.include_tasks: read-scenario-conflicts.yml
+
+- name: Read approved storefront release configuration
+  ansible.builtin.include_tasks: read-storefront-release-config.yml
+
+- name: Read storefront state before regression deployment
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Classify current storefront release
+  ansible.builtin.set_fact:
+    poc_storefront_release_state: >-
+      {{ 'stable' if poc_storefront_image == poc_storefront_stable_image
+         else 'demo_bad' if poc_storefront_image == poc_storefront_bad_image
+         else 'unknown' }}
+
+- name: Handle already-deployed regression release
+  when: poc_storefront_release_state == 'demo_bad'
+  block:
+    - name: Wait for known catalog regression
+      ansible.builtin.uri:
+        url: "{{ poc_storefront_catalog_probe_url }}"
+        method: GET
+        status_code:
+          - 200
+          - 503
+        timeout: 10
+      register: _rollback_fault_existing_catalog
+      failed_when: false
+      until: (_rollback_fault_existing_catalog.status | default(0) | int) == 503
+      retries: "{{ poc_wait_retries }}"
+      delay: "{{ poc_wait_delay }}"
+
+    - name: Verify idempotent regression state
+      ansible.builtin.assert:
+        that:
+          - (poc_storefront_replica_count | int) == 1
+          - poc_storefront_healthy | bool
+          - poc_traefik_healthy | bool
+          - not (poc_autoscale_spike_active | bool)
+          - poc_storefront_version == poc_storefront_bad_version
+          - poc_storefront_release_mode == 'demo-bad'
+        fail_msg: "Demo-bad image exists, but its expected bounded state is invalid."
+
+    - name: Publish idempotent rollback fault evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_rollback_fault_changed: false
+          poc_storefront_release_state: demo_bad
+          poc_storefront_version: "{{ poc_storefront_version }}"
+          poc_storefront_catalog_status: 503
+
+    - name: Release lock before ending idempotent fault
+      ansible.builtin.include_tasks: release-lock.yml
+
+    - name: End host after idempotent rollback fault
+      ansible.builtin.meta: end_host
+
+- name: Verify regression deployment preconditions
+  ansible.builtin.assert:
+    that:
+      - poc_storefront_release_state == 'stable'
+      - poc_storefront_version == poc_storefront_stable_version
+      - poc_storefront_release_mode == 'stable'
+      - (poc_storefront_replica_count | int) == 1
+      - poc_storefront_healthy | bool
+      - poc_traefik_healthy | bool
+      - not (poc_autoscale_spike_active | bool)
+    fail_msg: >-
+      Regression fault requires the approved stable digest, one healthy
+      storefront replica, healthy Traefik, and no capacity spike.
+
+- name: Deploy fixed demo-bad release
+  ansible.builtin.include_tasks: reconcile-storefront.yml
+  vars:
+    _storefront_target_image: "{{ poc_storefront_bad_image }}"
+    _storefront_target_version: "{{ poc_storefront_bad_version }}"
+    _storefront_target_mode: demo-bad
+    _storefront_target_replicas: 1
+    _storefront_force_recreate: true
+
+- name: Wait for candidate catalog regression
+  ansible.builtin.uri:
+    url: "{{ poc_storefront_catalog_probe_url }}"
+    method: GET
+    status_code:
+      - 200
+      - 503
+    timeout: 10
+  register: _rollback_fault_catalog
+  failed_when: false
+  until: (_rollback_fault_catalog.status | default(0) | int) == 503
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Publish rollback fault evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_rollback_fault_changed: true
+      poc_storefront_release_state: demo_bad
+      poc_storefront_version: "{{ poc_storefront_version }}"
+      poc_storefront_image: "{{ poc_storefront_image }}"
+      poc_storefront_catalog_status: "{{ _rollback_fault_catalog.status }}"

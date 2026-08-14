@@ -8,7 +8,7 @@ Controller API.
 
 ```
 Datadog detects degradation
-  → Bits Investigation classifies: POOL / DISK / UNKNOWN
+  → Bits Investigation classifies: POOL / DISK / AUTOSCALE / ROLLBACK / UNKNOWN
   → Datadog Workflow selects a fixed Job Template endpoint
   → POST to AAP Controller API with audit IDs only
   → AAP runs the pre-approved playbook on the POC VM
@@ -28,6 +28,8 @@ fixed, pre-approved action.
 |---|---|---|
 | `recover-pool.yml` | Pool Remediation (JT 18) | Stop the dedicated `pool-hog` process that saturates PgBouncer connection pools. Verifies `cl_waiting=0` and pool config at baseline `5/5`. Does NOT restart PgBouncer or PostgreSQL. |
 | `recover-disk.yml` | Disk Remediation (JT 19) | Remove the synthetic saturation trigger and impact marker, truncate the exact saturation log file, verify disk usage drops below 20%. Does NOT unmount the loopback volume. |
+| `recover-autoscale.yml` | Storefront Autoscale Remediation | Scale the observed stable storefront image from exactly one to exactly two healthy replicas while the approved spike remains active. |
+| `recover-rollback.yml` | Storefront Deployment Rollback | Replace the approved `demo-bad` digest with the immutable stable digest from the root-owned VM allowlist and verify catalog HTTP 200. |
 
 ### Fault Injection Playbooks (called by Datadog Workflow 1)
 
@@ -35,6 +37,8 @@ fixed, pre-approved action.
 |---|---|---|
 | `fault-pool.yml` | Pool Fault (JT 21) | Start the dedicated `pool-hog` container to saturate all PgBouncer connections. Polls until `sv_active>=5` and `cl_waiting>0`. |
 | `fault-disk.yml` | Disk Fault (JT 22) | Create a constrained 200 MB loopback ext4 volume, mount it, place a saturation trigger, and re-create the log generator. Polls until disk usage reaches >=85%. |
+| `fault-autoscale.yml` | Storefront Autoscale Fault | Start only the fixed `traffic-spike` profile at the inventory-controlled rate. It does not scale replicas. |
+| `fault-rollback.yml` | Storefront Deployment Regression Fault | Deploy only the approved `demo-bad` digest and verify `/id/store` returns the known 503 regression while health remains healthy. |
 
 ### Reset Playbook (manual or Workflow 1 reset)
 
@@ -47,6 +51,23 @@ fixed, pre-approved action.
 | Playbook | Job Template | Purpose |
 |---|---|---|
 | `status.yml` | Status | Read-only state collection. No lock, no changes. Publishes pool config, metrics, disk mount state, usage, trigger/marker status, and container health as AAP job artifacts. |
+
+### Required storefront Inventory values
+
+Set these as protected Inventory/Host Variables, not survey fields or Datadog
+payload values:
+
+```yaml
+poc_project_path: /home/ave/berca-poc-store
+poc_autoscale_spike_rate: 10
+poc_storefront_release_config_file: /etc/berca-poc/storefront-release.env
+```
+
+The release file remains root-owned mode `0600` and contains only the approved
+stable and demo-bad image digests and versions. Do not enable prompt-on-launch
+for image, version, repository, replica count, service name, project path, or
+traffic rate. The two remediation templates expose only `monitor_id`,
+`investigation_id`, and `workflow_instance_id` as bounded survey fields.
 
 ## Reusable Role
 
@@ -65,10 +86,17 @@ lifecycle.
 | `tasks/release-lock.yml` | Lock cleanup in `always` blocks |
 | `tasks/read-pool-state.yml` | Query PgBouncer `SHOW CONFIG` and `SHOW POOLS` |
 | `tasks/read-disk-state.yml` | Check mountpoint, loopback, disk usage, trigger, marker |
+| `tasks/read-storefront-state.yml` | Read replica count, health, Traefik, spike, image, version, and release mode |
+| `tasks/read-storefront-release-config.yml` | Validate the root-owned immutable stable/demo-bad release allowlist |
+| `tasks/reconcile-storefront.yml` | Reconcile only one or two replicas to a fixed internal image/version target |
 | `tasks/fault-pool.yml` | Start pool-hog, poll saturation |
 | `tasks/fault-disk.yml` | Create image, ext4, mount, trigger, re-create consumers |
+| `tasks/fault-autoscale.yml` | Start the bounded storefront traffic spike |
+| `tasks/fault-rollback.yml` | Deploy the allowlisted demo-bad release and verify the known regression |
 | `tasks/recover-pool.yml` | Stop pool-hog, verify baseline |
 | `tasks/recover-disk.yml` | Remove trigger/marker, truncate log, verify recovery |
+| `tasks/recover-autoscale.yml` | Scale one healthy stable replica to exactly two |
+| `tasks/recover-rollback.yml` | Restore the allowlisted stable release and verify catalog recovery |
 | `tasks/reset.yml` | Full baseline restore with block/rescue/always |
 | `tasks/status.yml` | Collect and publish observed state |
 

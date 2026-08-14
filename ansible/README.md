@@ -629,18 +629,17 @@ Handoff Ansible selesai setelah tersedia:
 - konfirmasi bahwa AAP status hanya execution evidence dan Datadog telemetry
   tetap menjadi final recovery authority.
 
-## 15. Planned storefront scale-out handoff
+## 15. Native storefront scale-out playbooks
 
-Setelah direct Demo Control API transport pada
-[`load-test/AUTOSCALE-POC.md`](../load-test/AUTOSCALE-POC.md) lulus, owner
-Ansible menambahkan dua Job Template fixed untuk VM POC yang sama:
+Implementasi native tersedia untuk menggantikan transport Demo Control API pada
+[`load-test/AUTOSCALE-POC.md`](../load-test/AUTOSCALE-POC.md):
 
 | Job Template | Native outcome |
 |---|---|
-| `Scale Storefront to 2` | Pastikan Traefik sehat, lalu scale Compose service `storefront` dari tepat 1 menjadi tepat 2 replica dan tunggu keduanya healthy |
-| `Reset Storefront Scale` | Hanya sesudah spike berhenti, scale service `storefront` kembali tepat 1 replica dan verifikasi health |
+| `fault-autoscale.yml` | Pastikan baseline satu replica sehat, lalu start fixed `traffic-spike` pada rate dari protected Inventory |
+| `recover-autoscale.yml` | Pastikan Traefik dan spike aktif, lalu scale Compose service `storefront` dari tepat 1 menjadi tepat 2 replica dan tunggu keduanya healthy |
 
-Kedua template menggunakan Inventory, Machine Credential, absolute project
+Kedua playbook menggunakan Inventory, Machine Credential, absolute project
 path, service name, dan replica count yang fixed di Ansible. Datadog tidak
 mengirim `host`, `compose_path`, `service`, `replica_count`, command, atau
 shell argument. Template menolak pool/disk fault aktif dan concurrent run.
@@ -649,16 +648,15 @@ Datadog mempertahankan policy `env:poc`, capacity-pressure monitor, Slack
 Approve/Reject, serta verification p95/error/health. AAP success hanya
 execution evidence; tidak menggantikan verification telemetry Datadog.
 
-## 16. Planned storefront deployment rollback handoff
+## 16. Native storefront deployment rollback playbooks
 
-Setelah fallback API pada
-[`load-test/DEPLOYMENT-ROLLBACK-POC.md`](../load-test/DEPLOYMENT-ROLLBACK-POC.md)
-lulus, owner Ansible menambahkan dua Job Template fixed:
+Implementasi native tersedia untuk menggantikan transport fallback API pada
+[`load-test/DEPLOYMENT-ROLLBACK-POC.md`](../load-test/DEPLOYMENT-ROLLBACK-POC.md):
 
 | Job Template | Native outcome |
 |---|---|
-| `Rollback Storefront to Stable` | Recreate exactly one storefront replica with the pre-approved stable GHCR digest and wait for Docker health plus catalog `200` |
-| `Reset Storefront Deployment` | Reconcile the same pre-approved stable digest and one healthy storefront replica |
+| `fault-rollback.yml` | Recreate exactly one storefront replica with the pre-approved demo-bad GHCR digest and verify the bounded catalog `503` regression |
+| `recover-rollback.yml` | Recreate exactly one storefront replica with the pre-approved stable GHCR digest and wait for Docker health plus catalog `200` |
 
 The VM inventory/configuration owns the GHCR repository, stable digest, release
 version, Compose path, and registry credential. Datadog sends only audit IDs;

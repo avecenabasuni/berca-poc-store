@@ -1,0 +1,53 @@
+---
+# Fixed fault Job Template: deploy the approved demo-bad storefront digest.
+
+- name: Storefront Deployment Regression Fault
+  hosts: berca_poc_vm
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  gather_facts: false
+  vars:
+    poc_action: fault_rollback
+  tasks:
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute rollback fault with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Deploy fixed regression release
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: fault-rollback
+      rescue:
+        - name: Restore approved stable storefront after failed fault
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: recover-rollback
+
+        - name: Propagate rollback fault failure
+          ansible.builtin.fail:
+            msg: "Regression deployment failed; stable-release recovery was attempted."
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"

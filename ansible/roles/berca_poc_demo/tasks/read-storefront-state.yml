@@ -1,0 +1,153 @@
+---
+# Read observed storefront, Traefik, traffic-spike, image, and release metadata.
+
+- name: Read running storefront container IDs
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - --status
+      - running
+      - -q
+      - storefront
+    chdir: "{{ poc_project_path }}"
+  register: _storefront_running_ids
+  changed_when: false
+
+- name: Read all storefront container IDs
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - -a
+      - -q
+      - storefront
+    chdir: "{{ poc_project_path }}"
+  register: _storefront_all_ids
+  changed_when: false
+
+- name: Read health of running storefront containers
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' }}"
+      - "{{ item }}"
+  loop: "{{ _storefront_running_ids.stdout_lines }}"
+  register: _storefront_health_results
+  changed_when: false
+
+- name: Read primary storefront image
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.Config.Image}}' }}"
+      - "{{ _storefront_all_ids.stdout_lines[0] }}"
+  register: _storefront_image_result
+  changed_when: false
+  when: _storefront_all_ids.stdout_lines | length > 0
+
+- name: Read primary storefront environment
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{range .Config.Env}}{{println .}}{{end}}' }}"
+      - "{{ _storefront_all_ids.stdout_lines[0] }}"
+  register: _storefront_environment_result
+  changed_when: false
+  when: _storefront_all_ids.stdout_lines | length > 0
+
+- name: Read running Traefik container IDs
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - ps
+      - --status
+      - running
+      - -q
+      - traefik
+    chdir: "{{ poc_project_path }}"
+  register: _traefik_running_ids
+  changed_when: false
+
+- name: Read Traefik health
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' }}"
+      - "{{ _traefik_running_ids.stdout_lines[0] }}"
+  register: _traefik_health_result
+  changed_when: false
+  when: _traefik_running_ids.stdout_lines | length == 1
+
+- name: Read traffic-spike running state
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ poc_storefront_spike_container }}"
+  register: _storefront_spike_result
+  changed_when: false
+  failed_when: false
+
+- name: Extract storefront environment rows
+  ansible.builtin.set_fact:
+    _storefront_version_rows: >-
+      {{ (_storefront_environment_result.stdout_lines | default([]))
+         | select('match', '^DD_VERSION=') | list }}
+    _storefront_release_mode_rows: >-
+      {{ (_storefront_environment_result.stdout_lines | default([]))
+         | select('match', '^POC_STOREFRONT_RELEASE_MODE=') | list }}
+
+- name: Set observed storefront state
+  ansible.builtin.set_fact:
+    poc_storefront_replica_count: "{{ _storefront_running_ids.stdout_lines | length }}"
+    poc_storefront_container_count: "{{ _storefront_all_ids.stdout_lines | length }}"
+    poc_storefront_healthy_count: >-
+      {{ (_storefront_health_results.results | default([]))
+         | selectattr('stdout', 'equalto', 'healthy') | list | length }}
+    poc_storefront_healthy: >-
+      {{ (_storefront_running_ids.stdout_lines | length) > 0
+         and ((_storefront_health_results.results | default([]))
+              | selectattr('stdout', 'equalto', 'healthy') | list | length)
+             == (_storefront_running_ids.stdout_lines | length) }}
+    poc_traefik_healthy: >-
+      {{ (_traefik_running_ids.stdout_lines | length) == 1
+         and (_traefik_health_result.stdout | default('')) == 'healthy' }}
+    poc_autoscale_spike_active: >-
+      {{ _storefront_spike_result.rc == 0
+         and (_storefront_spike_result.stdout | trim) == 'true' }}
+    poc_storefront_image: "{{ _storefront_image_result.stdout | default('') | trim }}"
+    poc_storefront_version: >-
+      {{ ((_storefront_version_rows[0] | regex_replace('^DD_VERSION=', ''))
+          if _storefront_version_rows | length == 1 else '') }}
+    poc_storefront_release_mode: >-
+      {{ ((_storefront_release_mode_rows[0]
+           | regex_replace('^POC_STOREFRONT_RELEASE_MODE=', ''))
+          if _storefront_release_mode_rows | length == 1 else 'unknown') }}
+
+- name: Set storefront autoscale state
+  ansible.builtin.set_fact:
+    poc_autoscale_state: >-
+      {{ 'baseline'
+         if (poc_storefront_replica_count | int) == 1
+            and not (poc_autoscale_spike_active | bool)
+         else 'spike_running'
+         if (poc_storefront_replica_count | int) == 1
+            and (poc_autoscale_spike_active | bool)
+         else 'scaled_out'
+         if (poc_storefront_replica_count | int) == 2
+            and (poc_autoscale_spike_active | bool)
+         else 'unexpected' }}
