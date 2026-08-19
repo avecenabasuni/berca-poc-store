@@ -30,10 +30,12 @@ emergency fallback.
 ```text
 Datadog generic backend monitor ALERT
   -> Bits Investigation
-  -> Datadog Workflow mengklasifikasikan POOL / DISK / UNKNOWN
+  -> Datadog Workflow mengklasifikasikan POOL / DISK / AUTOSCALE /
+     ROLLBACK / MEMORY_PRESSURE / UNKNOWN
   -> bounded action catalog
        POOL    -> POST AAP Job Template 13
        DISK    -> POST AAP Job Template 14
+       MEMORY_PRESSURE -> POST fixed Memory Hot-Add Job Template
        UNKNOWN -> no change, escalation
   -> ambil AAP job ID
   -> poll AAP job sampai terminal state
@@ -50,6 +52,10 @@ Posisi Job Template:
 | 13 | Pool remediation | Workflow 2, hanya pada `POOL` | Sudah tersedia |
 | 14 | Disk remediation | Workflow 2, hanya pada `DISK` | Sudah tersedia |
 | 15 | Full reset | Workflow 1 `reset` atau operator | Sudah tersedia |
+| `<MEMORY_FAULT_JT_ID>` | Inject bounded application-VM memory pressure | Scenario Controller `memory` | Perlu dibuat owner Ansible |
+| `<MEMORY_STOP_JT_ID>` | Stop bounded application-VM memory pressure | Scenario Controller `stop-memory` | Perlu dibuat owner Ansible |
+| `<MEMORY_HOT_ADD_JT_ID>` | Hot-add Nutanix application VM ke 24 GiB | Remediation Workflow, hanya `MEMORY_PRESSURE` | Perlu dibuat owner Ansible |
+| `<MEMORY_RESET_JT_ID>` | Stop pressure dan restore baseline 16 GiB | Scenario Controller `reset-memory` | Perlu dibuat owner Ansible |
 
 Endpoint Job Template harus disimpan sebagai URL statis pada masing-masing
 branch Workflow. Workflow tidak boleh membentuk Job Template ID dari output
@@ -59,6 +65,33 @@ EDA dapat ditambahkan kemudian bila demo memang perlu menampilkan Event Stream,
 Rulebook, dan event routing milik Red Hat. EDA bukan bagian dari minimal hero
 demo dan bukan fallback otomatis.
 
+### Extension: application VM memory hot-add
+
+Skenario memory memakai AAP sebagai execution path utama dan tidak menambahkan
+action start/stop/hot-add ke Demo Control API. Detail implementasi, calibration,
+payload, verification, dan live demo ada di
+`load-test/MEMORY-HOT-ADD-POC.md`.
+
+Keempat Job Template memory harus mengunci Inventory host, Nutanix VM UUID,
+Prism endpoint, Compose project path, service name, baseline 16 GiB, dan target
+24 GiB di sisi AAP. Tidak ada nilai tersebut yang boleh berasal dari monitor,
+Bits, survey bebas, atau Datadog request.
+
+Kontrak native action:
+
+| Job Template | Native outcome |
+|---|---|
+| Inject Application VM Memory Pressure | Preflight 16 GiB dan `MemAvailable >=2.5 GiB`, lalu start hanya Compose profile/service `memory-demo` / `memory-pressure` |
+| Stop Application VM Memory Pressure | Stop dan remove hanya `memory-pressure`; sukses idempotent bila sudah berhenti |
+| Hot Add Application VM Memory to 24 GiB | Nutanix hot-add 16 ke 24 GiB tanpa menghentikan pressure; no-op pada 24 GiB; tidak pernah melebihi 24 GiB |
+| Restore Application VM Memory Baseline | Stop pressure secara idempotent, restore 24 ke 16 GiB, lalu tunggu guest, SSH, Datadog Agent, dan application stack sehat |
+
+Gunakan shared scenario lock lintas seluruh Job Template POC. Inject wajib
+menolak pool, disk, autoscale, rollback, atau vulnerability scenario yang aktif.
+Restore wajib menolak scale-down bila pressure masih aktif setelah tahap stop.
+Setiap hot-add/restore mencatat Nutanix task ID dan before/after guest memory
+sebagai evidence tanpa mengekspos credential.
+
 ## 2. Peran setiap komponen
 
 ### Datadog
@@ -67,7 +100,8 @@ Datadog bertanggung jawab atas:
 
 - generic backend degradation detection;
 - Bits Investigation;
-- klasifikasi terbatas `POOL`, `DISK`, atau `UNKNOWN`;
+- klasifikasi terbatas `POOL`, `DISK`, `AUTOSCALE`, `ROLLBACK`,
+  `MEMORY_PRESSURE`, atau `UNKNOWN`;
 - pemilihan endpoint Job Template dari katalog statis;
 - authenticated launch request ke AAP;
 - polling status job sebagai execution evidence;

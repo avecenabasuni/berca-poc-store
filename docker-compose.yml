@@ -317,6 +317,41 @@ services:
     networks:
       - medusa_network
 
+  # Dedicated, opt-in host memory pressure generator for the Nutanix
+  # application-VM vertical-scaling demo. The allocation is absolute and
+  # remains unchanged after RAM is hot-added, so recovery can be attributed to
+  # the capacity change rather than to a reduced synthetic workload.
+  memory-pressure:
+    build:
+      context: ./load-test/memory-pressure
+      dockerfile: Dockerfile
+    image: berca-memory-pressure:local
+    container_name: berca_poc_memory_pressure
+    profiles: ["memory-demo"]
+    restart: "no"
+    init: true
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 32
+    oom_score_adj: 1000
+    mem_limit: ${MEMORY_PRESSURE_LIMIT:-1280M}
+    stop_grace_period: 5s
+    environment:
+      MEMORY_PRESSURE_BYTES: ${MEMORY_PRESSURE_BYTES:-1024M}
+      MEMORY_PRESSURE_TIMEOUT_SECONDS: "1200"
+    labels:
+      com.datadoghq.tags.env: "poc"
+      com.datadoghq.tags.service: "berca-memory-pressure"
+      com.datadoghq.tags.version: "1.0.0"
+      com.datadoghq.tags.resource_id: "nutanix-application-vm-memory"
+      com.datadoghq.tags.scenario: "memory-pressure"
+
   # Datadog Agent (Trimmed POC setup for container monitoring, APM, and logs)
   datadog-agent:
     image: registry.datadoghq.com/agent:7
