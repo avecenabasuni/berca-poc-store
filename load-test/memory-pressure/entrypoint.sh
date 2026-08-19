@@ -39,6 +39,7 @@ fi
 echo "[INFO] Starting bounded POC memory pressure: bytes=$memory_bytes timeout=${timeout_seconds}s"
 
 exec stress-ng \
+  --temp-path /tmp \
   --vm 1 \
   --vm-bytes "$memory_bytes" \
   --vm-keep \
