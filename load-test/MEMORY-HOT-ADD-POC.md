@@ -39,13 +39,22 @@ Value yang ditunjukkan kepada customer:
 | `load-test/memory-pressure/Dockerfile` | Image lokal berisi low-CPU memory holder khusus POC |
 | `load-test/memory-pressure/memory-holder.c` | Mengalokasikan, mengunci, dan menyentuh RAM sekali lalu tidur |
 | `load-test/memory-pressure/entrypoint.sh` | Validasi enum alokasi, baseline host, safety floor, timeout, dan cgroup limit |
+| `demo-control.sh memory` | Development fallback untuk memulai fixed memory fault |
+| `demo-control.sh stop-memory` | Development fallback untuk menghentikan fixed memory fault |
 | `demo-control.sh status` | Evidence read-only RAM host dan status pressure container |
 | `load-test/scenario-controller.json` | Manual launch `memory`, `stop-memory`, dan `reset-memory` melalui AAP |
 | `load-test/remediation-apps.json` | Bits classification, policy, approval, hot-add dispatch, dan verification |
 
-`demo-control.sh` sengaja tidak memiliki action start/stop/hot-add memory.
-Untuk skenario ini AAP adalah execution path utama. Status read-only tetap
-digunakan Workflow untuk policy dan verification.
+AAP tetap menjadi execution path final. Selama integrasi AAP belum selesai,
+`demo-control.sh` dan Demo Control API menyediakan development fallback untuk
+fault `memory` dan `stop-memory`. Keduanya menggunakan fixed Compose service,
+tidak menerima byte allocation, host, path, atau argument dari request.
+
+Fallback tidak menjalankan hot-add atau scale-down Nutanix. Untuk pengujian
+sementara, perubahan 16/24 GiB dilakukan manual melalui Prism. Credential dan
+operasi hypervisor tidak ditempatkan di shell guest VM. Setelah AAP tersedia,
+owner Ansible menggantikan langkah manual tersebut tanpa mengubah fault,
+classification, policy, atau verification Datadog.
 
 ## Konfigurasi VM
 
@@ -98,6 +107,28 @@ docker compose --profile memory-demo config
 
 Normal `docker compose up -d` tidak menjalankan service karena profile-nya
 tidak aktif.
+
+Development fallback lokal:
+
+```bash
+sudo ./demo-control.sh memory
+sudo ./demo-control.sh status
+sudo ./demo-control.sh stop-memory
+```
+
+Demo Control API memakai fault token yang sama dengan scenario fault lain:
+
+```http
+POST /v1/demo/action
+Authorization: Bearer <DEMO_CONTROL_FAULT_TOKEN>
+Content-Type: application/json
+
+{"action":"memory"}
+```
+
+Action stop memakai payload `{"action":"stop-memory"}`. Remediation token
+ditolak untuk kedua action tersebut. `GET /v1/demo/status` tetap menerima
+salah satu token dan mengekspos state memory yang diamati.
 
 ## Kalibrasi yang aman
 

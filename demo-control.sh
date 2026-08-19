@@ -8,6 +8,9 @@ LOCK_FILE="${POC_DEMO_LOCK_FILE:-/tmp/berca-poc-demo-control.lock}"
 POOL_HOG_CONTAINER="berca_poc_pool_hog"
 STOREFRONT_SPIKE_CONTAINER="berca_poc_storefront_spike"
 MEMORY_PRESSURE_CONTAINER="berca_poc_memory_pressure"
+MEMORY_PRESSURE_IMAGE="berca-memory-pressure:local"
+BACKEND_CONTAINER="medusa_backend"
+DATADOG_AGENT_CONTAINER="dd-agent"
 STOREFRONT_RELEASE_CONFIG_FILE="${POC_STOREFRONT_RELEASE_CONFIG_FILE:-/etc/berca-poc/storefront-release.env}"
 STOREFRONT_RELEASE_IMAGE_PREFIX="ghcr.io/avecenabasuni/berca-storefront@sha256:"
 LOG_DIR="${SCRIPT_DIR}/docker/log-saturation/data"
@@ -44,6 +47,8 @@ Actions:
   deploy-storefront-demo-bad  Deploy the pre-approved storefront regression release.
   rollback-storefront-stable  Return the storefront to the pre-approved stable release.
   reset-storefront-deployment Return the storefront to the stable release.
+  memory        Start the bounded application-VM memory pressure fault.
+  stop-memory   Stop only the bounded application-VM memory pressure fault.
   reset         Run the canonical full baseline reset.
   status        Print the observed POC state as JSON (pretty in an interactive terminal).
 EOF
@@ -664,6 +669,87 @@ memory_pressure_is_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$MEMORY_PRESSURE_CONTAINER" 2>/dev/null || printf 'false')" = "true" ]
 }
 
+memory_pressure_exists() {
+  docker inspect "$MEMORY_PRESSURE_CONTAINER" >/dev/null 2>&1
+}
+
+memory_pressure_is_ready() {
+  memory_pressure_is_running || return 1
+  docker logs "$MEMORY_PRESSURE_CONTAINER" 2>&1 | awk '
+    /^\[OK\] Locked [0-9]+ bytes in RAM;/ { ready=1 }
+    END { exit !ready }
+  '
+}
+
+container_is_healthy() {
+  local container_name="$1" running health_status
+  running=$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)
+  health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_name" 2>/dev/null || true)
+  [ "$running" = "true" ] && [ "$health_status" = "healthy" ]
+}
+
+memory_scenario_guardrails() {
+  disk_fault_is_active && fail "Disk fault is active. Refusing memory pressure."
+  pool_hog_is_running && fail "Pool fault is active. Refusing memory pressure."
+  autoscale_spike_is_running && fail "Storefront capacity spike is active. Refusing memory pressure."
+  [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one replica for the memory scenario."
+  [ "$(storefront_release_state)" != "demo_bad" ] || fail "Storefront regression release is active. Refusing memory pressure."
+  traefik_is_healthy || fail "Traefik is not healthy. Refusing memory pressure."
+  storefront_replicas_are_healthy 1 || fail "Storefront is not healthy. Refusing memory pressure."
+  container_is_healthy "$BACKEND_CONTAINER" || fail "Berca backend is not healthy. Refusing memory pressure."
+  container_is_healthy "$DATADOG_AGENT_CONTAINER" || fail "Datadog Agent is not healthy. Refusing memory pressure."
+
+  read_host_memory_state || fail "Host memory state is unavailable."
+  [ "$HOST_MEMORY_PROFILE" = "baseline_16g" ] || \
+    fail "Memory fault requires the approved 16 GiB application-VM baseline; observed ${HOST_MEMORY_PROFILE}."
+  [ "$HOST_MEMORY_AVAILABLE_BYTES" -ge 2684354560 ] || \
+    fail "Memory fault requires at least 2.5 GiB MemAvailable before allocation."
+
+  ensure_pgbouncer_ready
+  pool_is_recovered || fail "PgBouncer must be healthy at the 5/5 baseline before memory pressure starts."
+}
+
+start_memory_pressure() {
+  if memory_pressure_is_ready; then
+    read_host_memory_state
+    echo "[INFO] Memory pressure is already active: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}."
+    return 0
+  fi
+
+  memory_scenario_guardrails
+
+  if memory_pressure_exists; then
+    docker compose --profile memory-demo rm -sf memory-pressure >/dev/null
+  fi
+
+  docker image inspect "$MEMORY_PRESSURE_IMAGE" >/dev/null 2>&1 || \
+    fail "Memory-pressure image is unavailable. Build it before starting the demo."
+
+  docker compose --profile memory-demo up -d --no-build memory-pressure >/dev/null
+  if ! wait_for "resident memory allocation" "$DISK_WAIT_TIMEOUT_SECONDS" memory_pressure_is_ready; then
+    echo "[ERROR] Memory pressure failed to become ready; last container logs:" >&2
+    docker logs --tail 50 "$MEMORY_PRESSURE_CONTAINER" >&2 || true
+    stop_memory_pressure_fallback || true
+    exit 1
+  fi
+
+  read_host_memory_state || fail "Memory pressure started but host memory state cannot be read."
+  echo "[OK] Memory pressure active: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
+}
+
+stop_memory_pressure() {
+  if memory_pressure_exists; then
+    stop_memory_pressure_fallback
+  fi
+
+  if memory_pressure_is_running; then
+    fail "Memory-pressure container is still running after stop."
+  fi
+
+  read_host_memory_state || fail "Memory pressure stopped but host memory state cannot be read."
+  echo "[OK] Memory pressure stopped: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
+}
+
 stop_memory_pressure_fallback() {
   docker compose --profile memory-demo rm -sf memory-pressure >/dev/null
 }
@@ -805,7 +891,7 @@ fi
 ACTION="$1"
 
 case "$ACTION" in
-  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment)
+  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment|memory|stop-memory)
     ;;
   *)
     usage >&2
@@ -858,6 +944,12 @@ case "$ACTION" in
     ;;
   reset-storefront-deployment)
     reset_storefront_deployment
+    ;;
+  memory)
+    start_memory_pressure
+    ;;
+  stop-memory)
+    stop_memory_pressure
     ;;
   reset)
     reset_demo
