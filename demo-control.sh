@@ -7,6 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK_FILE="${POC_DEMO_LOCK_FILE:-/tmp/berca-poc-demo-control.lock}"
 POOL_HOG_CONTAINER="berca_poc_pool_hog"
 STOREFRONT_SPIKE_CONTAINER="berca_poc_storefront_spike"
+MEMORY_PRESSURE_CONTAINER="berca_poc_memory_pressure"
+MEMORY_PRESSURE_IMAGE="berca-memory-pressure:local"
+BACKEND_CONTAINER="medusa_backend"
+DATADOG_AGENT_CONTAINER="dd-agent"
 STOREFRONT_RELEASE_CONFIG_FILE="${POC_STOREFRONT_RELEASE_CONFIG_FILE:-/etc/berca-poc/storefront-release.env}"
 STOREFRONT_RELEASE_IMAGE_PREFIX="ghcr.io/avecenabasuni/berca-storefront@sha256:"
 LOG_DIR="${SCRIPT_DIR}/docker/log-saturation/data"
@@ -43,6 +47,8 @@ Actions:
   deploy-storefront-demo-bad  Deploy the pre-approved storefront regression release.
   rollback-storefront-stable  Return the storefront to the pre-approved stable release.
   reset-storefront-deployment Return the storefront to the stable release.
+  memory        Start the bounded application-VM memory pressure fault.
+  stop-memory   Stop only the bounded application-VM memory pressure fault.
   reset         Run the canonical full baseline reset.
   status        Print the observed POC state as JSON (pretty in an interactive terminal).
 EOF
@@ -304,6 +310,7 @@ storefront_release_guardrails() {
   disk_fault_is_active && fail "Disk fault is active. Refusing deployment action."
   pool_hog_is_running && fail "Pool fault is active. Refusing deployment action."
   autoscale_spike_is_running && fail "Storefront capacity spike is active. Refusing deployment action."
+  memory_pressure_is_running && fail "Application VM memory pressure is active. Refusing deployment action."
   [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one replica for a deployment action."
   traefik_is_healthy || fail "Traefik is not healthy. Refusing deployment action."
   storefront_replicas_are_healthy 1 || fail "Storefront is not healthy. Refusing deployment action."
@@ -423,6 +430,7 @@ stop_pool_hog() {
 start_storefront_spike() {
   disk_fault_is_active && fail "Disk fault is active. Recover it before starting a storefront scale test."
   pool_hog_is_running && fail "Pool fault is active. Recover it before starting a storefront scale test."
+  memory_pressure_is_running && fail "Application VM memory pressure is active. Stop it before starting a storefront scale test."
   [ "$(storefront_release_state)" != "demo_bad" ] || fail "A storefront regression release is active. Roll it back before starting a scale test."
 
   if autoscale_spike_is_running; then
@@ -456,6 +464,7 @@ stop_storefront_spike() {
 scale_storefront_to_two() {
   disk_fault_is_active && fail "Disk fault is active. Refusing storefront scale-out."
   pool_hog_is_running && fail "Pool fault is active. Refusing storefront scale-out."
+  memory_pressure_is_running && fail "Application VM memory pressure is active. Refusing storefront scale-out."
   [ "$(storefront_release_state)" != "demo_bad" ] || fail "A storefront regression release is active. Refusing scale-out."
   autoscale_spike_is_running || fail "Storefront capacity spike is not active. Refusing scale-out without the approved test workload."
   [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one running replica before scale-out."
@@ -468,6 +477,7 @@ scale_storefront_to_two() {
 
 reset_storefront_scale() {
   autoscale_spike_is_running && fail "Stop the storefront capacity spike before resetting replica count."
+  memory_pressure_is_running && fail "Stop application VM memory pressure before resetting replica count."
   docker compose up -d traefik >/dev/null
   wait_for "Traefik health" "$WAIT_TIMEOUT_SECONDS" traefik_is_healthy
   reconcile_storefront_replicas 1
@@ -502,6 +512,7 @@ rollback_storefront_stable() {
 reset_storefront_deployment() {
   load_storefront_release_config || fail "Storefront release configuration is missing, invalid, or not root-owned mode 0600."
   autoscale_spike_is_running && fail "Stop the storefront capacity spike before resetting the deployment."
+  memory_pressure_is_running && fail "Stop application VM memory pressure before resetting the deployment."
   traefik_is_healthy || fail "Traefik is not healthy. Refusing deployment reset."
   if [ "$(storefront_release_state)" = "stable" ] && storefront_catalog_is_available; then
     echo "[INFO] Storefront deployment is already at the configured stable release."
@@ -524,6 +535,7 @@ recreate_disk_consumers() {
 
 start_disk_fault() {
   pool_hog_is_running && fail "Pool fault is active. Recover it before starting a disk fault."
+  memory_pressure_is_running && fail "Application VM memory pressure is active. Stop it before starting a disk fault."
 
   if disk_fault_is_active; then
     if wait_for "existing synthetic disk fault" "$DISK_WAIT_TIMEOUT_SECONDS" disk_fault_is_observed; then
@@ -578,6 +590,7 @@ recover_disk() {
 
 start_pool_fault() {
   disk_fault_is_active && fail "Disk fault is active. Reset or recover it before starting a pool fault."
+  memory_pressure_is_running && fail "Application VM memory pressure is active. Stop it before starting a pool fault."
   ensure_pgbouncer_ready
 
   if ! pool_config_is_baseline; then
@@ -620,6 +633,7 @@ recover_pool() {
 }
 
 reset_demo() {
+  stop_memory_pressure_fallback
   stop_storefront_spike
   reset_storefront_scale
   if [ -r "$STOREFRONT_RELEASE_CONFIG_FILE" ]; then
@@ -640,8 +654,125 @@ reset_demo() {
   if mountpoint -q "$LOG_DIR"; then
     fail "Reset validation failed: the synthetic loopback volume is still mounted."
   fi
+  if memory_pressure_is_running; then
+    fail "Reset validation failed: the synthetic memory-pressure container is still running."
+  fi
+  read_host_memory_state || fail "Reset validation failed: host memory state is unavailable."
+  if [ "$HOST_MEMORY_PROFILE" != "baseline_16g" ]; then
+    fail "Reset validation failed: application VM memory is ${HOST_MEMORY_PROFILE}; run the AAP reset-memory scenario to restore the 16 GiB Nutanix baseline."
+  fi
 
   echo "[OK] Demo reset completed and the pool is ready at the 5/5 baseline."
+}
+
+memory_pressure_is_running() {
+  [ "$(docker inspect -f '{{.State.Running}}' "$MEMORY_PRESSURE_CONTAINER" 2>/dev/null || printf 'false')" = "true" ]
+}
+
+memory_pressure_exists() {
+  docker inspect "$MEMORY_PRESSURE_CONTAINER" >/dev/null 2>&1
+}
+
+memory_pressure_is_ready() {
+  memory_pressure_is_running || return 1
+  docker logs "$MEMORY_PRESSURE_CONTAINER" 2>&1 | awk '
+    /^\[OK\] Locked [0-9]+ bytes in RAM;/ { ready=1 }
+    END { exit !ready }
+  '
+}
+
+container_is_healthy() {
+  local container_name="$1" running health_status
+  running=$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)
+  health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_name" 2>/dev/null || true)
+  [ "$running" = "true" ] && [ "$health_status" = "healthy" ]
+}
+
+memory_scenario_guardrails() {
+  disk_fault_is_active && fail "Disk fault is active. Refusing memory pressure."
+  pool_hog_is_running && fail "Pool fault is active. Refusing memory pressure."
+  autoscale_spike_is_running && fail "Storefront capacity spike is active. Refusing memory pressure."
+  [ "$(storefront_replica_count)" -eq 1 ] || fail "Storefront must have exactly one replica for the memory scenario."
+  [ "$(storefront_release_state)" != "demo_bad" ] || fail "Storefront regression release is active. Refusing memory pressure."
+  traefik_is_healthy || fail "Traefik is not healthy. Refusing memory pressure."
+  storefront_replicas_are_healthy 1 || fail "Storefront is not healthy. Refusing memory pressure."
+  container_is_healthy "$BACKEND_CONTAINER" || fail "Berca backend is not healthy. Refusing memory pressure."
+  container_is_healthy "$DATADOG_AGENT_CONTAINER" || fail "Datadog Agent is not healthy. Refusing memory pressure."
+
+  read_host_memory_state || fail "Host memory state is unavailable."
+  [ "$HOST_MEMORY_PROFILE" = "baseline_16g" ] || \
+    fail "Memory fault requires the approved 16 GiB application-VM baseline; observed ${HOST_MEMORY_PROFILE}."
+  [ "$HOST_MEMORY_AVAILABLE_BYTES" -ge 2684354560 ] || \
+    fail "Memory fault requires at least 2.5 GiB MemAvailable before allocation."
+
+  ensure_pgbouncer_ready
+  pool_is_recovered || fail "PgBouncer must be healthy at the 5/5 baseline before memory pressure starts."
+}
+
+start_memory_pressure() {
+  if memory_pressure_is_ready; then
+    read_host_memory_state
+    echo "[INFO] Memory pressure is already active: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}."
+    return 0
+  fi
+
+  memory_scenario_guardrails
+
+  if memory_pressure_exists; then
+    docker compose --profile memory-demo rm -sf memory-pressure >/dev/null
+  fi
+
+  docker image inspect "$MEMORY_PRESSURE_IMAGE" >/dev/null 2>&1 || \
+    fail "Memory-pressure image is unavailable. Build it before starting the demo."
+
+  docker compose --profile memory-demo up -d --no-build memory-pressure >/dev/null
+  if ! wait_for "resident memory allocation" "$DISK_WAIT_TIMEOUT_SECONDS" memory_pressure_is_ready; then
+    echo "[ERROR] Memory pressure failed to become ready; last container logs:" >&2
+    docker logs --tail 50 "$MEMORY_PRESSURE_CONTAINER" >&2 || true
+    stop_memory_pressure_fallback || true
+    exit 1
+  fi
+
+  read_host_memory_state || fail "Memory pressure started but host memory state cannot be read."
+  echo "[OK] Memory pressure active: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
+}
+
+stop_memory_pressure() {
+  if memory_pressure_exists; then
+    stop_memory_pressure_fallback
+  fi
+
+  if memory_pressure_is_running; then
+    fail "Memory-pressure container is still running after stop."
+  fi
+
+  read_host_memory_state || fail "Memory pressure stopped but host memory state cannot be read."
+  echo "[OK] Memory pressure stopped: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
+}
+
+stop_memory_pressure_fallback() {
+  docker compose --profile memory-demo rm -sf memory-pressure >/dev/null
+}
+
+read_host_memory_state() {
+  local total_kib available_kib
+
+  total_kib=$(awk '$1 == "MemTotal:" { print $2 }' /proc/meminfo)
+  available_kib=$(awk '$1 == "MemAvailable:" { print $2 }' /proc/meminfo)
+  [[ "$total_kib" =~ ^[0-9]+$ ]] && [[ "$available_kib" =~ ^[0-9]+$ ]] || return 1
+
+  HOST_MEMORY_TOTAL_BYTES=$((total_kib * 1024))
+  HOST_MEMORY_AVAILABLE_BYTES=$((available_kib * 1024))
+  HOST_MEMORY_USABLE_FRACTION=$(awk -v available="$available_kib" -v total="$total_kib" \
+    'BEGIN { if (total <= 0) exit 1; printf "%.6f", available / total }')
+
+  if [ "$HOST_MEMORY_TOTAL_BYTES" -ge 16106127360 ] && [ "$HOST_MEMORY_TOTAL_BYTES" -le 18253611008 ]; then
+    HOST_MEMORY_PROFILE=baseline_16g
+  elif [ "$HOST_MEMORY_TOTAL_BYTES" -ge 24696061952 ] && [ "$HOST_MEMORY_TOTAL_BYTES" -le 26843545600 ]; then
+    HOST_MEMORY_PROFILE=target_24g
+  else
+    HOST_MEMORY_PROFILE=unexpected
+  fi
 }
 
 print_status() {
@@ -659,6 +790,8 @@ print_status() {
   local storefront_version=unknown
   local storefront_image=unknown
   local deployment_demo_active=false
+  local memory_pressure_active=false
+  local memory_pressure_state=inactive
 
   if ! docker info >/dev/null 2>&1; then
     docker_available=false
@@ -680,6 +813,10 @@ print_status() {
     if autoscale_spike_is_running; then
       autoscale_spike_active=true
     fi
+    if memory_pressure_is_running; then
+      memory_pressure_active=true
+      memory_pressure_state=active
+    fi
     storefront_release_state=$(storefront_release_state)
     storefront_version=$(storefront_release_version 2>/dev/null || printf 'unknown')
     storefront_image=$(storefront_image_reference 2>/dev/null || printf 'unknown')
@@ -696,6 +833,12 @@ print_status() {
       autoscale_state=unexpected
     fi
   fi
+
+  HOST_MEMORY_TOTAL_BYTES=null
+  HOST_MEMORY_AVAILABLE_BYTES=null
+  HOST_MEMORY_USABLE_FRACTION=null
+  HOST_MEMORY_PROFILE=unknown
+  read_host_memory_state || true
   DISK_USAGE_PCT=unknown
   LOG_BYTES=unknown
   if disk_mount_is_loopback_ext4; then
@@ -723,13 +866,15 @@ print_status() {
   fi
 
   local status_json
-  printf -v status_json '{"docker_available":%s,"pgbouncer_ready":%s,"pool_hog_running":%s,"pool_size":"%s","max_db_connections":"%s","sv_active":"%s","cl_waiting":"%s","disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s","storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,"autoscale_spike_active":%s,"autoscale_state":"%s","storefront_release_state":"%s","storefront_version":"%s","storefront_image":"%s","deployment_demo_active":%s}' \
+  printf -v status_json '{"docker_available":%s,"pgbouncer_ready":%s,"pool_hog_running":%s,"pool_size":"%s","max_db_connections":"%s","sv_active":"%s","cl_waiting":"%s","disk_fault_active":%s,"disk_mounted":%s,"disk_usage_pct":"%s","log_bytes":"%s","storefront_replicas":"%s","storefront_healthy":%s,"traefik_healthy":%s,"autoscale_spike_active":%s,"autoscale_state":"%s","storefront_release_state":"%s","storefront_version":"%s","storefront_image":"%s","deployment_demo_active":%s,"memory_pressure_active":%s,"memory_pressure_state":"%s","memory_total_bytes":%s,"memory_available_bytes":%s,"memory_usable_fraction":%s,"memory_profile":"%s"}' \
     "$docker_available" "$pgbouncer_ready" "$pool_hog_running" \
     "$POOL_SIZE" "$MAX_CONNECTIONS" "$SV_ACTIVE" "$CL_WAITING" \
     "$disk_fault_active" "$disk_mounted" "$DISK_USAGE_PCT" "$LOG_BYTES" \
     "$storefront_replicas" "$storefront_healthy" "$traefik_healthy" \
     "$autoscale_spike_active" "$autoscale_state" "$storefront_release_state" \
-    "$storefront_version" "$storefront_image" "$deployment_demo_active"
+    "$storefront_version" "$storefront_image" "$deployment_demo_active" \
+    "$memory_pressure_active" "$memory_pressure_state" "$HOST_MEMORY_TOTAL_BYTES" \
+    "$HOST_MEMORY_AVAILABLE_BYTES" "$HOST_MEMORY_USABLE_FRACTION" "$HOST_MEMORY_PROFILE"
 
   if [ -t 1 ] && command -v jq >/dev/null 2>&1; then
     jq -M . <<<"$status_json"
@@ -746,7 +891,7 @@ fi
 ACTION="$1"
 
 case "$ACTION" in
-  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment)
+  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment|memory|stop-memory)
     ;;
   *)
     usage >&2
@@ -799,6 +944,12 @@ case "$ACTION" in
     ;;
   reset-storefront-deployment)
     reset_storefront_deployment
+    ;;
+  memory)
+    start_memory_pressure
+    ;;
+  stop-memory)
+    stop_memory_pressure
     ;;
   reset)
     reset_demo

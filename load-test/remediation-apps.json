@@ -1,0 +1,2833 @@
+{
+  "id": "f3041229-4fc9-4ae5-8c2e-4ef7deb48b0a",
+  "name": "[POC] Investigate and Remediate Backend Degradation v5 - Memory Hot-Add",
+  "description": "Investigates generic service degradation, includes bounded application-VM memory-pressure diagnosis, performs approval-gated remediation through AAP, Demo Control API, or the temporary manual Prism memory path, and verifies recovery using Datadog telemetry.",
+  "tags": [
+    "automation:aap-hybrid",
+    "env:poc",
+    "service:berca-backend",
+    "service:berca-storefront",
+    "scenario:memory-hot-add"
+  ],
+  "published": true,
+  "spec": {
+    "triggers": [
+      {
+        "startStepNames": ["Transform_Event_Timestamp"],
+        "monitorTrigger": {}
+      }
+    ],
+    "steps": [
+      {
+        "name": "Transform_Event_Timestamp",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const event_ts_ms = $.Source.monitor.event.date_happened * 1000;\nreturn event_ts_ms;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Trigger",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 100
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Trigger",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:rotating_light: *INCIDENT RESPONSE · 1/3*\n*Service Degradation Detected*\n━━━━━━━━━━━━━━━━━━━━\n\n*{{ Source.monitor.name }}*\n\nDatadog detected an active operational service degradation.\n\n*State:* `{{ Source.monitor.overall_state }}`\n*Environment:* `poc`\n*Monitor:* <{{ Source.monitor.url }}|View in Datadog>\n\n:robot_face: *Automated Investigation Started*\n\nBits AI is correlating application, database, infrastructure, deployment, capacity, and availability telemetry to determine the most probable root cause.\n\n_Next → AI investigation and policy evaluation_"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Trigger_Bits_Investigation",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 320
+          }
+        }
+      },
+      {
+        "name": "Trigger_Bits_Investigation",
+        "actionId": "com.datadoghq.dd.bitsai.sre.triggerInvestigation",
+        "parameters": [
+          {
+            "name": "event_id",
+            "value": "{{ Source.monitor.event.id }}"
+          },
+          {
+            "name": "event_ts",
+            "value": "{{ Steps.Transform_Event_Timestamp.data }}"
+          },
+          {
+            "name": "monitor_id",
+            "value": "{{ Source.monitor.id }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Initialize_Investigation_Polling",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_InvFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 540
+          }
+        }
+      },
+      {
+        "name": "Initialize_Investigation_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "investigation_state",
+                "value": "running"
+              },
+              {
+                "name": "investigation_poll_count",
+                "value": 0
+              },
+              {
+                "name": "investigation_conclusions",
+                "value": ""
+              },
+              {
+                "name": "investigation_id",
+                "value": "{{ Steps.Trigger_Bits_Investigation.investigation_id }}"
+              },
+              {
+                "name": "remediation_action",
+                "value": ""
+              },
+              {
+                "name": "investigation_title",
+                "value": ""
+              },
+              {
+                "name": "investigation_status_raw",
+                "value": ""
+              },
+              {
+                "name": "investigation_summary",
+                "value": ""
+              },
+              {
+                "name": "root_cause",
+                "value": ""
+              },
+              {
+                "name": "classification_confidence",
+                "value": 0
+              },
+              {
+                "name": "confidence_sufficient",
+                "value": "false"
+              },
+              {
+                "name": "safe_to_remediate",
+                "value": "false"
+              },
+              {
+                "name": "classification_reason",
+                "value": ""
+              },
+              {
+                "name": "classification_evidence",
+                "value": ""
+              },
+              {
+                "name": "classification_conflicting_evidence",
+                "value": ""
+              },
+              {
+                "name": "classification_missing_evidence",
+                "value": ""
+              },
+              {
+                "name": "classifier_output_valid",
+                "value": "false"
+              },
+              {
+                "name": "verification_reason",
+                "value": "not_started"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": ""
+              },
+              {
+                "name": "remediation_state",
+                "value": "not_started"
+              },
+              {
+                "name": "workflow_result",
+                "value": "INVESTIGATION_RUNNING"
+              },
+              {
+                "name": "verification_status",
+                "value": "not_started"
+              },
+              {
+                "name": "monitor_name",
+                "value": "{{ Source.monitor.name }}"
+              },
+              {
+                "name": "monitor_alert_url",
+                "value": "{{ Source.monitor.url }}"
+              },
+              {
+                "name": "remediation_backend",
+                "value": ""
+              },
+              {
+                "name": "remediation_status_raw",
+                "value": ""
+              },
+              {
+                "name": "aap_job_template_id",
+                "value": ""
+              },
+              {
+                "name": "aap_job_template_name",
+                "value": ""
+              },
+              {
+                "name": "remediation_poll_count",
+                "value": 0
+              },
+              {
+                "name": "remediation_in_progress",
+                "value": "false"
+              },
+              {
+                "name": "remediation_failure_reason",
+                "value": ""
+              },
+              {
+                "name": "remediation_execution_detail",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Investigation_While_Loop",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 760
+          }
+        }
+      },
+      {
+        "name": "Investigation_While_Loop",
+        "actionId": "com.datadoghq.core.whileLoop",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.investigation_state }}",
+                "rightValue": "running"
+              },
+              {
+                "comparisonOperator": "lt",
+                "leftValue": "{{ Variables.investigation_poll_count }}",
+                "rightValue": 30
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Investigation_Outcome",
+            "branchName": "main"
+          },
+          {
+            "nextStepName": "Get_Investigation",
+            "branchName": "loopStart"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 980
+          }
+        }
+      },
+      {
+        "name": "Get_Investigation",
+        "actionId": "com.datadoghq.dd.bitsai.sre.getInvestigation",
+        "parameters": [
+          {
+            "name": "investigation_id",
+            "value": "{{ Variables.investigation_id }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Update_Investigation_State",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "10s",
+                "maxRetries": 3
+              }
+            },
+            "fallbackStepName": "Update_Investigation_State"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 1200
+          }
+        }
+      },
+      {
+        "name": "Update_Investigation_State",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const getInvStep = $.Steps.Get_Investigation;\nconst data = (getInvStep && getInvStep.data) ? getInvStep.data : {};\nconst status = data.status || 'failed';\nconst conclusions = data.conclusions || [];\nconst title = data.title || '';\nconst fullResponse = data.full_response || {};\nconst currentPollCount = Number($.Variables.investigation_poll_count || 0);\n\nlet newState;\nif (status === 'conclusive' || status === 'inconclusive') {\n  newState = 'completed';\n} else if (status === 'failed' || status === 'error') {\n  newState = 'failed';\n} else if (status === 'cancelled') {\n  newState = 'cancelled';\n} else {\n  newState = 'running';\n}\n\nconst newPollCount = currentPollCount + 1;\n\n$.Helpers.setVariable('investigation_state', newState);\n$.Helpers.setVariable('investigation_poll_count', newPollCount);\n$.Helpers.setVariable('investigation_conclusions', JSON.stringify(conclusions));\n$.Helpers.setVariable('investigation_title', title);\n$.Helpers.setVariable('investigation_status_raw', status);\n$.Helpers.setVariable('investigation_summary', JSON.stringify(fullResponse));\n\nreturn { state: newState, poll_count: newPollCount };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Sleep_Investigation_Poll",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 1420
+          }
+        }
+      },
+      {
+        "name": "Sleep_Investigation_Poll",
+        "actionId": "com.datadoghq.core.sleep",
+        "parameters": [
+          {
+            "name": "durationSeconds",
+            "value": 10
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 1640
+          }
+        }
+      },
+      {
+        "name": "Check_Investigation_Outcome",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.investigation_state }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "completed",
+                "value": "completed"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "failed"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "cancelled"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "canceled"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "timeout",
+                "value": "running"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Run_Agent",
+            "branchName": "completed"
+          },
+          {
+            "nextStepName": "Set_Final_Result_InvFailed",
+            "branchName": "failed"
+          },
+          {
+            "nextStepName": "Set_Final_Result_InvTimeout",
+            "branchName": "timeout"
+          },
+          {
+            "nextStepName": "Set_Final_Result_InvFailed",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 1860
+          }
+        }
+      },
+      {
+        "name": "Run_Agent",
+        "actionId": "com.datadoghq.dd.bitsai.customagent.customAgentExecute",
+        "parameters": [
+          {
+            "name": "customAgentId",
+            "value": "45782d60-9c47-4241-b91e-35b4250423e0"
+          },
+          {
+            "name": "userPrompt",
+            "value": "Classify the probable root cause of this operational service degradation incident.\n\nMonitor context:\n- Monitor name: {{ Source.monitor.name }}\n- Monitor ID: {{ Source.monitor.id }}\n- Monitor state: {{ Source.monitor.overall_state }}\n- Alert type: {{ Source.monitor.event.alert_type }}\n- Host: {{ Source.monitor.event.host }}\n- Tags: {{ Source.monitor.tags }}\n- Alert title: {{ Source.monitor.event.title }}\n- Alert text: {{ Source.monitor.event.text }}\n\nBits Investigation context:\n- Investigation ID: {{ Variables.investigation_id }}\n- Investigation state: {{ Variables.investigation_state }}\n- Raw investigation status: {{ Variables.investigation_status_raw }}\n- Investigation title: {{ Variables.investigation_title }}\n- Investigation conclusions: {{ Variables.investigation_conclusions }}\n- Investigation full response: {{ Variables.investigation_summary }}\n\nReturn only the structured classification defined by the agent instructions.\n\nThe allowed root causes are:\n- POOL: PgBouncer saturation, exhausted server connections, or waiting clients.\n- DISK: synthetic POC log volume or filesystem saturation.\n- AUTOSCALE: storefront capacity pressure during the approved traffic-spike scenario, with insufficient replicas.\n- ROLLBACK: storefront regression correlated with the approved demo-bad release or deployment version.\n- MEMORY_PRESSURE: application VM usable memory is critically low and correlates with backend degradation while CPU, pool, disk, deployment, and replica evidence are not dominant.\n- UNKNOWN: insufficient, conflicting, mixed, unrelated, or vulnerability evidence.\n\nDo not choose or generate a remediation action.\nDo not execute remediation.\nDo not call external actions.\nDo not modify infrastructure.\nVulnerability findings are out of scope for this workflow and must be UNKNOWN.\nFor MEMORY_PRESSURE, require correlated low usable memory and backend service impact; high memory usage alone is insufficient.\nPrefer UNKNOWN when evidence is insufficient or conflicting."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Parse_Agent_Result",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "15s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_InvFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2080
+          }
+        }
+      },
+      {
+        "name": "Parse_Agent_Result",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const raw = $.Steps.Run_Agent.finalResponse;\n\nlet result;\n\ntry {\n  if (typeof raw === \"string\") {\n    const cleanedRaw = raw\n      .trim()\n      .replace(/^```(?:json)?\\s*/i, \"\")\n      .replace(/\\s*```$/, \"\")\n      .trim();\n\n    result = JSON.parse(cleanedRaw);\n  } else if (raw && typeof raw === \"object\") {\n    result = raw;\n  } else {\n    throw new Error(\"Agent response is empty or unsupported\");\n  }\n\n  const allowedRootCauses = [\"POOL\", \"DISK\", \"AUTOSCALE\", \"ROLLBACK\", \"MEMORY_PRESSURE\", \"UNKNOWN\"];\n  const candidateRootCause = typeof result.root_cause === \"string\" ? result.root_cause.trim().toUpperCase() : \"UNKNOWN\";\n  const rootCause = allowedRootCauses.includes(candidateRootCause) ? candidateRootCause : \"UNKNOWN\";\n  const confidence = Number(result.confidence);\n  const confidenceValid = Number.isFinite(confidence) && confidence >= 0 && confidence <= 1;\n  const confidenceSufficient = confidenceValid && confidence >= 0.8;\n  const safeValid = typeof result.safe_to_remediate === \"boolean\";\n  const outputValid = allowedRootCauses.includes(candidateRootCause) && confidenceValid && safeValid;\n\n  $.Helpers.setVariable(\"root_cause\", rootCause);\n  $.Helpers.setVariable(\"classification_confidence\", confidenceValid ? confidence : 0);\n  $.Helpers.setVariable(\"confidence_sufficient\", confidenceSufficient ? \"true\" : \"false\");\n  $.Helpers.setVariable(\"safe_to_remediate\", safeValid && result.safe_to_remediate ? \"true\" : \"false\");\n  $.Helpers.setVariable(\"classification_reason\", typeof result.reason === \"string\" ? result.reason : \"\");\n\n  // Format evidence arrays as readable Slack bullet lists\n  const evidenceArr = Array.isArray(result.evidence) ? result.evidence : [];\n  const conflictingArr = Array.isArray(result.conflicting_evidence) ? result.conflicting_evidence : [];\n  const missingArr = Array.isArray(result.missing_evidence) ? result.missing_evidence : [];\n\n  const formatBullets = (arr) => arr.length > 0\n    ? arr.map(item => `• ${item}`).join('\\n')\n    : '• No specific evidence recorded';\n\n  $.Helpers.setVariable(\"classification_evidence\", formatBullets(evidenceArr));\n  $.Helpers.setVariable(\"classification_conflicting_evidence\", formatBullets(conflictingArr));\n  $.Helpers.setVariable(\"classification_missing_evidence\", formatBullets(missingArr));\n  $.Helpers.setVariable(\"classifier_output_valid\", outputValid ? \"true\" : \"false\");\n  if (!outputValid) { $.Helpers.setVariable(\"workflow_result\", \"CLASSIFIER_INVALID_OUTPUT\"); }\n\n  return { root_cause: rootCause, confidence: confidenceValid ? confidence : 0, confidence_sufficient: confidenceSufficient, safe_to_remediate: safeValid ? result.safe_to_remediate : false, output_valid: outputValid };\n\n} catch (error) {\n  $.Helpers.setVariable(\"root_cause\", \"UNKNOWN\");\n  $.Helpers.setVariable(\"classification_confidence\", 0);\n  $.Helpers.setVariable(\"confidence_sufficient\", \"false\");\n  $.Helpers.setVariable(\"safe_to_remediate\", \"false\");\n  $.Helpers.setVariable(\"classification_reason\", `Agent response could not be parsed: ${error.message}`);\n  $.Helpers.setVariable(\"classification_evidence\", \"• No specific evidence recorded\");\n  $.Helpers.setVariable(\"classification_conflicting_evidence\", \"• No specific evidence recorded\");\n  $.Helpers.setVariable(\"classification_missing_evidence\", \"• Valid structured agent response\");\n  $.Helpers.setVariable(\"classifier_output_valid\", \"false\");\n  $.Helpers.setVariable(\"workflow_result\", \"CLASSIFIER_INVALID_OUTPUT\");\n  return { root_cause: \"UNKNOWN\", confidence: 0, confidence_sufficient: false, safe_to_remediate: false, output_valid: false };\n}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_Agent_Result",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2300
+          }
+        }
+      },
+      {
+        "name": "Validate_Agent_Result",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.classifier_output_valid }}",
+                "rightValue": "true"
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Set_Final_Result_Unknown",
+            "branchName": "false"
+          },
+          {
+            "nextStepName": "Check_Classification",
+            "branchName": "true"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2520
+          }
+        }
+      },
+      {
+        "name": "Check_Classification",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.root_cause }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "actionable",
+                "value": "POOL"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "actionable",
+                "value": "DISK"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "actionable",
+                "value": "AUTOSCALE"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "actionable",
+                "value": "ROLLBACK"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "actionable",
+                "value": "MEMORY_PRESSURE"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "UNKNOWN",
+                "value": "UNKNOWN"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_Remediation_Safety",
+            "branchName": "actionable"
+          },
+          {
+            "nextStepName": "Set_Final_Result_Unknown",
+            "branchName": "UNKNOWN"
+          },
+          {
+            "nextStepName": "Set_Final_Result_Unknown",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2740
+          }
+        }
+      },
+      {
+        "name": "Validate_Remediation_Safety",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.safe_to_remediate }}",
+                "rightValue": "true"
+              },
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.confidence_sufficient }}",
+                "rightValue": "true"
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Route_Remediation_Policy",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Set_Final_Result_SafetyBlocked",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2960
+          }
+        }
+      },
+      {
+        "name": "Route_Remediation_Policy",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.root_cause }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "memory",
+                "value": "MEMORY_PRESSURE"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Get_Memory_Pre_Remediation_Status",
+            "branchName": "memory"
+          },
+          {
+            "nextStepName": "Slack_Approval_Request",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 3180
+          }
+        }
+      },
+      {
+        "name": "Get_Memory_Pre_Remediation_Status",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE_1",
+        "parameters": [
+          {
+            "name": "url",
+            "value": "http://127.0.0.1:18080/v1/demo/status"
+          },
+          {
+            "name": "verb",
+            "value": "GET"
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_REMEDIATION_TOKEN>"
+                ]
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Evaluate_Memory_Remediation_Policy",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_SafetyBlocked"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 3400
+          }
+        }
+      },
+      {
+        "name": "Evaluate_Memory_Remediation_Policy",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const response = $.Steps.Get_Memory_Pre_Remediation_Status || {};\nconst body = response.body || {};\nconst state = body.demo_state || {};\nconst totalBytes = Number(state.memory_total_bytes);\nconst availableBytes = Number(state.memory_available_bytes);\nconst usableFraction = Number(state.memory_usable_fraction);\nconst baseline = state.memory_profile === 'baseline_16g' && Number.isFinite(totalBytes);\nconst pressureActive = state.memory_pressure_active === true;\nconst pressureObserved = Number.isFinite(usableFraction) && usableFraction < 0.15;\nconst noConflict = state.pool_hog_running === false && state.disk_fault_active === false && state.autoscale_spike_active === false && state.deployment_demo_active === false;\nconst applicationHealthy = state.docker_available === true && state.pgbouncer_ready === true && state.storefront_healthy === true && state.traefik_healthy === true;\nconst responseValid = Number(response.status || 0) === 200 && body.ok === true && body.environment === 'poc';\nconst passed = responseValid && baseline && pressureActive && pressureObserved && noConflict && applicationHealthy && $.Variables.root_cause === 'MEMORY_PRESSURE';\nconst reasons = [];\nif (!responseValid) reasons.push('status_response_invalid');\nif (!baseline) reasons.push('application_vm_not_at_16g_baseline');\nif (!pressureActive) reasons.push('memory_pressure_not_active');\nif (!pressureObserved) reasons.push('usable_memory_not_below_15_percent');\nif (!noConflict) reasons.push('conflicting_scenario_active');\nif (!applicationHealthy) reasons.push('application_dependency_not_healthy');\n$.Helpers.setVariable('memory_policy_passed', passed ? 'true' : 'false');\n$.Helpers.setVariable('memory_policy_reason', passed ? 'approved_policy_conditions_met' : reasons.join(','));\n$.Helpers.setVariable('memory_total_before_gib', Number.isFinite(totalBytes) ? (totalBytes / 1073741824).toFixed(1) : 'unknown');\n$.Helpers.setVariable('memory_available_before_gib', Number.isFinite(availableBytes) ? (availableBytes / 1073741824).toFixed(1) : 'unknown');\n$.Helpers.setVariable('memory_usable_before_pct', Number.isFinite(usableFraction) ? (usableFraction * 100).toFixed(1) : 'unknown');\n$.Helpers.setVariable('memory_target_profile', 'application_vm_memory_24g');\nreturn { passed, reason: passed ? 'approved_policy_conditions_met' : reasons.join(','), total_bytes: totalBytes, usable_fraction: usableFraction };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Memory_Remediation_Policy",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 3620
+          }
+        }
+      },
+      {
+        "name": "Check_Memory_Remediation_Policy",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.memory_policy_passed }}",
+                "rightValue": "true"
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Memory_Approval_Request",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Set_Final_Result_SafetyBlocked",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 3840
+          }
+        }
+      },
+      {
+        "name": "Slack_Memory_Approval_Request",
+        "actionId": "com.datadoghq.slack.send_interactive_message",
+        "parameters": [
+          {
+            "name": "actionChoices",
+            "value": [
+              {
+                "displayName": "Approve Manual Prism Hot-Add",
+                "outboundBranch": "approve"
+              },
+              {
+                "displayName": "Reject Remediation",
+                "outboundBranch": "reject"
+              }
+            ]
+          },
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "promptText",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:mag: *INCIDENT RESPONSE · 2/3*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\n*Service:* `berca-backend`\n*Diagnosis:* `MEMORY_PRESSURE`\n*Confidence:* `{{ Variables.classification_confidence }}`\n\n*Observed Before Change*\n• Total RAM: `{{ Variables.memory_total_before_gib }} GiB`\n• Available RAM: `{{ Variables.memory_available_before_gib }} GiB`\n• Usable RAM: `{{ Variables.memory_usable_before_pct }}%`\n• Synthetic pressure: `active`\n\n*Approved Target*\n• Nutanix application VM profile: `16 GiB → 24 GiB`\n• Fixed action: `hot_add_memory`\n• Temporary executor: `Manual Nutanix Prism`\n\n*Assessment*\n{{ Variables.classification_reason }}\n\n*Evidence*\n{{ Variables.classification_evidence }}\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Source.monitor.url }}|View in Datadog>\n\n:shield: *Approve only if the operator is ready to apply the fixed 24 GiB profile in Prism immediately. No VM, host, or memory value comes from AI output.*"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Remediation_Starting",
+            "branchName": "approve"
+          },
+          {
+            "nextStepName": "Set_Final_Result_Rejected",
+            "branchName": "reject"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 4060
+          }
+        }
+      },
+      {
+        "name": "Slack_Approval_Request",
+        "actionId": "com.datadoghq.slack.send_interactive_message",
+        "parameters": [
+          {
+            "name": "actionChoices",
+            "value": [
+              {
+                "displayName": "Approve Remediation",
+                "outboundBranch": "approve"
+              },
+              {
+                "displayName": "Reject Remediation",
+                "outboundBranch": "reject"
+              }
+            ]
+          },
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "promptText",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:mag: *INCIDENT RESPONSE · 2/3*\n*AI Investigation Complete*\n━━━━━━━━━━━━━━━━━━━━\n\n*Probable Root Cause:* `{{ Variables.root_cause }}`\n*Confidence:* `{{ Variables.classification_confidence }}`\n\n*Assessment*\n{{ Variables.classification_reason }}\n\n:shield: *Safety Gate:* `PASSED`\n*Safe to Remediate:* `{{ Variables.safe_to_remediate }}`\n\n*Supporting Evidence*\n{{ Variables.classification_evidence }}\n\n*Conflicting Evidence*\n{{ Variables.classification_conflicting_evidence }}\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Source.monitor.url }}|View in Datadog>\n\n━━━━━━━━━━━━━━━━━━━━\n*Approval required to continue*\n━━━━━━━━━━━━━━━━━━━━\n\n_Approve to execute the fixed remediation mapped to the classified root cause, or reject to stop the automation._"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Remediation_Starting",
+            "branchName": "approve"
+          },
+          {
+            "nextStepName": "Set_Final_Result_Rejected",
+            "branchName": "reject"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -450,
+            "y": 3400
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Remediation_Starting",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *INCIDENT RESPONSE · APPROVED*\n*Remediation Authorized*\n━━━━━━━━━━━━━━━━━━━━\n\nHuman approval has been received. The workflow will now dispatch the fixed remediation mapped to the classified root cause.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Confidence:* `{{ Variables.classification_confidence }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n*Execution Mapping*\n• `POOL` → Ansible Automation Platform · JT 18\n• `DISK` → Ansible Automation Platform · JT 19\n• `AUTOSCALE` → Demo Control API\n• `ROLLBACK` → Demo Control API\n• `MEMORY_PRESSURE` → Operator applies the fixed 24 GiB profile in Nutanix Prism; Datadog verifies the result\n\n:gear: *For MEMORY_PRESSURE, apply the approved 16 → 24 GiB change in Prism now. The workflow will not stop the pressure and will only succeed after telemetry proves recovery.*\n\n_Next → Execute the approved response and verify service recovery_"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Dispatch_Remediation",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 4280
+          }
+        }
+      },
+      {
+        "name": "Dispatch_Remediation",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.root_cause }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "POOL",
+                "value": "POOL"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "DISK",
+                "value": "DISK"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "AUTOSCALE",
+                "value": "AUTOSCALE"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "ROLLBACK",
+                "value": "ROLLBACK"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "MEMORY_PRESSURE",
+                "value": "MEMORY_PRESSURE"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Remediate_Pool_AAP",
+            "branchName": "POOL"
+          },
+          {
+            "nextStepName": "Remediate_Disk_AAP",
+            "branchName": "DISK"
+          },
+          {
+            "nextStepName": "Remediate_Autoscale_Demo",
+            "branchName": "AUTOSCALE"
+          },
+          {
+            "nextStepName": "Remediate_Rollback_Demo",
+            "branchName": "ROLLBACK"
+          },
+          {
+            "nextStepName": "Prepare_Manual_Memory_Hot_Add",
+            "branchName": "MEMORY_PRESSURE"
+          },
+          {
+            "nextStepName": "Set_Final_Result_Unknown",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 4500
+          }
+        }
+      },
+      {
+        "name": "Remediate_Pool_AAP",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/18/launch/"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "extra_vars": {
+                "investigation_id": "${ String(Variables.investigation_id) }",
+                "monitor_id": "${ String(Source.monitor.id) }",
+                "workflow_instance_id": "${ String(InstanceId) }"
+              }
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "allowExpiredCertificate",
+            "value": true
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Launch",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_RemFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -1800,
+            "y": 4720
+          }
+        }
+      },
+      {
+        "name": "Remediate_Disk_AAP",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/19/launch/"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "extra_vars": {
+                "investigation_id": "${ String(Variables.investigation_id) }",
+                "monitor_id": "${ String(Source.monitor.id) }",
+                "workflow_instance_id": "${ String(InstanceId) }"
+              }
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "allowExpiredCertificate",
+            "value": true
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Launch",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_RemFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -900,
+            "y": 4720
+          }
+        }
+      },
+      {
+        "name": "Remediate_Autoscale_Demo",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE_1",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "http://127.0.0.1:18080/v1/demo/action"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_REMEDIATION_TOKEN>"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "action": "scale-storefront-to-2"
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Launch",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_RemFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 4720
+          }
+        }
+      },
+      {
+        "name": "Remediate_Rollback_Demo",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE_1",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "http://127.0.0.1:18080/v1/demo/action"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_REMEDIATION_TOKEN>"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "action": "rollback-storefront-stable"
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Launch",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_RemFailed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 4720
+          }
+        }
+      },
+      {
+        "name": "Prepare_Manual_Memory_Hot_Add",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "remediation_backend",
+                "value": "MANUAL_PRISM"
+              },
+              {
+                "name": "remediation_action",
+                "value": "hot_add_memory"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": "manual-prism-{{ InstanceId }}"
+              },
+              {
+                "name": "remediation_status_raw",
+                "value": "operator_action_requested"
+              },
+              {
+                "name": "remediation_state",
+                "value": "manual_pending"
+              },
+              {
+                "name": "remediation_execution_detail",
+                "value": "Manual Nutanix Prism hot-add from 16 GiB to fixed 24 GiB profile"
+              },
+              {
+                "name": "aap_job_template_id",
+                "value": ""
+              },
+              {
+                "name": "aap_job_template_name",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Wait_For_Telemetry",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 1800,
+            "y": 7360
+          }
+        }
+      },
+      {
+        "name": "Normalize_Remediation_Launch",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const rootCause = String($.Variables.root_cause || '').toUpperCase();\n\nconst config = {\n  POOL: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Pool_AAP,\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation'\n  },\n  DISK: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Disk_AAP,\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation'\n  },\n  AUTOSCALE: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Remediate_Autoscale_Demo,\n    action: 'scale-storefront-to-2',\n    templateId: '',\n    templateName: ''\n  },\n  ROLLBACK: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Remediate_Rollback_Demo,\n    action: 'rollback-storefront-stable',\n    templateId: '',\n    templateName: ''\n  }\n};\n\nconst selected = config[rootCause] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('remediation_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('remediation_action', selected.action || 'none');\n$.Helpers.setVariable('remediation_job_id', jobId);\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', accepted ? 'accepted' : 'failed');\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  selected.backend === 'AAP'\n    ? `${selected.templateName} (JT ${selected.templateId})`\n    : `Demo Control API · ${selected.action}`\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  accepted ? '' : 'Remediation backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_Remediation_Launch",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 4940
+          }
+        }
+      },
+      {
+        "name": "Validate_Remediation_Launch",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Steps.Normalize_Remediation_Launch.data.accepted }}",
+                "rightValue": true
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Initialize_Remediation_Polling",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Set_Final_Result_RemFailed",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 5160
+          }
+        }
+      },
+      {
+        "name": "Initialize_Remediation_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "remediation_poll_count",
+                "value": 0
+              },
+              {
+                "name": "remediation_in_progress",
+                "value": "true"
+              },
+              {
+                "name": "workflow_result",
+                "value": "REMEDIATION_RUNNING"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Remediation_While_Loop",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 5380
+          }
+        }
+      },
+      {
+        "name": "Remediation_While_Loop",
+        "actionId": "com.datadoghq.core.whileLoop",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.remediation_in_progress }}",
+                "rightValue": "true"
+              },
+              {
+                "comparisonOperator": "lt",
+                "leftValue": "{{ Variables.remediation_poll_count }}",
+                "rightValue": 30
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Branch_Remediation_Result",
+            "branchName": "main"
+          },
+          {
+            "nextStepName": "Remediation_Poll_Sleep",
+            "branchName": "loopStart"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 5600
+          }
+        }
+      },
+      {
+        "name": "Remediation_Poll_Sleep",
+        "actionId": "com.datadoghq.core.sleep",
+        "parameters": [
+          {
+            "name": "durationSeconds",
+            "value": 10
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Route_Remediation_Status_Backend",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 5820
+          }
+        }
+      },
+      {
+        "name": "Route_Remediation_Status_Backend",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.remediation_backend }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "aap",
+                "value": "AAP"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "demo",
+                "value": "DEMO_CONTROL"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Get_AAP_Remediation_Status",
+            "branchName": "aap"
+          },
+          {
+            "nextStepName": "Get_Demo_Remediation_Status",
+            "branchName": "demo"
+          },
+          {
+            "nextStepName": "Set_Remediation_Status_Check_Failed",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 6040
+          }
+        }
+      },
+      {
+        "name": "Get_AAP_Remediation_Status",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "GET"
+          },
+          {
+            "name": "url",
+            "value": "https://192.168.2.66/api/controller/v2/jobs/{{ Variables.remediation_job_id }}/"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              }
+            ]
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "allowExpiredCertificate",
+            "value": true
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Remediation_Status_Check_Failed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 150,
+            "y": 6260
+          }
+        }
+      },
+      {
+        "name": "Get_Demo_Remediation_Status",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE_1",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "GET"
+          },
+          {
+            "name": "url",
+            "value": "http://127.0.0.1:18080/v1/demo/status"
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_REMEDIATION_TOKEN>"
+                ]
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_Remediation_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Remediation_Status_Check_Failed"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 750,
+            "y": 6260
+          }
+        }
+      },
+      {
+        "name": "Normalize_Remediation_Status",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const backend = $.Variables.remediation_backend;\nconst expectedJobId = String($.Variables.remediation_job_id || '');\n\nlet response = {};\nlet valid = false;\nlet rawState = '';\nlet normalizedState = 'failed';\nlet failureReason = '';\n\nif (backend === 'AAP') {\n  response = $.Steps.Get_AAP_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId =\n    body.id !== undefined && body.id !== null ? String(body.id) : '';\n\n  valid = Number(response.status || 0) === 200 && responseJobId === expectedJobId;\n  rawState = String(body.status || '');\n\n  if (['pending', 'waiting', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'successful') {\n    normalizedState = 'succeeded';\n  } else if (['failed', 'error', 'canceled'].includes(rawState)) {\n    normalizedState = 'failed';\n    failureReason = 'AAP terminal state: ' + rawState;\n  } else {\n    valid = false;\n    failureReason = 'Unexpected AAP job state: ' + rawState;\n  }\n} else if (backend === 'DEMO_CONTROL') {\n  response = $.Steps.Get_Demo_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId = String(body.job_id || '');\n\n  valid =\n    Number(response.status || 0) === 200 &&\n    body.ok === true &&\n    responseJobId === expectedJobId;\n\n  rawState = String(body.job_state || '');\n\n  if (['accepted', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'succeeded') {\n    normalizedState = 'succeeded';\n  } else if (rawState === 'failed') {\n    normalizedState = 'failed';\n    failureReason = String(\n      (body.job && body.job.error) ||\n      body.error ||\n      'Demo Control remediation job failed'\n    );\n  } else {\n    valid = false;\n    failureReason = 'Unexpected Demo Control job state: ' + rawState;\n  }\n}\n\nconst currentPollCount = Number($.Variables.remediation_poll_count || 0);\nconst nextPollCount = currentPollCount + 1;\n\nif (!valid) {\n  normalizedState = 'failed';\n  if (!failureReason) {\n    failureReason =\n      'Remediation status response was invalid, unauthorized, unreachable, or did not match the launched job';\n  }\n}\n\nconst inProgress = normalizedState === 'running' && nextPollCount < 30;\n\nlet finalState = normalizedState;\nif (normalizedState === 'running' && nextPollCount >= 30) {\n  finalState = 'timeout';\n  failureReason = 'Remediation job did not reach a terminal state within 300 seconds';\n}\n\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', finalState);\n$.Helpers.setVariable('remediation_poll_count', nextPollCount);\n$.Helpers.setVariable('remediation_in_progress', inProgress ? 'true' : 'false');\nif (failureReason) {\n  $.Helpers.setVariable('remediation_failure_reason', failureReason);\n}\n\nreturn {\n  valid,\n  backend,\n  raw_state: rawState,\n  state: finalState,\n  poll_count: nextPollCount,\n  in_progress: inProgress,\n  failure_reason: failureReason\n};"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Remediation_In_Progress",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 6480
+          }
+        }
+      },
+      {
+        "name": "Set_Remediation_Status_Check_Failed",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "remediation_state",
+                "value": "failed"
+              },
+              {
+                "name": "remediation_in_progress",
+                "value": "false"
+              },
+              {
+                "name": "remediation_failure_reason",
+                "value": "Unable to retrieve or validate remediation job status"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_Remediation_Poll_Count",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 1350,
+            "y": 6700
+          }
+        }
+      },
+      {
+        "name": "Check_Remediation_In_Progress",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.remediation_in_progress }}",
+                "rightValue": "true"
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_Remediation_Poll_Count",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Stop_Remediation_Polling",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 6700
+          }
+        }
+      },
+      {
+        "name": "Stop_Remediation_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "remediation_in_progress",
+                "value": "false"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_Remediation_Poll_Count",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 6920
+          }
+        }
+      },
+      {
+        "name": "Increment_Remediation_Poll_Count",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const count = Number($.Variables.remediation_poll_count || 0);\n// Normalize_Remediation_Status increments the count itself. This step only increments when status retrieval failed before normalization.\nif ($.Variables.remediation_state === 'failed' && count === 0) {\n  $.Helpers.setVariable('remediation_poll_count', 1);\n  return 1;\n}\nreturn count;"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 7140
+          }
+        }
+      },
+      {
+        "name": "Branch_Remediation_Result",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.remediation_state }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "succeeded",
+                "value": "succeeded"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "failed"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "timeout"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Wait_For_Telemetry",
+            "branchName": "succeeded"
+          },
+          {
+            "nextStepName": "Set_Final_Result_RemFailed",
+            "branchName": "failed"
+          },
+          {
+            "nextStepName": "Set_Final_Result_RemFailed",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 7360
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_SafetyBlocked",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "SAFETY_BLOCKED"
+              },
+              {
+                "name": "remediation_action",
+                "value": "none"
+              },
+              {
+                "name": "remediation_state",
+                "value": "skipped"
+              },
+              {
+                "name": "verification_status",
+                "value": "skipped"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_SafetyBlocked",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 1800,
+            "y": 4060
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_Rejected",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "REMEDIATION_REJECTED"
+              },
+              {
+                "name": "verification_status",
+                "value": "skipped"
+              },
+              {
+                "name": "remediation_action",
+                "value": "none"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": ""
+              },
+              {
+                "name": "remediation_state",
+                "value": "skipped"
+              },
+              {
+                "name": "monitor_name",
+                "value": "{{ Source.monitor.name }}"
+              },
+              {
+                "name": "monitor_alert_url",
+                "value": "{{ Source.monitor.url }}"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Rejected",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": -1350,
+            "y": 4060
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_InvFailed",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "INVESTIGATION_FAILED"
+              },
+              {
+                "name": "root_cause",
+                "value": "UNKNOWN"
+              },
+              {
+                "name": "verification_status",
+                "value": "skipped"
+              },
+              {
+                "name": "remediation_action",
+                "value": "none"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": ""
+              },
+              {
+                "name": "remediation_state",
+                "value": "skipped"
+              },
+              {
+                "name": "monitor_name",
+                "value": "{{ Source.monitor.name }}"
+              },
+              {
+                "name": "monitor_alert_url",
+                "value": "{{ Source.monitor.url }}"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_InvFailed",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": -900,
+            "y": 2300
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_InvTimeout",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "INVESTIGATION_TIMEOUT"
+              },
+              {
+                "name": "root_cause",
+                "value": "UNKNOWN"
+              },
+              {
+                "name": "verification_status",
+                "value": "skipped"
+              },
+              {
+                "name": "remediation_action",
+                "value": "none"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": ""
+              },
+              {
+                "name": "remediation_state",
+                "value": "skipped"
+              },
+              {
+                "name": "monitor_name",
+                "value": "{{ Source.monitor.name }}"
+              },
+              {
+                "name": "monitor_alert_url",
+                "value": "{{ Source.monitor.url }}"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_InvTimeout",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -1400,
+            "y": 1860
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_Unknown",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "CLASSIFICATION_UNKNOWN"
+              },
+              {
+                "name": "root_cause",
+                "value": "UNKNOWN"
+              },
+              {
+                "name": "verification_status",
+                "value": "skipped"
+              },
+              {
+                "name": "remediation_action",
+                "value": "none"
+              },
+              {
+                "name": "remediation_job_id",
+                "value": ""
+              },
+              {
+                "name": "remediation_state",
+                "value": "skipped"
+              },
+              {
+                "name": "monitor_name",
+                "value": "{{ Source.monitor.name }}"
+              },
+              {
+                "name": "monitor_alert_url",
+                "value": "{{ Source.monitor.url }}"
+              },
+              {
+                "name": "investigation_id",
+                "value": "{{ Variables.investigation_id }}"
+              },
+              {
+                "name": "investigation_conclusions",
+                "value": "{{ Variables.investigation_conclusions }}"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Unknown",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": -1350,
+            "y": 5380
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result_RemFailed",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const rootCause = String($.Variables.root_cause || 'UNKNOWN').toUpperCase();\nlet state = String($.Variables.remediation_state || 'failed');\n\nconst fallback = {\n  POOL: {\n    backend: 'AAP',\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation',\n    detail: 'Pool Remediation (JT 18)'\n  },\n  DISK: {\n    backend: 'AAP',\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation',\n    detail: 'Disk Remediation (JT 19)'\n  },\n  AUTOSCALE: {\n    backend: 'DEMO_CONTROL',\n    action: 'scale-storefront-to-2',\n    templateId: '',\n    templateName: '',\n    detail: 'Demo Control API · scale-storefront-to-2'\n  },\n  ROLLBACK: {\n    backend: 'DEMO_CONTROL',\n    action: 'rollback-storefront-stable',\n    templateId: '',\n    templateName: '',\n    detail: 'Demo Control API · rollback-storefront-stable'\n  },\n  MEMORY_PRESSURE: {\n    backend: 'MANUAL_PRISM',\n    action: 'hot_add_memory',\n    templateId: '',\n    templateName: '',\n    detail: 'Manual Nutanix Prism hot-add from 16 GiB to fixed 24 GiB profile'\n  }\n}[rootCause] || {};\n\nif (state !== 'timeout') {\n  state = 'failed';\n}\n\nconst workflowResult =\n  state === 'timeout' ? 'REMEDIATION_TIMEOUT' : 'REMEDIATION_FAILED';\n\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', 'skipped');\n$.Helpers.setVariable('remediation_state', state);\n$.Helpers.setVariable(\n  'remediation_backend',\n  $.Variables.remediation_backend || fallback.backend || 'UNKNOWN'\n);\n$.Helpers.setVariable(\n  'remediation_action',\n  $.Variables.remediation_action || fallback.action || 'none'\n);\n$.Helpers.setVariable(\n  'aap_job_template_id',\n  $.Variables.aap_job_template_id || fallback.templateId || ''\n);\n$.Helpers.setVariable(\n  'aap_job_template_name',\n  $.Variables.aap_job_template_name || fallback.templateName || ''\n);\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  $.Variables.remediation_execution_detail || fallback.detail || ''\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n);\n$.Helpers.setVariable('monitor_name', $.Source.monitor.name);\n$.Helpers.setVariable('monitor_alert_url', $.Source.monitor.url);\n\nreturn {\n  workflow_result: workflowResult,\n  remediation_state: state,\n  remediation_backend: $.Variables.remediation_backend || fallback.backend || 'UNKNOWN',\n  failure_reason:\n    $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n};"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_RemFailed",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 7580
+          }
+        }
+      },
+      {
+        "name": "Wait_For_Telemetry",
+        "actionId": "com.datadoghq.core.sleep",
+        "parameters": [
+          {
+            "name": "durationSeconds",
+            "value": 30
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Initialize_Verification_Polling",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 7580
+          }
+        }
+      },
+      {
+        "name": "Initialize_Verification_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "verification_poll_count",
+                "value": 0
+              },
+              {
+                "name": "verification_status",
+                "value": "polling"
+              },
+              {
+                "name": "monitor_state",
+                "value": "ALERT"
+              },
+              {
+                "name": "verification_reason",
+                "value": "waiting_for_telemetry_and_runtime_state"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Verification_While_Loop",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 7800
+          }
+        }
+      },
+      {
+        "name": "Verification_While_Loop",
+        "actionId": "com.datadoghq.core.whileLoop",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "ne",
+                "leftValue": "{{ Variables.verification_status }}",
+                "rightValue": "passed"
+              },
+              {
+                "comparisonOperator": "ne",
+                "leftValue": "{{ Variables.verification_status }}",
+                "rightValue": "failed"
+              },
+              {
+                "comparisonOperator": "lt",
+                "leftValue": "{{ Variables.verification_poll_count }}",
+                "rightValue": 12
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Set_Final_Result",
+            "branchName": "main"
+          },
+          {
+            "nextStepName": "Get_Verification_Status",
+            "branchName": "loopStart"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 8020
+          }
+        }
+      },
+      {
+        "name": "Get_Verification_Status",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE_1",
+        "parameters": [
+          {
+            "name": "url",
+            "value": "http://127.0.0.1:18080/v1/demo/status"
+          },
+          {
+            "name": "verb",
+            "value": "GET"
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_REMEDIATION_TOKEN>"
+                ]
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Verify_Composite_Monitor",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 8240
+          }
+        }
+      },
+      {
+        "name": "Verify_Composite_Monitor",
+        "actionId": "com.datadoghq.dd.monitor.getMonitor",
+        "parameters": [
+          {
+            "name": "monitor_id",
+            "value": "{{ Source.monitor.id }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Verify_Storefront_Catalog",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "10s",
+                "maxRetries": 3
+              }
+            },
+            "fallbackStepName": "Update_Verification_State"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 8460
+          }
+        }
+      },
+      {
+        "name": "Verify_Storefront_Catalog",
+        "actionId": "com.datadoghq.http.request",
+        "parameters": [
+          {
+            "name": "url",
+            "value": "https://store.bercalab.my.id/id/store"
+          },
+          {
+            "name": "verb",
+            "value": "GET"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Update_Verification_State",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 8680
+          }
+        }
+      },
+      {
+        "name": "Update_Verification_State",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const statusResponse = $.Steps.Get_Verification_Status || {};\nconst statusBody = statusResponse.body || {};\nconst state = statusBody.demo_state || {};\nconst monitor = $.Steps.Verify_Composite_Monitor || {};\nconst monitorState = String(monitor.overall_state || '').toUpperCase();\nconst catalog = $.Steps.Verify_Storefront_Catalog || {};\nconst catalogStatus = Number(catalog.status || 0);\nconst classification = String($.Variables.root_cause || '').toUpperCase();\nconst currentPollCount = Number($.Variables.verification_poll_count || 0);\nconst nextPollCount = currentPollCount + 1;\nconst numeric = (value) => {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : null;\n};\n\nconst controlPlaneHealthy =\n  Number(statusResponse.status || 0) === 200 &&\n  statusBody.ok === true &&\n  statusBody.environment === 'poc' &&\n  state.docker_available === true;\nconst monitorReadable = monitorState !== '';\nconst common = controlPlaneHealthy && monitorReadable && monitorState === 'OK';\n\nlet runtimeHealthy = false;\nlet reason = 'waiting_for_telemetry_and_runtime_state';\nlet verificationStatus = 'polling';\n\nif (!controlPlaneHealthy) {\n  verificationStatus = 'failed';\n  reason = 'control_plane_api_unavailable';\n} else if (!monitorReadable) {\n  verificationStatus = 'failed';\n  reason = 'datadog_monitor_status_unavailable';\n} else if (common && classification === 'POOL') {\n  runtimeHealthy =\n    state.pgbouncer_ready === true &&\n    state.pool_hog_running === false &&\n    String(state.pool_size) === '5' &&\n    String(state.max_db_connections) === '5' &&\n    numeric(state.cl_waiting) === 0;\n  reason = runtimeHealthy\n    ? 'pool_queue_cleared_and_monitor_ok'\n    : 'waiting_for_pool_runtime_state';\n} else if (common && classification === 'DISK') {\n  const usage = numeric(state.disk_usage_pct);\n  runtimeHealthy =\n    state.disk_fault_active === false &&\n    (state.disk_mounted === false || (usage !== null && usage < 20));\n  reason = runtimeHealthy\n    ? 'synthetic_disk_fault_cleared_and_monitor_ok'\n    : 'waiting_for_disk_runtime_state';\n} else if (common && classification === 'AUTOSCALE') {\n  runtimeHealthy =\n    String(state.storefront_replicas) === '2' &&\n    state.storefront_healthy === true &&\n    state.traefik_healthy === true &&\n    state.autoscale_spike_active === true &&\n    state.autoscale_state === 'scaled_out';\n  reason = runtimeHealthy\n    ? 'two_healthy_replicas_and_monitor_ok'\n    : 'waiting_for_storefront_scale_state';\n} else if (common && classification === 'ROLLBACK') {\n  runtimeHealthy =\n    state.storefront_release_state === 'stable' &&\n    state.deployment_demo_active === false &&\n    String(state.storefront_replicas) === '1' &&\n    state.storefront_healthy === true &&\n    state.traefik_healthy === true &&\n    catalogStatus === 200;\n  reason = runtimeHealthy\n    ? 'stable_release_catalog_and_monitor_recovered'\n    : 'waiting_for_stable_release_or_catalog';\n} else if (common && classification === 'MEMORY_PRESSURE') {\n  const totalBytes = numeric(state.memory_total_bytes);\n  const usableFraction = numeric(state.memory_usable_fraction);\n  const minimumTargetBytes = 23 * 1024 * 1024 * 1024;\n  runtimeHealthy =\n    state.memory_pressure_active === true &&\n    state.memory_profile === 'target_24g' &&\n    totalBytes !== null &&\n    totalBytes >= minimumTargetBytes &&\n    usableFraction !== null &&\n    usableFraction > 0.30 &&\n    state.storefront_healthy === true &&\n    state.traefik_healthy === true &&\n    catalogStatus === 200;\n  reason = runtimeHealthy\n    ? '24g_memory_profile_usable_capacity_and_monitor_recovered'\n    : 'waiting_for_memory_hot_add_and_service_recovery';\n  $.Helpers.setVariable(\n    'memory_total_after_gib',\n    totalBytes !== null ? (totalBytes / 1073741824).toFixed(1) : 'unknown'\n  );\n  $.Helpers.setVariable(\n    'memory_usable_after_pct',\n    usableFraction !== null ? (usableFraction * 100).toFixed(1) : 'unknown'\n  );\n}\n\nconst passed = common && runtimeHealthy;\nif (passed) {\n  verificationStatus = 'passed';\n}\n\n$.Helpers.setVariable('monitor_state', monitorState);\n$.Helpers.setVariable('verification_poll_count', nextPollCount);\n$.Helpers.setVariable('monitor_name', monitor.name || $.Source.monitor.name);\n$.Helpers.setVariable('monitor_alert_url', monitor.url || $.Source.monitor.url);\n$.Helpers.setVariable('verification_status', verificationStatus);\n$.Helpers.setVariable('verification_reason', reason);\n\nreturn {\n  passed,\n  reason,\n  monitor_state: monitorState,\n  catalog_status: catalogStatus,\n  poll_count: nextPollCount\n};"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Sleep_Verification_Poll",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 8900
+          }
+        }
+      },
+      {
+        "name": "Sleep_Verification_Poll",
+        "actionId": "com.datadoghq.core.sleep",
+        "parameters": [
+          {
+            "name": "durationSeconds",
+            "value": 15
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 9120
+          }
+        }
+      },
+      {
+        "name": "Set_Final_Result",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const passed = $.Variables.verification_status === 'passed';\nconst workflowResult = passed ? 'REMEDIATION_SUCCEEDED' : 'VERIFICATION_FAILED';\nconst verificationStatus = passed ? 'passed' : 'failed';\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', verificationStatus);\nif (passed && $.Variables.remediation_backend === 'MANUAL_PRISM') {\n  $.Helpers.setVariable('remediation_state', 'telemetry_verified');\n  $.Helpers.setVariable('remediation_status_raw', 'guest_memory_profile_verified');\n}\nif (!passed && $.Variables.verification_reason !== 'control_plane_api_unavailable' && $.Variables.verification_reason !== 'datadog_monitor_status_unavailable') {\n  $.Helpers.setVariable('verification_reason', 'verification_window_exhausted');\n}\nreturn { workflow_result: workflowResult, verification_status: verificationStatus };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Branch_Verification_Result",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 9340
+          }
+        }
+      },
+      {
+        "name": "Branch_Verification_Result",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.verification_status }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "passed",
+                "value": "passed"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Slack_Notify_Success",
+            "branchName": "passed"
+          },
+          {
+            "nextStepName": "Slack_Notify_Verification_Failed",
+            "branchName": "default"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 9560
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Success",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *INCIDENT RESPONSE · 3/3*\n*Service Recovery Verified*\n━━━━━━━━━━━━━━━━━━━━\n\nThe approved remediation completed successfully and Datadog independently verified that the service returned to a healthy state.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Execution Backend:* `{{ Variables.remediation_backend }}`\n*Remediation:* `{{ Variables.remediation_action }}`\n*Execution Status:* `{{ Variables.remediation_state }}`\n*Recovery Validation:* `{{ Variables.verification_status }}`\n\n*Remediation Job:* `{{ Variables.remediation_job_id }}`\n*Execution Detail:* `{{ Variables.remediation_execution_detail }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:arrows_counterclockwise: *Closed-loop remediation completed successfully*\n\n_Detect → Investigate → Approve → Remediate → Verify_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -450,
+            "y": 9780
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Rejected",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:no_entry: *INCIDENT RESPONSE · STOPPED*\n*Remediation Rejected*\n━━━━━━━━━━━━━━━━━━━━\n\nThe proposed remediation was not approved and no automated changes were executed.\n\n*Probable Root Cause:* `{{ Variables.root_cause }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:hand: *Automation safely stopped*\n\n_Next → Continue with manual investigation or remediation if required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -1350,
+            "y": 4280
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_InvFailed",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:x: *INCIDENT RESPONSE · INVESTIGATION FAILED*\n*Automated Analysis Could Not Complete*\n━━━━━━━━━━━━━━━━━━━━\n\nBits AI was unable to complete the investigation for this incident.\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Fail-Safe Activated*\n\nNo remediation was executed because a reliable root cause could not be established.\n\n_Next → Manual investigation required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -900,
+            "y": 2520
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_InvTimeout",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:hourglass_flowing_sand: *INCIDENT RESPONSE · INVESTIGATION TIMEOUT*\n*Automated Analysis Exceeded Time Limit*\n━━━━━━━━━━━━━━━━━━━━\n\nBits AI did not complete the investigation within the configured time limit.\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Fail-Safe Activated*\n\nNo remediation was executed because the investigation did not complete within the allowed window.\n\n_Next → Manual investigation required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -1400,
+            "y": 2080
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Unknown",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:warning: *INCIDENT RESPONSE · PAUSED*\n*Root Cause Inconclusive*\n━━━━━━━━━━━━━━━━━━━━\n\nBits AI completed the investigation, but the available evidence was not sufficient to safely select an automated remediation path.\n\n*Classification:* `UNKNOWN`\n*Confidence:* `{{ Variables.classification_confidence }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Safety Guardrail Activated*\n\nNo remediation was executed.\n\n_Next → Manual review required before further action_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -1350,
+            "y": 5600
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_RemFailed",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:x: *INCIDENT RESPONSE · REMEDIATION FAILED*\n*Automated Recovery Did Not Complete*\n━━━━━━━━━━━━━━━━━━━━\n\nThe root cause was identified and remediation was approved, but the selected execution backend did not complete successfully.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Execution Backend:* `{{ Variables.remediation_backend }}`\n*Remediation:* `{{ Variables.remediation_action }}`\n*Execution Status:* `{{ Variables.remediation_state }}`\n*Raw Status:* `{{ Variables.remediation_status_raw }}`\n*Failure Reason:* `{{ Variables.remediation_failure_reason }}`\n\n*Remediation Job:* `{{ Variables.remediation_job_id }}`\n*Execution Detail:* `{{ Variables.remediation_execution_detail }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Automation stopped safely. No automatic remediation retry was attempted.*\n\n_Next → Review the execution backend and remediate manually if required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 7800
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_SafetyBlocked",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:shield: *INCIDENT RESPONSE · SAFETY BLOCKED*\n*Automated Remediation Not Permitted*\n━━━━━━━━━━━━━━━━━━━━\n\nThe investigation completed, but the incident did not pass the remediation safety gate.\n\n*Classification:* `{{ Variables.root_cause }}`\n*Confidence:* `{{ Variables.classification_confidence }}`\n*Safe to Remediate:* `{{ Variables.safe_to_remediate }}`\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Safety Guardrail Activated*\n\nNo approval was requested and no remediation was executed.\n\n_Next → Manual review required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 1800,
+            "y": 4280
+          }
+        }
+      },
+      {
+        "name": "Slack_Notify_Verification_Failed",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-automation"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:warning: *INCIDENT RESPONSE · RECOVERY NOT VERIFIED*\n*Approved Response Did Not Restore Service*\n━━━━━━━━━━━━━━━━━━━━\n\nDatadog could not verify service recovery within the bounded validation window after the approved response was dispatched or requested.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Remediation:* `{{ Variables.remediation_action }}`\n*Execution Status:* `{{ Variables.remediation_state }}`\n*Monitor State:* `{{ Variables.monitor_state }}`\n*Verification Reason:* `{{ Variables.verification_reason }}`\n\n*Remediation Job:* `{{ Variables.remediation_job_id }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n:shield: *Further Automation Stopped*\n\nNo retry or additional remediation was attempted automatically.\n\n_Next → Manual validation or rollback required_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 450,
+            "y": 9780
+          }
+        }
+      }
+    ],
+    "handle": "avecena.basuniberca.co.id-Aug-04-2026-1121-2",
+    "connectionEnvs": [
+      {
+        "env": "default",
+        "connections": [
+          {
+            "connectionId": "c501e5f5-17dd-4b5a-92d4-933a59b8f55f",
+            "label": "INTEGRATION_NONE"
+          },
+          {
+            "connectionId": "583759ba-c190-419c-825f-be9c2bbff328",
+            "label": "INTEGRATION_NONE_1"
+          }
+        ]
+      }
+    ],
+    "outputSchema": {
+      "parameters": [
+        {
+          "name": "workflow_result",
+          "label": "Workflow Result",
+          "description": "Final workflow outcome",
+          "type": "STRING",
+          "value": "{{ Variables.workflow_result }}"
+        },
+        {
+          "name": "root_cause",
+          "label": "Root Cause",
+          "description": "AI-classified probable root cause: POOL, DISK, AUTOSCALE, ROLLBACK, MEMORY_PRESSURE, or UNKNOWN",
+          "type": "STRING",
+          "value": "{{ Variables.root_cause }}"
+        },
+        {
+          "name": "investigation_id",
+          "label": "Investigation ID",
+          "description": "Bits AI investigation ID",
+          "type": "STRING",
+          "value": "{{ Variables.investigation_id }}"
+        },
+        {
+          "name": "investigation_status",
+          "label": "Investigation Status",
+          "description": "Final investigation state",
+          "type": "STRING",
+          "value": "{{ Variables.investigation_state }}"
+        },
+        {
+          "name": "investigation_conclusions",
+          "label": "Investigation Conclusions",
+          "description": "Conclusions text from Bits AI investigation",
+          "type": "STRING",
+          "value": "{{ Variables.investigation_conclusions }}"
+        },
+        {
+          "name": "remediation_action",
+          "label": "Remediation Action",
+          "description": "The remediation action dispatched",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_action }}"
+        },
+        {
+          "name": "remediation_job_id",
+          "label": "Remediation Job ID",
+          "description": "ID of the remediation job",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_job_id }}"
+        },
+        {
+          "name": "remediation_state",
+          "label": "Remediation State",
+          "description": "Final remediation job state",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_state }}"
+        },
+        {
+          "name": "verification_status",
+          "label": "Verification Status",
+          "description": "Monitor verification outcome",
+          "type": "STRING",
+          "value": "{{ Variables.verification_status }}"
+        },
+        {
+          "name": "monitor_name",
+          "label": "Monitor Name",
+          "description": "Name of the triggering composite monitor",
+          "type": "STRING",
+          "value": "{{ Variables.monitor_name }}"
+        },
+        {
+          "name": "monitor_alert_url",
+          "label": "Monitor Alert URL",
+          "description": "URL to the monitor alert",
+          "type": "STRING",
+          "value": "{{ Variables.monitor_alert_url }}"
+        },
+        {
+          "name": "classification_confidence",
+          "label": "Classification Confidence",
+          "description": "Numeric confidence score from the AI classifier (0.0–1.0)",
+          "type": "NUMBER",
+          "value": "{{ Variables.classification_confidence }}"
+        },
+        {
+          "name": "safe_to_remediate",
+          "label": "Safe to Remediate",
+          "description": "Whether the AI classifier considers it safe to proceed with automated remediation",
+          "type": "BOOLEAN",
+          "value": "{{ Variables.safe_to_remediate }}"
+        },
+        {
+          "name": "classification_reason",
+          "label": "Classification Reason",
+          "description": "Brief factual reason from the AI classifier",
+          "type": "STRING",
+          "value": "{{ Variables.classification_reason }}"
+        },
+        {
+          "name": "classification_evidence",
+          "label": "Classification Evidence",
+          "description": "JSON array of supporting evidence from the AI classifier",
+          "type": "STRING",
+          "value": "{{ Variables.classification_evidence }}"
+        },
+        {
+          "name": "classification_conflicting_evidence",
+          "label": "Classification Conflicting Evidence",
+          "description": "JSON array of conflicting evidence from the AI classifier",
+          "type": "STRING",
+          "value": "{{ Variables.classification_conflicting_evidence }}"
+        },
+        {
+          "name": "classification_missing_evidence",
+          "label": "Classification Missing Evidence",
+          "description": "JSON array of missing evidence from the AI classifier",
+          "type": "STRING",
+          "value": "{{ Variables.classification_missing_evidence }}"
+        },
+        {
+          "name": "classifier_output_valid",
+          "label": "Classifier Output Valid",
+          "description": "Whether the AI classifier output passed schema validation",
+          "type": "STRING",
+          "value": "{{ Variables.classifier_output_valid }}"
+        },
+        {
+          "name": "verification_reason",
+          "label": "Verification Reason",
+          "description": "Reason returned by telemetry and runtime-state verification",
+          "type": "STRING",
+          "value": "{{ Variables.verification_reason }}"
+        },
+        {
+          "name": "remediation_backend",
+          "label": "Remediation Backend",
+          "description": "Execution backend used for remediation: AAP, Demo Control API, or temporary manual Prism",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_backend }}"
+        },
+        {
+          "name": "remediation_status_raw",
+          "label": "Remediation Raw Status",
+          "description": "Raw job status returned by the selected remediation backend",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_status_raw }}"
+        },
+        {
+          "name": "aap_job_template_id",
+          "label": "AAP Job Template ID",
+          "description": "AAP Job Template ID when the remediation uses AAP",
+          "type": "STRING",
+          "value": "{{ Variables.aap_job_template_id }}"
+        },
+        {
+          "name": "remediation_failure_reason",
+          "label": "Remediation Failure Reason",
+          "description": "Failure detail returned or normalized from the remediation backend",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_failure_reason }}"
+        },
+        {
+          "name": "remediation_execution_detail",
+          "label": "Remediation Execution Detail",
+          "description": "Fixed Job Template or Demo Control action selected for remediation",
+          "type": "STRING",
+          "value": "{{ Variables.remediation_execution_detail }}"
+        }
+      ]
+    }
+  }
+}

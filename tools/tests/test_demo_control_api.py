@@ -151,6 +151,27 @@ class DemoControlApiTest(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(body["error"], "action_forbidden")
 
+    def test_memory_fault_actions_are_limited_to_fault_token(self):
+        for action in ("memory", "stop-memory"):
+            status, body = self.request(
+                "POST",
+                "/v1/demo/action",
+                token=self.fault_token,
+                payload={"action": action},
+            )
+            self.assertEqual(status, 202)
+            self.assertEqual(body["action"], action)
+            self.wait_for_job_state("succeeded")
+
+        status, body = self.request(
+            "POST",
+            "/v1/demo/action",
+            token=self.remediation_token,
+            payload={"action": "memory"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"], "action_forbidden")
+
     def test_remediation_token_can_only_dispatch_fixed_remediation_actions(self):
         status, body = self.request(
             "POST",
