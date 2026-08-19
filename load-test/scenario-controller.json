@@ -645,6 +645,10 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
@@ -707,6 +711,10 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
@@ -831,6 +839,10 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
@@ -889,6 +901,10 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
@@ -1317,6 +1333,15 @@
           {
             "name": "url",
             "value": "http://127.0.0.1:18080/v1/demo/status"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
+              }
+            ]
           },
           {
             "name": "responseParsing",
