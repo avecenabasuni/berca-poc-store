@@ -34,7 +34,6 @@ FAULT_ACTIONS = frozenset(
         "deploy-storefront-demo-bad",
         "reset-storefront-deployment",
         "memory",
-        "stop-memory",
     }
 )
 REMEDIATION_ACTIONS = frozenset(

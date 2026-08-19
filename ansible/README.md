@@ -51,9 +51,8 @@ Posisi Job Template:
 | `<DISK_FAULT_JT_ID>` | Start disk fault | Workflow 1 `disk` | Perlu dibuat owner Ansible |
 | 13 | Pool remediation | Workflow 2, hanya pada `POOL` | Sudah tersedia |
 | 14 | Disk remediation | Workflow 2, hanya pada `DISK` | Sudah tersedia |
-| 15 | Full reset | Workflow 1 `reset` atau operator | Sudah tersedia |
-| `<MEMORY_FAULT_JT_ID>` | Inject bounded application-VM memory pressure | Scenario Controller `memory` | Perlu dibuat owner Ansible |
-| `<MEMORY_STOP_JT_ID>` | Stop bounded application-VM memory pressure | Scenario Controller `stop-memory` | Perlu dibuat owner Ansible |
+| 15 | Full reset | Final AAP path atau operator; fallback saat ini memakai Demo Control `reset` | Sudah tersedia |
+| `<MEMORY_FAULT_JT_ID>` | Inject bounded application-VM memory pressure | Pengganti final untuk fallback Demo Control `memory` | Perlu dibuat owner Ansible |
 | `<MEMORY_HOT_ADD_JT_ID>` | Hot-add Nutanix application VM ke 24 GiB | Remediation Workflow, hanya `MEMORY_PRESSURE` | Perlu dibuat owner Ansible |
 | `<MEMORY_RESET_JT_ID>` | Stop pressure dan restore baseline 16 GiB | Scenario Controller `reset-memory` | Perlu dibuat owner Ansible |
 

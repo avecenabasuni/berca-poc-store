@@ -40,14 +40,14 @@ Value yang ditunjukkan kepada customer:
 | `load-test/memory-pressure/memory-holder.c` | Mengalokasikan, mengunci, dan menyentuh RAM sekali lalu tidur |
 | `load-test/memory-pressure/entrypoint.sh` | Validasi enum alokasi, baseline host, safety floor, timeout, dan cgroup limit |
 | `demo-control.sh memory` | Development fallback untuk memulai fixed memory fault |
-| `demo-control.sh stop-memory` | Development fallback untuk menghentikan fixed memory fault |
+| `demo-control.sh reset` | Canonical reset yang juga menghentikan fixed memory fault |
 | `demo-control.sh status` | Evidence read-only RAM host dan status pressure container |
-| `load-test/scenario-controller.json` | Manual launch `memory`, `stop-memory`, dan `reset-memory` melalui AAP |
+| `load-test/scenario-controller.json` | Manual launch `memory`, canonical `reset`, dan `reset-memory` untuk scale-down Nutanix |
 | `load-test/remediation-apps.json` | Bits classification, policy, approval, hot-add dispatch, dan verification |
 
 AAP tetap menjadi execution path final. Selama integrasi AAP belum selesai,
 `demo-control.sh` dan Demo Control API menyediakan development fallback untuk
-fault `memory` dan `stop-memory`. Keduanya menggunakan fixed Compose service,
+fault `memory` dan canonical `reset`. Keduanya menggunakan fixed action dan
 tidak menerima byte allocation, host, path, atau argument dari request.
 
 Fallback tidak menjalankan hot-add atau scale-down Nutanix. Untuk pengujian
@@ -113,7 +113,7 @@ Development fallback lokal:
 ```bash
 sudo ./demo-control.sh memory
 sudo ./demo-control.sh status
-sudo ./demo-control.sh stop-memory
+sudo ./demo-control.sh reset
 ```
 
 Demo Control API memakai fault token yang sama dengan scenario fault lain:
@@ -126,9 +126,10 @@ Content-Type: application/json
 {"action":"memory"}
 ```
 
-Action stop memakai payload `{"action":"stop-memory"}`. Remediation token
-ditolak untuk kedua action tersebut. `GET /v1/demo/status` tetap menerima
-salah satu token dan mengekspos state memory yang diamati.
+Penghentian pressure memakai canonical payload `{"action":"reset"}`; tidak ada
+action `stop-memory` terpisah. Remediation token ditolak untuk kedua action
+fault tersebut. `GET /v1/demo/status` tetap menerima salah satu token dan
+mengekspos state memory yang diamati.
 
 ## Kalibrasi yang aman
 
@@ -234,22 +235,21 @@ Jangan mengaktifkan workflow dari monitor memory terpisah.
 
 ```text
 memory
-stop-memory
 reset-memory
+reset
 ```
 
 Mapping fixed:
 
-| Input | Fixed AAP Job Template |
+| Input | Fixed execution path |
 |---|---|
-| `memory` | Inject Application VM Memory Pressure |
-| `stop-memory` | Stop Application VM Memory Pressure |
+| `memory` | Demo Control API `memory` selama fallback; AAP fault template pada integrasi final |
+| `reset` | Demo Control API canonical `reset`, termasuk menghentikan pressure |
 | `reset-memory` | Restore Application VM Memory Baseline |
 
-Ketiga endpoint saat ini memakai Job Template ID `0` sebagai fail-safe
-placeholder. Ganti masing-masing URL dengan ID aktual dari owner Ansible
-sebelum import/publish Workflow. Jangan mengganti endpoint menjadi input
-workflow atau membentuk ID dari event.
+Hanya `reset-memory` yang masih memakai Job Template ID `0` sebagai fail-safe
+placeholder sampai owner Ansible menyediakan scale-down Nutanix. Jangan
+mengganti endpoint menjadi input workflow atau membentuk ID dari event.
 
 `reset-memory` adalah satu orchestration Job Template yang wajib melakukan
 urutan stop pressure, restore 16 GiB, lalu verifikasi baseline. Dengan begitu
@@ -375,13 +375,17 @@ Datadog payload.
 
 ### Reset
 
-1. Jalankan scenario `stop-memory`, atau langsung `reset-memory` bila orchestration
-   reset memang mengawali proses dengan stop idempotent.
-2. Jalankan `reset-memory`.
-3. Pastikan pressure container hilang sebelum scale-down.
-4. Pastikan guest kembali ke profile `baseline_16g`.
-5. Pastikan seluruh container, Agent, storefront, dan backend sehat.
-6. Pastikan monitor kembali `OK` sebelum siklus berikutnya.
+1. Jalankan scenario `reset` untuk menghentikan pressure dan membersihkan state POC.
+2. Jalankan `reset-memory` untuk scale-down Nutanix dari 24 GiB ke 16 GiB.
+3. Jalankan `reset` sekali lagi untuk verifikasi canonical baseline.
+4. Pastikan pressure container hilang sebelum scale-down.
+5. Pastikan guest kembali ke profile `baseline_16g`.
+6. Pastikan seluruh container, Agent, storefront, dan backend sehat.
+7. Pastikan monitor kembali `OK` sebelum siklus berikutnya.
+
+Jika VM masih berada pada profile 24 GiB, canonical `reset` sengaja melaporkan
+baseline belum lengkap setelah pressure dihentikan. Selesaikan `reset-memory`,
+lalu jalankan `reset` kembali untuk memperoleh verifikasi baseline penuh.
 
 ## Acceptance criteria
 

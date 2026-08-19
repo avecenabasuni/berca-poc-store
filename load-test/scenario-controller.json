@@ -62,11 +62,6 @@
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "stop-memory",
-                "value": "stop-memory"
-              },
-              {
-                "comparisonOperator": "eq",
                 "outboundBranch": "reset-memory",
                 "value": "reset-memory"
               },
@@ -100,10 +95,6 @@
           {
             "nextStepName": "Notify_Memory_Started",
             "branchName": "memory"
-          },
-          {
-            "nextStepName": "Notify_Stop_Memory_Started",
-            "branchName": "stop-memory"
           },
           {
             "nextStepName": "Notify_Reset_Memory_Started",
@@ -255,12 +246,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:arrows_counterclockwise: *POC CONTROL · RESETTING*\n*Restore Demo Baseline*\n━━━━━━━━━━━━━━━━━━━━\n\nThe complete demo environment is being restored through Ansible Automation Platform.\n\n*Scenario:* `reset`\n*Environment:* `poc`\n*Execution Backend:* `AAP`\n*Fixed Action:* `Full Reset (JT 20)`\n\n:shield: *Only the pre-defined POC action is permitted.*\n\n_Next → Controlled execution_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:arrows_counterclockwise: *POC CONTROL · RESETTING*\n*Restore Demo Baseline*\n━━━━━━━━━━━━━━━━━━━━\n\nThe Demo Control API is running the canonical full baseline reset, including removal of the synthetic memory-pressure container.\n\n*Scenario:* `reset`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `reset`\n\n:shield: *Only the pre-defined POC action is permitted.*\n\n_Next → Controlled execution_"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Launch_AAP_Reset",
+            "nextStepName": "Reset_Demo",
             "branchName": "main"
           }
         ],
@@ -297,36 +288,6 @@
         "display": {
           "bounds": {
             "x": 500,
-            "y": 360
-          }
-        }
-      },
-      {
-        "name": "Notify_Stop_Memory_Started",
-        "actionId": "com.datadoghq.slack.send_simple_message",
-        "parameters": [
-          {
-            "name": "channel",
-            "value": "#datadog-workflow"
-          },
-          {
-            "name": "teamId",
-            "value": "T0BP8NVNHS4"
-          },
-          {
-            "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:stop_sign: *POC CONTROL · STOPPING*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nThe Demo Control API is stopping only the bounded synthetic memory-pressure container.\n\n*Scenario:* `stop-memory`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `stop-memory`"
-          }
-        ],
-        "outboundEdges": [
-          {
-            "nextStepName": "Stop_Memory_Pressure_Demo",
-            "branchName": "main"
-          }
-        ],
-        "display": {
-          "bounds": {
-            "x": 1000,
             "y": 360
           }
         }
@@ -438,7 +399,7 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:warning: *POC CONTROL · INVALID REQUEST*\n*Unsupported Scenario*\n━━━━━━━━━━━━━━━━━━━━\n\n*Allowed Scenarios*\n• `pool`\n• `disk`\n• `autoscale`\n• `rollback`\n• `memory`\n• `stop-memory`\n• `reset-memory`\n• `reset`\n\n:shield: *No changes were executed.*"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:warning: *POC CONTROL · INVALID REQUEST*\n*Unsupported Scenario*\n━━━━━━━━━━━━━━━━━━━━\n\n*Allowed Scenarios*\n• `pool`\n• `disk`\n• `autoscale`\n• `rollback`\n• `memory`\n• `reset-memory`\n• `reset`\n\n:shield: *No changes were executed.*"
           }
         ],
         "display": {
@@ -565,9 +526,9 @@
         }
       },
       {
-        "name": "Launch_AAP_Reset",
+        "name": "Reset_Demo",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE",
+        "connectionLabel": "INTEGRATION_NONE_1",
         "parameters": [
           {
             "name": "verb",
@@ -575,30 +536,34 @@
           },
           {
             "name": "url",
-            "value": "https://192.168.2.66/api/controller/v2/job_templates/20/launch/"
+            "value": "http://127.0.0.1:18080/v1/demo/action"
           },
           {
             "name": "requestHeaders",
             "value": [
               {
                 "key": "Content-Type",
-                "value": ["application/json"]
+                "value": [
+                  "application/json"
+                ]
+              },
+              {
+                "key": "Authorization",
+                "value": [
+                  "Bearer <DEMO_FAULT_TOKEN>"
+                ]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "extra_vars": {}
+              "action": "reset"
             }
           },
           {
             "name": "responseParsing",
             "value": "json"
-          },
-          {
-            "name": "allowExpiredCertificate",
-            "value": true
           }
         ],
         "outboundEdges": [
@@ -688,72 +653,6 @@
         "display": {
           "bounds": {
             "x": 500,
-            "y": 600
-          }
-        }
-      },
-      {
-        "name": "Stop_Memory_Pressure_Demo",
-        "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
-        "parameters": [
-          {
-            "name": "verb",
-            "value": "POST"
-          },
-          {
-            "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
-          },
-          {
-            "name": "requestHeaders",
-            "value": [
-              {
-                "key": "Content-Type",
-                "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
-              }
-            ]
-          },
-          {
-            "name": "body",
-            "value": {
-              "action": "stop-memory"
-            }
-          },
-          {
-            "name": "responseParsing",
-            "value": "json"
-          },
-          {
-            "name": "allowExpiredCertificate",
-            "value": true
-          }
-        ],
-        "outboundEdges": [
-          {
-            "nextStepName": "Normalize_Memory_Launch_Response",
-            "branchName": "main"
-          }
-        ],
-        "errorHandlers": [
-          {
-            "retryStrategy": {
-              "kind": "RETRY_STRATEGY_LINEAR",
-              "linear": {
-                "interval": "5s",
-                "maxRetries": 0
-              }
-            },
-            "fallbackStepName": "Set_Launch_Failed"
-          }
-        ],
-        "display": {
-          "bounds": {
-            "x": 1000,
             "y": 600
           }
         }
@@ -950,7 +849,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const scenario = $.Trigger.scenario;\n\nconst config = {\n  pool: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Pool_Fault,\n    templateId: '21',\n    templateName: 'Pool Fault',\n    action: 'pool'\n  },\n  disk: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Disk_Fault,\n    templateId: '22',\n    templateName: 'Disk Fault',\n    action: 'disk'\n  },\n  reset: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Reset,\n    templateId: '20',\n    templateName: 'Full Reset',\n    action: 'reset'\n  },\n  autoscale: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Start_Storefront_Traffic_Spike,\n    templateId: '',\n    templateName: '',\n    action: 'start-storefront-spike'\n  },\n  rollback: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Deploy_Storefront_Demo_Bad,\n    templateId: '',\n    templateName: '',\n    action: 'deploy-storefront-demo-bad'\n  }\n};\n\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable(\n  'failure_reason',\n  accepted ? '' : 'Execution backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
+            "value": "const scenario = $.Trigger.scenario;\n\nconst config = {\n  pool: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Pool_Fault,\n    templateId: '21',\n    templateName: 'Pool Fault',\n    action: 'pool'\n  },\n  disk: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Disk_Fault,\n    templateId: '22',\n    templateName: 'Disk Fault',\n    action: 'disk'\n  },\n  reset: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Reset_Demo,\n    templateId: '',\n    templateName: '',\n    action: 'reset'\n  },\n  autoscale: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Start_Storefront_Traffic_Spike,\n    templateId: '',\n    templateName: '',\n    action: 'start-storefront-spike'\n  },\n  rollback: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Deploy_Storefront_Demo_Bad,\n    templateId: '',\n    templateName: '',\n    action: 'deploy-storefront-demo-bad'\n  }\n};\n\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable(\n  'failure_reason',\n  accepted ? '' : 'Execution backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
           }
         ],
         "outboundEdges": [
@@ -1011,7 +910,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { backend: 'DEMO_CONTROL', response: $.Steps.Start_Memory_Pressure_Demo, action: 'memory', templateName: '' },\n  'stop-memory': { backend: 'DEMO_CONTROL', response: $.Steps.Stop_Memory_Pressure_Demo, action: 'stop-memory', templateName: '' },\n  'reset-memory': { backend: 'AAP', response: $.Steps.Launch_AAP_Reset_Memory, action: 'reset-memory', templateName: 'Restore Application VM Memory to 16 GiB' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nlet jobId = '';\nlet rawState = '';\nlet accepted = false;\nif (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted = httpStatus === 202 && body.ok === true && body.action === selected.action && body.state === 'accepted' && jobId !== '';\n} else if (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.backend === 'AAP' ? '0' : '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'Execution backend did not return the expected launch response');\nreturn { accepted, backend: selected.backend || 'UNKNOWN', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
+            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { backend: 'DEMO_CONTROL', response: $.Steps.Start_Memory_Pressure_Demo, action: 'memory', templateName: '' },\n  'reset-memory': { backend: 'AAP', response: $.Steps.Launch_AAP_Reset_Memory, action: 'reset-memory', templateName: 'Restore Application VM Memory to 16 GiB' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nlet jobId = '';\nlet rawState = '';\nlet accepted = false;\nif (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted = httpStatus === 202 && body.ok === true && body.action === selected.action && body.state === 'accepted' && jobId !== '';\n} else if (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.backend === 'AAP' ? '0' : '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'Execution backend did not return the expected launch response');\nreturn { accepted, backend: selected.backend || 'UNKNOWN', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
           }
         ],
         "outboundEdges": [
@@ -1786,11 +1685,6 @@
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "demo_scenario",
-                "value": "stop-memory"
-              },
-              {
-                "comparisonOperator": "eq",
                 "outboundBranch": "reset",
                 "value": "reset-memory"
               },
@@ -1948,7 +1842,7 @@
           "description": "Isolated POC scenario to activate, or reset the complete demo environment",
           "type": "STRING",
           "defaultValue": "pool",
-          "allowedValues": ["pool", "disk", "autoscale", "rollback", "memory", "stop-memory", "reset-memory", "reset"]
+          "allowedValues": ["pool", "disk", "autoscale", "rollback", "memory", "reset-memory", "reset"]
         }
       ]
     },

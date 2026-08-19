@@ -48,7 +48,6 @@ Actions:
   rollback-storefront-stable  Return the storefront to the pre-approved stable release.
   reset-storefront-deployment Return the storefront to the stable release.
   memory        Start the bounded application-VM memory pressure fault.
-  stop-memory   Stop only the bounded application-VM memory pressure fault.
   reset         Run the canonical full baseline reset.
   status        Print the observed POC state as JSON (pretty in an interactive terminal).
 EOF
@@ -737,19 +736,6 @@ start_memory_pressure() {
   echo "[OK] Memory pressure active: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
 }
 
-stop_memory_pressure() {
-  if memory_pressure_exists; then
-    stop_memory_pressure_fallback
-  fi
-
-  if memory_pressure_is_running; then
-    fail "Memory-pressure container is still running after stop."
-  fi
-
-  read_host_memory_state || fail "Memory pressure stopped but host memory state cannot be read."
-  echo "[OK] Memory pressure stopped: usable_fraction=${HOST_MEMORY_USABLE_FRACTION}, profile=${HOST_MEMORY_PROFILE}."
-}
-
 stop_memory_pressure_fallback() {
   docker compose --profile memory-demo rm -sf memory-pressure >/dev/null
 }
@@ -891,7 +877,7 @@ fi
 ACTION="$1"
 
 case "$ACTION" in
-  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment|memory|stop-memory)
+  pool|recover-pool|reset|status|disk|recover-disk|start-storefront-spike|stop-storefront-spike|scale-storefront-to-2|reset-storefront-scale|deploy-storefront-demo-bad|rollback-storefront-stable|reset-storefront-deployment|memory)
     ;;
   *)
     usage >&2
@@ -947,9 +933,6 @@ case "$ACTION" in
     ;;
   memory)
     start_memory_pressure
-    ;;
-  stop-memory)
-    stop_memory_pressure
     ;;
   reset)
     reset_demo
