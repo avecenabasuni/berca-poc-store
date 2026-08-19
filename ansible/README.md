@@ -66,14 +66,15 @@ demo dan bukan fallback otomatis.
 
 ### Extension: application VM memory hot-add
 
-Skenario memory memakai AAP sebagai execution path utama dan tidak menambahkan
-action start/stop/hot-add ke Demo Control API. Detail implementasi, calibration,
-payload, verification, dan live demo ada di
+Skenario memory memakai AAP sebagai execution path utama. Selama implementasi
+Ansible belum tersedia, Demo Control action `memory` dan canonical `reset`
+menjadi development fallback. Tidak ada action `stop-memory` terpisah. Detail
+implementasi, calibration, payload, verification, dan live demo ada di
 `load-test/MEMORY-HOT-ADD-POC.md`.
 
-Keempat Job Template memory harus mengunci Inventory host, Nutanix VM UUID,
-Prism endpoint, Compose project path, service name, baseline 16 GiB, dan target
-24 GiB di sisi AAP. Tidak ada nilai tersebut yang boleh berasal dari monitor,
+Tiga Job Template memory harus mengunci Inventory host, Nutanix VM UUID, Prism
+endpoint, Compose project path, service name, baseline 16 GiB, dan target 24
+GiB di sisi AAP. Tidak ada nilai tersebut yang boleh berasal dari monitor,
 Bits, survey bebas, atau Datadog request.
 
 Kontrak native action:
@@ -81,7 +82,6 @@ Kontrak native action:
 | Job Template | Native outcome |
 |---|---|
 | Inject Application VM Memory Pressure | Preflight 16 GiB dan `MemAvailable >=2.5 GiB`, lalu start hanya Compose profile/service `memory-demo` / `memory-pressure` |
-| Stop Application VM Memory Pressure | Stop dan remove hanya `memory-pressure`; sukses idempotent bila sudah berhenti |
 | Hot Add Application VM Memory to 24 GiB | Nutanix hot-add 16 ke 24 GiB tanpa menghentikan pressure; no-op pada 24 GiB; tidak pernah melebihi 24 GiB |
 | Restore Application VM Memory Baseline | Stop pressure secara idempotent, restore 24 ke 16 GiB, lalu tunggu guest, SSH, Datadog Agent, dan application stack sehat |
 
@@ -115,6 +115,8 @@ Owner Ansible bertanggung jawab atas:
 - dedicated Inventory untuk satu VM POC;
 - Machine Credential dan privilege escalation;
 - Pool Fault, Disk Fault, dan Job Template 13, 14, dan 15;
+- native Job Template autoscale, rollback, dan memory hot-add/reset;
+- Inventory dan Job Template terpisah untuk RHEL vulnerability remediation;
 - final idempotent playbooks;
 - RBAC untuk service account Datadog;
 - execution evidence dan status job.
@@ -653,6 +655,8 @@ Handoff Ansible selesai setelah tersedia:
 - dedicated Inventory dan Machine Credential untuk VM POC;
 - Pool Fault, Disk Fault, dan Job Template 13/14/15 sesuai pembatasan dokumen
   ini;
+- native autoscale/rollback, tiga Job Template memory, dan CVE remediation
+  sesuai status serta acceptance gate pada handoff terkini;
 - required audit surveys pada JT 13/14;
 - satu reusable native Ansible role untuk fault, remediation, reset, dan status;
 - positive dan negative test evidence;
@@ -661,6 +665,9 @@ Handoff Ansible selesai setelah tersedia:
 - private connectivity dari Datadog Private Action Runner ke AAP;
 - konfirmasi bahwa AAP status hanya execution evidence dan Datadog telemetry
   tetap menjadi final recovery authority.
+
+Status lintas keenam skenario, kontrak launch, dan daftar file handoff berada
+di [`load-test/datadog/ANSIBLE-HANDOFF.md`](../load-test/datadog/ANSIBLE-HANDOFF.md).
 
 ## 15. Native storefront scale-out playbooks
 
@@ -701,3 +708,40 @@ Datadog keeps the generic deployment-regression monitor, Slack approval, and
 telemetry verification: stable `DD_VERSION`, `/api/healthz` and `/id/store`
 healthy, p95 normal, and error rate safe. AAP success remains execution
 evidence only.
+
+## 17. RHEL vulnerability remediation (separate SecOps workflow)
+
+Vulnerability remediation tidak menjadi branch pada autonomous application
+workflow. Datadog memakai workflow terpisah
+[`load-test/soar.json`](../load-test/soar.json) untuk query finding, prioritas,
+policy gate, approval, dispatch, dan verification.
+
+Suite Ansible tersedia di [`cve_playbooks/`](cve_playbooks/) dengan panduan
+setup pada
+[`cve_playbooks/IMPLEMENTATION-GUIDE.md`](cve_playbooks/IMPLEMENTATION-GUIDE.md).
+Status saat ini: Datadog SOAR sudah teruji sampai notifikasi, tetapi launch AAP,
+polling job, patching, host validation, rescan, dan resolved finding belum
+dianggap lulus end-to-end.
+
+Job Template remediation menerima hanya enam required survey variables:
+
+```yaml
+advisory_id: <allowlisted RHSA>
+package_name: <allowlisted package>
+cve_id: <Datadog CVE ID>
+severity: high | critical
+finding_id: <Datadog finding ID>
+approval_reference: <Datadog workflow instance ID>
+```
+
+Inventory host, repository, RHSA/package allowlist, restart allowlist, reboot
+policy, dan fixed package yang tersedia tetap ditentukan oleh Ansible. Nilai
+`fixed_version` dari Datadog hanya evidence pada approval dan tidak boleh
+diinterpolasi langsung menjadi command DNF.
+
+Untuk formal demo, reset utama adalah Nutanix snapshot restore diikuti
+`rhel96-cve-reset-check.yml`. `rhel96-cve-rollback.yml` adalah opsi lab-only dan
+tidak boleh menjadi jalur rollback production. Sebelum handoff dinyatakan
+selesai, tim Ansible harus mengonfirmasi advisory aktual pada VM, fail-safe
+preflight, validation setelah service restart, scoped AAP token, dan Job
+Template ID kepada owner Datadog.

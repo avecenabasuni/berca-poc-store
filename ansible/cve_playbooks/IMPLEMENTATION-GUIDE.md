@@ -3,6 +3,18 @@
 Step-by-step implementation guide for the RHEL 9.6 Vulnerability Remediation POC
 on Nutanix with Datadog and Red Hat Ansible Automation Platform (AAP).
 
+> **Current status (19 August 2026):** the separate Datadog workflow export at
+> `load-test/soar.json` has been tested for notification only. Finding query,
+> prioritization, approval, AAP launch, job polling, package patching, host
+> validation, Datadog rescan, and resolved-finding verification are not yet
+> end-to-end tested. Do
+> not present the vulnerability scenario as remediated until those gates pass.
+
+The canonical cross-team status and payload contract is
+[`load-test/datadog/ANSIBLE-HANDOFF.md`](../../load-test/datadog/ANSIBLE-HANDOFF.md).
+Vulnerability remains a separate SecOps workflow and is not a branch of the
+application incident-remediation workflow.
+
 All AAP configuration is done through the **AAP web UI**. CLI commands are only
 used for VM preparation and optional local testing.
 

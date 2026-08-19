@@ -1,0 +1,982 @@
+{
+  "id": "8c53e448-c013-4f3e-b4a2-e44eefcf2300",
+  "name": "[POC] SOAR ",
+  "description": "POC vulnerability workflow. Notification path tested; AAP launch, patching, polling, Datadog rescan, and resolved-finding verification are pending end-to-end validation.",
+  "tags": [],
+  "published": true,
+  "spec": {
+    "triggers": [
+      {
+        "startStepNames": ["Query_Findings"],
+        "scheduleTrigger": {
+          "rruleExpression": "DTSTART:20260812T100830Z\nFREQ=DAILY;INTERVAL=1;BYHOUR=9;BYMINUTE=0",
+          "overlapBehavior": "EXCLUSIVE_RUN"
+        }
+      },
+      {
+        "startStepNames": ["Query_Findings"],
+        "selfServiceTrigger": {}
+      }
+    ],
+    "steps": [
+      {
+        "name": "Query_Findings",
+        "actionId": "com.datadoghq.dd.ddsql.tableQuery",
+        "parameters": [
+          {
+            "name": "query",
+            "value": "SELECT ts,\n  status,\n  severity,\n  resource_id,\n  finding_id,\n  resource_name,\n  remediation_available,\n  cve_id,\n  package_name,\n  installed_version,\n  fixed_version,\n  advisory_id,\n  runtime_active\nFROM dd.security_findings(\n  columns => ARRAY[\n    'timestamp',\n    '@status',\n    '@severity',\n    '@resource_id',\n    '@finding_id',\n    '@resource_name',\n    '@remediation.is_available',\n    '@advisory.cve',\n    '@package.name',\n    '@package.version',\n    '@remediation.package.base.version',\n    '@advisory.id',\n    '@package.is_running'\n  ],\n  filter => '@status:open @severity:high @remediation.is_available:true @risk.has_exploit_available:true @advisory.cve:*',\n  finding_types => ARRAY['host_and_container_vulnerability']\n) AS (\n  ts TIMESTAMP,\n  status VARCHAR,\n  severity VARCHAR,\n  resource_id VARCHAR,\n  finding_id VARCHAR,\n  resource_name VARCHAR,\n  remediation_available BOOLEAN,\n  cve_id VARCHAR,\n  package_name VARCHAR,\n  installed_version VARCHAR,\n  fixed_version VARCHAR,\n  advisory_id VARCHAR,\n  runtime_active BOOLEAN\n)\nWHERE cve_id IS NOT NULL\nLIMIT 10"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Build_Findings",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Notify_Workflow_Error"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 192
+          }
+        }
+      },
+      {
+        "name": "Build_Findings",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const rawFindings = $.Steps.Query_Findings.data || [];\n\n$.Helpers.setVariable('raw_findings_count', rawFindings.length);\n\nconst structuredFindings = rawFindings.map(function(row) {\n  return {\n    finding_id: row.finding_id ? String(row.finding_id).trim() : '',\n    resource_id: row.resource_id ? String(row.resource_id).trim() : '',\n    hostname: row.resource_name ? String(row.resource_name).trim() : '',\n    environment: 'poc',\n    severity: row.severity ? String(row.severity).toLowerCase().trim() : '',\n    cve_id: row.cve_id ? String(row.cve_id).trim() : '',\n    package_name: row.package_name ? String(row.package_name).trim() : '',\n    installed_version: row.installed_version ? String(row.installed_version).trim() : '',\n    fixed_version: row.fixed_version ? String(row.fixed_version).trim() : '',\n    advisory_id: row.advisory_id ? String(row.advisory_id).trim() : '',\n    finding_status: row.status ? String(row.status).toLowerCase().trim() : '',\n    runtime_active: row.runtime_active === true || row.runtime_active === 'true'\n  };\n});\n\nreturn structuredFindings;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Prioritize_Findings",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Notify_Workflow_Error"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 360
+          }
+        }
+      },
+      {
+        "name": "Prioritize_Findings",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const findings = $.Steps.Build_Findings.data || [];\n\nconst scored = findings.map(function(f) {\n  var score = 0;\n  var sev = (f.severity || '').toLowerCase();\n  if (sev === 'critical') score += 3;\n  else if (sev === 'high') score += 2;\n  if (f.runtime_active === true) score += 2;\n  if (f.fixed_version && f.fixed_version !== '') score += 1;\n  return Object.assign({}, f, { priority_score: score });\n});\n\nscored.sort(function(a, b) { return b.priority_score - a.priority_score; });\n\nreturn scored;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Select_Top_Findings",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Notify_Workflow_Error"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 480
+          }
+        }
+      },
+      {
+        "name": "Select_Top_Findings",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const findings = $.Steps.Prioritize_Findings.data || [];\nconst top = findings.slice(0, 1);\n$.Helpers.setVariable('total_findings_count', top.length);\nreturn top;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Findings_Count",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Notify_Workflow_Error"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 600
+          }
+        }
+      },
+      {
+        "name": "Check_Findings_Count",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const findings = $.Steps.Select_Top_Findings.data || [];\nif (findings.length === 0) {\n  throw new Error('NO_FINDINGS: No prioritized findings requiring action. This is a normal business outcome.');\n}\nreturn findings;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Loop_Findings",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_No_Findings"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 720
+          }
+        }
+      },
+      {
+        "name": "Loop_Findings",
+        "actionId": "com.datadoghq.core.forLoop",
+        "parameters": [
+          {
+            "name": "inputList",
+            "value": "{{ Steps.Select_Top_Findings.data }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Notify_All_Done",
+            "branchName": "main"
+          },
+          {
+            "nextStepName": "Validate_Finding",
+            "branchName": "loopStart"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -984,
+            "y": 912
+          }
+        }
+      },
+      {
+        "name": "Validate_Finding",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const finding = $.Current.Value;\nconst reasons = [];\n\nconst requiredFields = ['finding_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nfor (var i = 0; i < requiredFields.length; i++) {\n  var field = requiredFields[i];\n  if (!finding[field] || finding[field] === '') {\n    reasons.push('Missing or empty required field: ' + field);\n  }\n}\n\nif (reasons.length > 0) {\n  throw new Error('Data validation failed: ' + reasons.join(', '));\n}\n\nreturn { passed: true, reasons: [], finding: finding };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Policy_Gate",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Policy_Blocked"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 1020
+          }
+        }
+      },
+      {
+        "name": "Policy_Gate",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const validationResult = $.Steps.Validate_Finding.data;\nconst finding = validationResult && validationResult.finding;\nconst policyChecks = [];\n\nif (!validationResult || !validationResult.passed) {\n  policyChecks.push('Data validation did not pass');\n}\nif (!finding || finding.environment !== 'poc') {\n  policyChecks.push('Environment must be poc, got: ' + (finding ? finding.environment : 'unknown'));\n}\nvar severity = finding && finding.severity ? finding.severity.toLowerCase() : '';\nif (severity !== 'critical' && severity !== 'high') {\n  policyChecks.push('Severity must be critical or high, got: ' + severity);\n}\nif (!finding || finding.finding_status !== 'open') {\n  policyChecks.push('Finding status must be open, got: ' + (finding ? finding.finding_status : 'unknown'));\n}\nif (!finding || !finding.fixed_version || finding.fixed_version.trim() === '') {\n  policyChecks.push('Fixed version must exist and be non-empty');\n}\n\nif (policyChecks.length > 0) {\n  throw new Error('Remediation policy enforcement failed: ' + policyChecks.join('; '));\n}\n\nreturn validationResult;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Already_Remediated",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Policy_Blocked"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 1140
+          }
+        }
+      },
+      {
+        "name": "Check_Already_Remediated",
+        "actionId": "com.datadoghq.dd.cloudsecurity.getSecurityFinding",
+        "parameters": [
+          {
+            "name": "id",
+            "value": "{{ Steps.Validate_Finding.data.finding.finding_id }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Evaluate_Remediation_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Notify_Policy_Blocked"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 1332
+          }
+        }
+      },
+      {
+        "name": "Evaluate_Remediation_Status",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const liveStatus = $.Steps.Check_Already_Remediated.attributes.status;\nconst finding = $.Steps.Validate_Finding.data.finding;\n\nif (liveStatus === 'resolved' || liveStatus === 'auto_closed') {\n  throw new Error('ALREADY_REMEDIATED: Finding is already in status: ' + liveStatus + '. Skipping to avoid duplicate remediation.');\n}\n\nreturn finding;"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Request_Approval",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Already_Remediated"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 1500
+          }
+        }
+      },
+      {
+        "name": "Request_Approval",
+        "actionId": "com.datadoghq.slack.send_interactive_message",
+        "parameters": [
+          {
+            "name": "actionChoices",
+            "value": [
+              {
+                "displayName": "✅ Approve",
+                "outboundBranch": "approve"
+              },
+              {
+                "displayName": "🚫 Reject",
+                "outboundBranch": "reject"
+              }
+            ]
+          },
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "promptText",
+            "value": "🔒 *Security Remediation Approval Required*\n*Priority Finding {{ Current.Index }} of {{ Variables.total_findings_count }}*\n_This is an intelligently prioritized finding — not mass patching._\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*Environment:* {{ Steps.Evaluate_Remediation_Status.data.environment }}\n*Severity:* {{ Steps.Evaluate_Remediation_Status.data.severity }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Installed version:* {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\n*Fixed version:* {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*Runtime active:* {{ Steps.Evaluate_Remediation_Status.data.runtime_active }}\n*Priority score:* {{ Steps.Evaluate_Remediation_Status.data.priority_score }}\n\n*Requested action:* Apply the approved security advisory via Ansible Automation Platform.\n_Approving will trigger a fixed AAP Job Template. No arbitrary commands will be executed._\n\n_Selected from a larger pool based on severity + exploit availability + remediation availability + runtime relevance._"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Launch_AAP_Job",
+            "branchName": "approve"
+          },
+          {
+            "nextStepName": "Notify_Rejected",
+            "branchName": "reject"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 1
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -192,
+            "y": 1692
+          }
+        }
+      },
+      {
+        "name": "Launch_AAP_Job",
+        "actionId": "com.datadoghq.http.request",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://YOUR_AAP_CONTROLLER/api/v2/job_templates/FIXED_TEMPLATE_ID/launch/"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer YOUR_AAP_API_TOKEN_SECRET"]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "extra_vars": {
+                "advisory_id": "{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}",
+                "approval_reference": "{{ InstanceId }}",
+                "cve_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
+                "environment": "{{ Steps.Evaluate_Remediation_Status.data.environment }}",
+                "finding_id": "{{ Steps.Evaluate_Remediation_Status.data.finding_id }}",
+                "fixed_version": "{{ Steps.Evaluate_Remediation_Status.data.fixed_version }}",
+                "installed_version": "{{ Steps.Evaluate_Remediation_Status.data.installed_version }}",
+                "package_name": "{{ Steps.Evaluate_Remediation_Status.data.package_name }}",
+                "requested_action": "apply_rhel_security_advisory",
+                "resource_id": "{{ Steps.Evaluate_Remediation_Status.data.resource_id }}",
+                "schema_version": "1.0",
+                "severity": "{{ Steps.Evaluate_Remediation_Status.data.severity }}"
+              }
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Get_AAP_Job_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "10s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 1884
+          }
+        }
+      },
+      {
+        "name": "Get_AAP_Job_Status",
+        "actionId": "com.datadoghq.http.request",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "GET"
+          },
+          {
+            "name": "url",
+            "value": "https://YOUR_AAP_CONTROLLER/api/v2/jobs/{{ Steps.Launch_AAP_Job.body.id }}/"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": ["application/json"]
+              },
+              {
+                "key": "Authorization",
+                "value": ["Bearer YOUR_AAP_API_TOKEN_SECRET"]
+              }
+            ]
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Evaluate_AAP_Result",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "completionGate": {
+          "completionCondition": {
+            "operand1": "{{ Steps.Get_AAP_Job_Status.body.status }}",
+            "operator": "OPERATOR_EQUAL",
+            "operand2": "successful"
+          },
+          "retryStrategy": {
+            "kind": "RETRY_STRATEGY_LINEAR",
+            "linear": {
+              "interval": "30s",
+              "maxRetries": 30
+            }
+          }
+        },
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 2100
+          }
+        }
+      },
+      {
+        "name": "Evaluate_AAP_Result",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const jobStatus = $.Steps.Get_AAP_Job_Status.body.status;\nconst jobId = $.Steps.Get_AAP_Job_Status.body.id;\n\nconst terminalFailures = ['failed', 'error', 'canceled', 'cancel_request'];\nif (terminalFailures.indexOf(jobStatus) !== -1) {\n  throw new Error('AAP job reached terminal failure state: ' + jobStatus + ' (Job ID: ' + jobId + '). Manual investigation required.');\n}\n\nif (jobStatus === 'successful') {\n  return { status: 'successful', jobId: jobId };\n}\n\nreturn { status: jobStatus, jobId: jobId };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_Operational_Health",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 2316
+          }
+        }
+      },
+      {
+        "name": "Validate_Operational_Health",
+        "actionId": "com.datadoghq.dd.hosts.listHosts",
+        "parameters": [
+          {
+            "name": "filter",
+            "value": "host:{{ Steps.Evaluate_Remediation_Status.data.hostname }}"
+          },
+          {
+            "name": "include_hosts_metadata",
+            "value": true
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Host_Health",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 2436
+          }
+        }
+      },
+      {
+        "name": "Check_Host_Health",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const totalReturned = $.Steps.Validate_Operational_Health.total_returned;\nconst hostList = $.Steps.Validate_Operational_Health.host_list || [];\n\nif (!totalReturned || totalReturned === 0) {\n  throw new Error('Host is not reporting to Datadog: no hosts found');\n}\n\nconst host = hostList[0];\nif (!host || host.up !== true) {\n  throw new Error('Host is down. up=' + (host ? host.up : 'undefined'));\n}\n\nreturn {\n  hostname: host.name,\n  up: host.up,\n  agent_version: host.meta && host.meta.agent_version ? host.meta.agent_version : 'unknown',\n  total_returned: totalReturned,\n  status: 'healthy'\n};"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_Vulnerability_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 2604
+          }
+        }
+      },
+      {
+        "name": "Check_Vulnerability_Status",
+        "actionId": "com.datadoghq.dd.cloudsecurity.getSecurityFinding",
+        "parameters": [
+          {
+            "name": "id",
+            "value": "{{ Steps.Evaluate_Remediation_Status.data.finding_id }}"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Evaluate_Vulnerability_Status",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 2
+              }
+            },
+            "fallbackStepName": "Notify_Verification_Error"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 2724
+          }
+        }
+      },
+      {
+        "name": "Evaluate_Vulnerability_Status",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const status = $.Steps.Check_Vulnerability_Status.attributes.status;\nconst findingId = $.Steps.Check_Vulnerability_Status.attributes.finding_id;\n\nif (status === 'resolved') {\n  throw new Error('FINDING_RESOLVED: Vulnerability confirmed remediated. Finding ID: ' + findingId);\n}\n\nif (status === 'open' || status === 'in-progress' || status === 'muted') {\n  return { outcome: 'pending_rescan', status: status, finding_id: findingId };\n}\n\nreturn { outcome: 'unexpected_status', status: status, finding_id: findingId };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Notify_Patch_Applied",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Remediation_Verified"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -960,
+            "y": 2916
+          }
+        }
+      },
+      {
+        "name": "Notify_Remediation_Verified",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":white_check_mark: *Remediation Fully Verified — Closed Loop*\n\nThe patch was applied successfully AND Datadog has confirmed the finding is now *resolved*.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n*Host health:*\n• Up: {{ Steps.Check_Host_Health.data.up }}\n• Agent version: {{ Steps.Check_Host_Health.data.agent_version }}\n\n*Security status:* resolved ✓\n_Approved by: {{ Steps.Request_Approval.responder.username }}_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -576,
+            "y": 3108
+          }
+        }
+      },
+      {
+        "name": "Notify_Patch_Applied",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":large_yellow_circle: *Patch Applied — Pending Security Rescan*\n\nAAP successfully applied the patch and the host is healthy. However, the finding is still *open* in Datadog — this is expected. Datadog must complete a vulnerability rescan (SBOM re-evaluation) to close this finding.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n*Host health:*\n• Up: {{ Steps.Check_Host_Health.data.up }}\n• Agent version: {{ Steps.Check_Host_Health.data.agent_version }}\n\n*Security status:* open (rescan pending)\n_Stage: patch_applied_pending_security_rescan_\n_Approved by: {{ Steps.Request_Approval.responder.username }}_"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -960,
+            "y": 3108
+          }
+        }
+      },
+      {
+        "name": "Notify_Verification_Error",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":warning: *Vulnerability Verification Error*\n\nThe patch was applied by AAP and the host is healthy, but Datadog returned an unexpected status for the security finding. Manual verification is required.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Finding ID:* {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n:warning: *Action required:* Manually verify the finding status in Datadog Security."
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -192,
+            "y": 2916
+          }
+        }
+      },
+      {
+        "name": "Notify_Failure",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":rotating_light: *Security Remediation Failed — Escalation Required*\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n*Final AAP Status:* {{ Steps.Get_AAP_Job_Status.body.status }}\n\n:warning: *Action required:* No automatic rollback will be attempted. Operators must investigate the AAP job and host health manually.\n_Do not re-run the workflow until the root cause is understood._"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 192,
+            "y": 2724
+          }
+        }
+      },
+      {
+        "name": "Notify_Rejected",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":no_entry_sign: *Security Remediation Rejected*\n\n*Rejected by:* {{ Steps.Request_Approval.responder.username }}\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n_No changes were made to the host. The workflow will continue to the next finding._"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -192,
+            "y": 1884
+          }
+        }
+      },
+      {
+        "name": "Notify_Already_Remediated",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":ballot_box_with_check: *Duplicate Remediation Prevented*\n\nThis finding is already remediated or pending rescan. No action taken.\n\n*Host:* {{ Steps.Validate_Finding.data.finding.hostname }}\n*CVE:* {{ Steps.Validate_Finding.data.finding.cve_id }}\n*Advisory:* {{ Steps.Validate_Finding.data.finding.advisory_id }}\n*Finding ID:* {{ Steps.Validate_Finding.data.finding.finding_id }}\n*Current status:* {{ Steps.Check_Already_Remediated.attributes.status }}\n\n_Workflow continues to next finding._"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 576,
+            "y": 1692
+          }
+        }
+      },
+      {
+        "name": "Notify_Policy_Blocked",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":no_entry: *Security Finding Blocked by Data Validation or Policy Gate*\n\n*CVE:* {{ Steps.Validate_Finding.data.finding.cve_id }}\n*Host:* {{ Steps.Validate_Finding.data.finding.hostname }}\n*Severity:* {{ Steps.Validate_Finding.data.finding.severity }}\n*Advisory:* {{ Steps.Validate_Finding.data.finding.advisory_id }}\n\n_No changes were made. The workflow will continue to the next finding._"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 960,
+            "y": 1500
+          }
+        }
+      },
+      {
+        "name": "Notify_No_Findings",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":white_check_mark: *Daily Security Scan Complete — No Action Required*\n\n*Scope:* All monitored hosts | *Environment:* poc\n\nNo prioritized findings requiring action today. This is a normal business outcome.\n\n*Raw findings detected (pre-prioritization):* {{ Variables.raw_findings_count }}\n\n_Next scan will run tomorrow at 09:00 UTC._"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 1344,
+            "y": 912
+          }
+        }
+      },
+      {
+        "name": "Notify_All_Done",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":checkered_flag: *Daily Security Remediation Run Complete*\n\n*Total findings processed:* {{ Variables.total_findings_count }} of {{ Variables.raw_findings_count }} detected\n*Environment:* poc\n\nAll prioritized findings have been reviewed. Check individual messages above for per-finding outcomes (approved, rejected, blocked, duplicate, or failed).\n\n_Next scheduled run: tomorrow at 09:00 UTC._"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": -768,
+            "y": 3372
+          }
+        }
+      },
+      {
+        "name": "Notify_Workflow_Error",
+        "actionId": "com.datadoghq.slack.send_simple_message",
+        "parameters": [
+          {
+            "name": "channel",
+            "value": "#datadog-security"
+          },
+          {
+            "name": "teamId",
+            "value": "T0BP8NVNHS4"
+          },
+          {
+            "name": "text",
+            "value": ":rotating_light: *WORKFLOW ERROR — Daily Security Scan Failed*\n\nThe security remediation workflow encountered an unexpected technical error. This is *NOT* a clean \"no findings\" result.\n\n*Instance ID:* {{ InstanceId }}\n*Workflow:* {{ WorkflowName }}\n\n:warning: *Action required:* Investigate the workflow run immediately to determine the root cause (Datadog API error, DDSQL query failure, or data processing fault).\n_The scan results for today are unreliable. Do NOT treat this as \"no action required\"._"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 1728,
+            "y": 720
+          }
+        }
+      }
+    ],
+    "handle": "avecena.basuniberca.co.id-Aug-12-2026-0802"
+  }
+}
