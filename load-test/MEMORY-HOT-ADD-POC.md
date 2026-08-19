@@ -36,8 +36,9 @@ Value yang ditunjukkan kepada customer:
 | Artefak | Fungsi |
 |---|---|
 | `docker-compose.yml` | Service opt-in `memory-pressure` pada profile `memory-demo` |
-| `load-test/memory-pressure/Dockerfile` | Image lokal berisi versi `stress-ng` yang dikunci |
-| `load-test/memory-pressure/entrypoint.sh` | Validasi enum alokasi, timeout, dan cgroup limit |
+| `load-test/memory-pressure/Dockerfile` | Image lokal berisi low-CPU memory holder khusus POC |
+| `load-test/memory-pressure/memory-holder.c` | Mengalokasikan, mengunci, dan menyentuh RAM sekali lalu tidur |
+| `load-test/memory-pressure/entrypoint.sh` | Validasi enum alokasi, baseline host, safety floor, timeout, dan cgroup limit |
 | `demo-control.sh status` | Evidence read-only RAM host dan status pressure container |
 | `load-test/scenario-controller.json` | Manual launch `memory`, `stop-memory`, dan `reset-memory` melalui AAP |
 | `load-test/remediation-apps.json` | Bits classification, policy, approval, hot-add dispatch, dan verification |
@@ -52,9 +53,13 @@ Tambahkan nilai yang sudah dikalibrasi ke `.env` pada VM. File tersebut tidak
 boleh di-commit.
 
 ```text
-MEMORY_PRESSURE_BYTES=1024M
-MEMORY_PRESSURE_LIMIT=1280M
+MEMORY_PRESSURE_BYTES=8192M
+MEMORY_PRESSURE_LIMIT=8448M
 ```
+
+Nilai di atas adalah titik awal kalibrasi untuk VM Lab yang secara empiris
+memiliki sekitar 12 GiB `MemAvailable` pada baseline. Nilai live-demo final
+belum boleh dipilih sebelum pengukuran bertahap selesai.
 
 Nilai yang diizinkan:
 
@@ -65,11 +70,24 @@ Nilai yang diizinkan:
 | `1024M` | `1280M` |
 | `1280M` | `1536M` |
 | `1536M` | `1792M` |
+| `4096M` | `4352M` |
+| `6144M` | `6400M` |
+| `8192M` | `8448M` |
+| `9216M` | `9472M` |
+| `9728M` | `9984M` |
+| `10240M` | `10496M` |
 
 Entrypoint menolak nilai lain dan memverifikasi limit cgroup tepat 256 MiB di
-atas allocation. Service memakai satu worker, `--vm-keep`, `--vm-populate`,
-timeout 20 menit, `oom_score_adj=1000`, `restart: no`, tanpa network, port,
-Docker socket, atau Linux capability.
+atas allocation. Holder memakai `mmap`, `mlock`, menyentuh setiap memory page
+sekali, lalu tidur. Dengan begitu alokasi tetap resident tanpa loop CPU seperti
+yang terjadi pada `stress-ng --vm`. Service memiliki timeout 20 menit,
+`oom_score_adj=1000`, `restart: no`, tanpa network, port, atau Docker socket.
+Capability tunggal `IPC_LOCK` hanya digunakan agar fixed allocation dapat
+dikunci; cgroup tetap menjadi hard limit container.
+
+Entrypoint juga menolak start bila guest tidak berada pada profil baseline
+16 GiB atau bila fixed allocation diproyeksikan menyisakan kurang dari 1,5 GiB
+`MemAvailable`. Guard ini melengkapi, bukan menggantikan, preflight AAP.
 
 Build image sebelum demo:
 
@@ -87,13 +105,16 @@ Kalibrasi hanya dilakukan di VM Lab saat seluruh skenario lain berhenti.
 
 1. Pastikan VM berada di profil 16 GiB dan seluruh container sehat.
 2. Pastikan `MemAvailable` minimal 2.5 GiB sebelum setiap percobaan.
-3. Mulai dari `512M`, lalu naikkan 256 MiB per percobaan.
+3. Berdasarkan pengukuran aktual VM (`MemAvailable` sekitar 12 GiB), mulai dari
+   `8192M`, lalu uji `9216M`, `9728M`, dan terakhir `10240M` bila diperlukan.
+   Jangan melompat langsung ke nilai terakhir.
 4. Pada setiap perubahan, sesuaikan `MEMORY_PRESSURE_LIMIT` agar selalu 256 MiB
    di atas allocation dan rebuild/recreate service.
 5. Jalankan fault maksimal tiga menit untuk observasi awal.
 6. Pilih nilai terkecil yang membuat `system.mem.pct_usable < 0.15` dan backend
    p95 melewati threshold, sementara SSH, Agent, dan container tetap sehat.
-7. Jangan melampaui `1536M`.
+7. Jangan melampaui `10240M`; entrypoint tetap harus menyisakan safety floor
+   1,5 GiB sebelum menerima alokasi.
 8. Stop dan hapus container sebelum percobaan berikutnya.
 
 Command operator untuk kalibrasi saja:
@@ -102,6 +123,7 @@ Command operator untuk kalibrasi saja:
 docker compose --profile memory-demo up -d memory-pressure
 docker compose --profile memory-demo ps memory-pressure
 docker stats --no-stream berca_poc_memory_pressure
+free -h
 sudo ./demo-control.sh status
 docker compose --profile memory-demo rm -sf memory-pressure
 ```
@@ -109,6 +131,14 @@ docker compose --profile memory-demo rm -sf memory-pressure
 Jika kernel mulai melakukan OOM kill, SSH/Agent tidak responsif, atau container
 aplikasi restart, hentikan percobaan dan turunkan allocation. Nilai tersebut
 tidak boleh digunakan untuk live demo.
+
+Completion gate setiap langkah kalibrasi:
+
+- holder stabil dengan CPU mendekati idle setelah initial allocation;
+- tidak ada OOM/restart pada backend, storefront, Agent, atau database;
+- SSH dan Docker tetap responsif;
+- nilai final adalah allocation terkecil yang menghasilkan
+  `system.mem.pct_usable <0.15` dan service impact yang dapat diulang.
 
 ## Status contract
 

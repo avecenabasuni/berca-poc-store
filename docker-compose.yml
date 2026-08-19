@@ -337,6 +337,8 @@ services:
       - /tmp:size=16m,noexec,nosuid,nodev
     cap_drop:
       - ALL
+    cap_add:
+      - IPC_LOCK
     security_opt:
       - no-new-privileges:true
     pids_limit: 32
