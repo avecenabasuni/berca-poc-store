@@ -1,9 +1,9 @@
 {
   "id": "45ac61cf-8a35-4e2d-bed3-370ffc6a8506",
-  "name": "[POC] Operational Scenario Controller v4 - AAP",
-  "description": "Manually activates an isolated POC fault scenario, including bounded application-VM memory pressure, or restores the approved demo baseline by launching fixed execution actions and polling them to a bounded terminal state.",
+  "name": "[POC] Operational Scenario Controller v5 - Hybrid",
+  "description": "Manually activates isolated POC fault scenarios through fixed AAP or Demo Control actions, including bounded application-VM memory pressure, and polls the selected backend to a bounded terminal state.",
   "tags": [
-    "automation:aap",
+    "automation:hybrid",
     "env:poc",
     "service:berca-backend",
     "service:berca-storefront",
@@ -285,12 +285,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:test_tube: *POC CONTROL · STARTED*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform is starting the bounded memory-pressure container on the Berca application VM.\n\n*Scenario:* `memory`\n*Environment:* `poc`\n*Execution Backend:* `AAP`\n*Fixed Action:* `Inject Application VM Memory Pressure`\n\n:shield: *The allocation, timeout, target VM, and safety floor are fixed outside the workflow.*\n\n_Next → Datadog observes backend service degradation_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:test_tube: *POC CONTROL · STARTED*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nThe Demo Control API is starting the bounded low-CPU memory holder on the Berca application VM.\n\n*Scenario:* `memory`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `memory`\n\n:shield: *The allocation, timeout, target VM, and safety floor are fixed outside the workflow.*\n\n_Next → Datadog observes backend service degradation_"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Launch_AAP_Memory_Fault",
+            "nextStepName": "Start_Memory_Pressure_Demo",
             "branchName": "main"
           }
         ],
@@ -315,12 +315,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:stop_sign: *POC CONTROL · STOPPING*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform is stopping only the bounded synthetic memory-pressure container.\n\n*Scenario:* `stop-memory`\n*Environment:* `poc`\n*Execution Backend:* `AAP`\n*Fixed Action:* `Stop Application VM Memory Pressure`"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:stop_sign: *POC CONTROL · STOPPING*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nThe Demo Control API is stopping only the bounded synthetic memory-pressure container.\n\n*Scenario:* `stop-memory`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `stop-memory`"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Launch_AAP_Stop_Memory",
+            "nextStepName": "Stop_Memory_Pressure_Demo",
             "branchName": "main"
           }
         ],
@@ -479,10 +479,6 @@
           {
             "name": "responseParsing",
             "value": "json"
-          },
-          {
-            "name": "allowExpiredCertificate",
-            "value": true
           }
         ],
         "outboundEdges": [
@@ -541,10 +537,6 @@
           {
             "name": "responseParsing",
             "value": "json"
-          },
-          {
-            "name": "allowExpiredCertificate",
-            "value": true
           }
         ],
         "outboundEdges": [
@@ -635,9 +627,9 @@
         }
       },
       {
-        "name": "Launch_AAP_Memory_Fault",
+        "name": "Start_Memory_Pressure_Demo",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE",
+        "connectionLabel": "INTEGRATION_NONE_1",
         "parameters": [
           {
             "name": "verb",
@@ -645,7 +637,7 @@
           },
           {
             "name": "url",
-            "value": "https://192.168.2.66/api/controller/v2/job_templates/0/launch/"
+            "value": "http://127.0.0.1:18080/v1/demo/action"
           },
           {
             "name": "requestHeaders",
@@ -659,7 +651,7 @@
           {
             "name": "body",
             "value": {
-              "extra_vars": {}
+              "action": "memory"
             }
           },
           {
@@ -697,9 +689,9 @@
         }
       },
       {
-        "name": "Launch_AAP_Stop_Memory",
+        "name": "Stop_Memory_Pressure_Demo",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE",
+        "connectionLabel": "INTEGRATION_NONE_1",
         "parameters": [
           {
             "name": "verb",
@@ -707,7 +699,7 @@
           },
           {
             "name": "url",
-            "value": "https://192.168.2.66/api/controller/v2/job_templates/0/launch/"
+            "value": "http://127.0.0.1:18080/v1/demo/action"
           },
           {
             "name": "requestHeaders",
@@ -721,7 +713,7 @@
           {
             "name": "body",
             "value": {
-              "extra_vars": {}
+              "action": "stop-memory"
             }
           },
           {
@@ -1003,7 +995,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { response: $.Steps.Launch_AAP_Memory_Fault, templateName: 'Inject Application VM Memory Pressure', action: 'memory' },\n  'stop-memory': { response: $.Steps.Launch_AAP_Stop_Memory, templateName: 'Stop Application VM Memory Pressure', action: 'stop-memory' },\n  'reset-memory': { response: $.Steps.Launch_AAP_Reset_Memory, templateName: 'Restore Application VM Memory to 16 GiB', action: 'reset-memory' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nconst jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\nconst rawState = String(body.status || 'pending');\nconst accepted = httpStatus === 201 && jobId !== '';\n$.Helpers.setVariable('execution_backend', 'AAP');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', '0');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'AAP did not return the expected launch response');\nreturn { accepted, backend: 'AAP', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
+            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { backend: 'DEMO_CONTROL', response: $.Steps.Start_Memory_Pressure_Demo, action: 'memory', templateName: '' },\n  'stop-memory': { backend: 'DEMO_CONTROL', response: $.Steps.Stop_Memory_Pressure_Demo, action: 'stop-memory', templateName: '' },\n  'reset-memory': { backend: 'AAP', response: $.Steps.Launch_AAP_Reset_Memory, action: 'reset-memory', templateName: 'Restore Application VM Memory to 16 GiB' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nlet jobId = '';\nlet rawState = '';\nlet accepted = false;\nif (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted = httpStatus === 202 && body.ok === true && body.action === selected.action && body.state === 'accepted' && jobId !== '';\n} else if (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.backend === 'AAP' ? '0' : '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'Execution backend did not return the expected launch response');\nreturn { accepted, backend: selected.backend || 'UNKNOWN', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
           }
         ],
         "outboundEdges": [
@@ -1764,12 +1756,12 @@
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "aap_scenario",
+                "outboundBranch": "demo_scenario",
                 "value": "memory"
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "aap_scenario",
+                "outboundBranch": "demo_scenario",
                 "value": "stop-memory"
               },
               {
