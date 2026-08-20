@@ -71,34 +71,35 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
 ```text
 [1. Gather facts & verify RHEL 9.6]
   └── [2. Assert host: rhel09-vuln-poc-01 & validate inputs]
-        └── [3. Query & record version before: curl-7.76.1-29...]
-              └── [4. Safety Gate: Assert advisory & package in group_vars allowlist]
-                    └── [5. Clean DNF cache & verify advisory in signed Red Hat repos]
-                          └── [6. Dry-run, then dnf upgrade-minimal --advisory=RHSA-2026:55439]
-                                └── [7. Assert package version changed to 7.76.1-40.el9_8.5]
-                                      └── [8. dnf needs-restarting --services & restart curl]
-                                            └── [9. Conditional reboot (skipped for curl)]
-                                                  └── [10. Wait for SSH (if rebooted)]
-                                                        └── [11. Confirm Datadog Agent active & 0 failed units]
-                                                              └── [12. Publish structured evidence via set_stats]
+        └── [3. Dynamic check: Verify package is currently installed]
+              └── [4. Clean DNF cache & verify advisory in enabled RHEL repos]
+                    └── [5. Dry-run, then dnf upgrade-minimal --advisory=<ID> <package>]
+                          └── [6. Assert package version changed]
+                                └── [7. dnf needs-restarting --services & restart services]
+                                      └── [8. Conditional reboot (if needed & allowed)]
+                                            └── [9. Confirm Datadog Agent active & 0 failed units]
+                                                  └── [10. Publish structured evidence via set_stats]
 ```
 
 ### Safety Gates Enforced by Ansible
 1. **Host Boundary Assertion:** Will reject execution if targeted at any host other than `rhel09-vuln-poc-01`.
-2. **Explicit Allowlists:** `group_vars/rhel96_vuln_poc.yml` strictly limits patching to `RHSA-2026:55439` and package `curl` / `libcurl`.
-3. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --advisory=RHSA-2026:55439` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
-4. **Structured Evidence Return:** Emits JSON stats back to AAP:
+2. **Dynamic Pre-Flight Checks:** Dynamically verifies package is installed on the host and the requested advisory exists in enabled RHEL DNF repositories before any change is attempted.
+3. **Severity Allowlist:** Accepts severities `critical`, `high`, `medium`, `low`, and `info`.
+4. **Input Sanitization:** Validates regex patterns on all inputs to strictly prevent shell injection or arbitrary arguments.
+5. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --advisory=<ID> <package>` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
+6. **Structured Evidence Return:** Emits JSON stats back to AAP:
    ```json
    {
      "remediation_evidence": {
        "schema_version": "1.0",
        "environment": "poc",
        "resource_id": "rhel09-vuln-poc-01",
-       "advisory_id": "RHSA-2026:55439",
-       "cve_id": "CVE-2026-1965",
-       "package_name": "curl",
-       "version_before": "curl-7.76.1-29.el9_6.x86_64",
-       "version_after": "curl-7.76.1-40.el9_8.5.x86_64",
+       "advisory_id": "<ADVISORY_ID>",
+       "cve_id": "<CVE_ID>",
+       "severity": "<SEVERITY>",
+       "package_name": "<PACKAGE_NAME>",
+       "version_before": "<VERSION_BEFORE>",
+       "version_after": "<VERSION_AFTER>",
        "package_changed": true,
        "datadog_agent_active": true,
        "systemd_failures": "none",
@@ -227,7 +228,7 @@ Add a Condition step checking:
 Finding.environment == "poc" &&
 Finding.hostname == "rhel09-vuln-poc-01" &&
 Finding.resource_type == "host" &&
-Finding.severity in ["critical", "high"] &&
+Finding.severity in ["critical", "high", "medium", "low", "info"] &&
 Finding.fix_available == true
 ```
 *If condition fails, workflow exits safely without making any changes.*
@@ -245,7 +246,7 @@ Add a Slack Action: **Send message and wait for approval**.
   *Package:* {{ Finding.package_name }}
   *Installed Version:* {{ Finding.installed_version }}
   *Fixed Version:* {{ Finding.fixed_version }}
-  *Advisory ID:* RHSA-2026:55439
+  *Advisory ID:* {{ Finding.advisory_id }}
   *Platform:* Nutanix AHV
 
   Click *Approve* to trigger automated remediation in Red Hat Ansible Automation Platform.
@@ -353,7 +354,7 @@ To run multiple demos or tests, reset the environment using either method:
 |---|---|---|
 | **HTTP 401 Unauthorized from AAP** | Invalid or expired API token | Re-generate API token for `svc_datadog_cve` in AAP (Step 15) and update Datadog Connection. |
 | **HTTP 400 Bad Request on Launch** | Missing required `extra_vars` | Ensure request body contains all 6 fields: `advisory_id`, `package_name`, `cve_id`, `severity`, `finding_id`, `approval_reference`. |
-| **AAP Job Fails on Allowlist Assertion** | Advisory or package not allowed | Ansible safety gate aborted execution. Verify `advisory_id: RHSA-2026:55439` and `package_name: curl`. |
+| **AAP Job Fails on Pre-Patch Verification** | Package not installed or advisory not in repos | Ansible safety gate aborted execution. Verify the package is currently installed and the advisory is available in enabled RHEL repositories. |
 | **Finding Not Visible in Datadog UI** | SBOM analyzer disabled or initial scan pending | Ensure `sbom.host.analyzers: ["os"]` in `datadog.yaml` and Agent >= 7.46. Wait up to 1 hour for first scan. |
 | **Duplicate Host in Datadog** | Hostname mismatch | Ensure `/etc/datadog-agent/datadog.yaml` has `hostname: rhel09-vuln-poc-01`. |
 | **Finding Does Not Close Immediately** | Asynchronous SBOM evaluation cycle | Datadog updates vulnerability state on the next host SBOM scan. Do not manually close the finding. |

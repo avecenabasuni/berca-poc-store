@@ -94,26 +94,24 @@ Below is a detailed breakdown of what each playbook does, when to run it, what v
 * **Changes to VM:** **Yes (Applies security patch)**
 * **When to run:** Triggered automatically by Datadog Workflow after human approval (or manually via AAP Survey for testing).
 * **Input variables (Survey / extra_vars):**
-  - `advisory_id`: `RHSA-2026:55439`
-  - `package_name`: `curl`
-  - `cve_id`: `CVE-2026-1965`
-  - `severity`: `high` or `critical`
+  - `advisory_id`: Red Hat Security Advisory (e.g. `RHSA-2026:55439`)
+  - `package_name`: Target package name (e.g. `curl`)
+  - `cve_id`: CVE identifier (e.g. `CVE-2026-1965`)
+  - `severity`: `critical`, `high`, `medium`, `low`, or `info`
   - `finding_id`: Datadog Finding ID (e.g. `manual-aap-test`)
-  - `approval_reference`: Workflow Run ID (e.g. `manual-dev-test`)
+  - `approval_reference`: Workflow Run ID / Slack Approval Reference (e.g. `manual-dev-test`)
 
-#### Key Functions (12-Step Architecture):
-1. **Step 1 -- Environment Validation:** Asserts RHEL 9 distribution.
-2. **Step 2 -- Host & Parameter Validation:** Confirms target host is `rhel09-vuln-poc-01` and all required extra_vars are present.
-3. **Step 3 -- Baseline Recording:** Queries and records pre-patch installed version (`curl-7.76.1-29.el9_6.x86_64`).
-4. **Step 4 -- Strict Allowlist Check:** Validates that `advisory_id` and `package_name` are explicitly allowed in `group_vars/rhel96_vuln_poc.yml`. Aborts immediately if not allowlisted.
-5. **Step 5 -- Repository Metadata Verification:** Refreshes DNF cache and verifies `RHSA-2026:55439` is available from signed Red Hat repos.
-6. **Step 6 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno` dry-run, then applies only the approved advisory via `dnf upgrade-minimal --assumeyes --advisory=RHSA-2026:55439`.
-7. **Step 7 -- Post-Patch Version Verification:** Queries new RPM version and asserts version changed to fixed version (`curl-7.76.1-40.el9_8.5.x86_64`).
-8. **Step 8 -- Controlled Service Restarts:** Runs `dnf needs-restarting --services` and selectively restarts only services listed in `cve_allowed_restart_services`.
-9. **Step 9 -- Conditional Reboot Management:** Checks `dnf needs-restarting --reboothint`. Reboots only if required AND `cve_allow_reboot: true` (for `curl`, no reboot is required).
-10. **Step 10 -- SSH Recovery Wait:** Waits for SSH availability if reboot was performed.
-11. **Step 11 -- Operational Health Check:** Verifies Datadog Agent is active, checks for failed systemd units, and tests live agent telemetry.
-12. **Step 12 -- Evidence Publication:** Builds a structured JSON evidence payload and publishes it via Ansible `set_stats` for AAP/Datadog callbacks.
+#### Key Functions (10-Step Dynamic Architecture):
+1. **Step 1 -- Host Boundary Assertion:** Asserts RHEL 9 distribution and confirms target host is strictly `rhel09-vuln-poc-01`.
+2. **Step 2 -- Input Validation & Injection Sanitization:** Validates required parameters, matches regex patterns to block shell argument injection, and validates severity against allowlist (`critical`, `high`, `medium`, `low`, `info`).
+3. **Step 3 -- Dynamic Package Installation Check:** Runs `rpm -q {{ package_name }}` to verify the package is actually installed on the host before touching anything.
+4. **Step 4 -- Repository Metadata Verification:** Refreshes DNF cache and dynamically verifies the requested `advisory_id` exists in the enabled RHEL DNF repositories.
+5. **Step 5 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno` dry-run, then applies only the approved advisory via `dnf upgrade-minimal --assumeyes --advisory={{ advisory_id }} {{ package_name }}`.
+6. **Step 6 -- Post-Patch Version Verification:** Queries RPM and asserts the package version actually changed.
+7. **Step 7 -- Controlled Service Restarts:** Runs `dnf needs-restarting --services` and selectively restarts services listed in `cve_allowed_restart_services`.
+8. **Step 8 -- Conditional Reboot Management:** Checks `dnf needs-restarting --reboothint`. Reboots only if required AND `cve_allow_reboot: true`.
+9. **Step 9 -- Operational Health Check:** Verifies Datadog Agent is active, checks for failed systemd units, and tests host telemetry.
+10. **Step 10 -- Evidence Publication:** Builds a structured JSON evidence payload and publishes it via Ansible `set_stats` for AAP/Datadog callbacks.
 
 #### Expected Outcome:
 * **Package Change:** `curl` and `libcurl` are upgraded to `7.76.1-40.el9_8.5.x86_64`.
@@ -368,28 +366,42 @@ Red Hat severity:     Important
 Reboot required:      no
 ```
 
-### Step 3: Update the allowlists
+### Step 3: Safety boundaries and controls
 
-`group_vars/rhel96_vuln_poc.yml` in this repository is already configured with this advisory and package:
+`group_vars/rhel96_vuln_poc.yml` defines the safety boundaries:
 
 ```yaml
-cve_allowed_advisories:
-  - "RHSA-2026:55439"
+cve_poc_environment: "poc"
+cve_poc_resource_id: "rhel09-vuln-poc-01"
+cve_poc_rhel_major_version: "9"
 
-cve_allowed_packages:
-  - "curl"
-  - "libcurl"
+cve_allowed_severities:
+  - "critical"
+  - "high"
+  - "medium"
+  - "low"
+  - "info"
+  - "important"
+  - "moderate"
 
 cve_allowed_restart_services:
   - "curl"
+  - "openssl"
+  - "httpd"
+  - "nginx"
+  - "sshd"
+  - "rsyslog"
+  - "systemd-journald"
 
 cve_allow_reboot: false
 ```
 
 > [!IMPORTANT]
-> The remediation playbook will **refuse to run** if the advisory or package
-> is not in these allowlists. This is the safety gate. AAP group_vars are
-> loaded automatically from the Git project during sync.
+> The remediation playbook dynamically accepts any Datadog finding with remediation available across all severity levels (`critical`, `high`, `medium`, `low`, `info`).
+> Before applying any change, it dynamically verifies:
+> 1. Target package is currently installed (`rpm -q {{ package_name }}`).
+> 2. Advisory exists in enabled RHEL repositories (`dnf updateinfo info --advisory={{ advisory_id }}`).
+> 3. Execution is strictly bounded to `dnf upgrade-minimal --advisory={{ advisory_id }} {{ package_name }}`.
 
 ### Step 4: Create the Nutanix snapshot
 
@@ -575,7 +587,7 @@ This is the main Job Template that Datadog will trigger.
    | 1 | Red Hat Security Advisory ID | `advisory_id` | Text | Yes | `RHSA-2026:55439` |
    | 2 | Package name to patch | `package_name` | Text | Yes | `curl` |
    | 3 | CVE ID | `cve_id` | Text | Yes | `CVE-2026-1965` |
-   | 4 | Severity (critical/high) | `severity` | Multiple Choice (single) | Yes | `high` |
+   | 4 | Severity | `severity` | Multiple Choice (single) | Yes | `high` |
    | 5 | Datadog Finding ID | `finding_id` | Text | Yes | `manual-test` |
    | 6 | Approval Reference | `approval_reference` | Text | Yes | `manual-approval` |
 
@@ -583,6 +595,9 @@ This is the main Job Template that Datadog will trigger.
    ```text
    critical
    high
+   medium
+   low
+   info
    ```
 
 6. Toggle the Survey to **Enabled**.

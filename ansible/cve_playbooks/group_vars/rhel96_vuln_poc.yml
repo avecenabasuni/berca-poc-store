@@ -1,15 +1,12 @@
 ---
 # Group variables for RHEL 9.6 CVE Remediation POC
 # These values define the safety boundaries for the automation.
-# Every patch job validates against these allowlists before touching the VM.
+# Every patch job validates against these controls before touching the VM.
 #
 # AAP loads this file automatically because:
 #   - The file is named "rhel96_vuln_poc.yml" inside "group_vars/"
 #   - The AAP Inventory has a group named "rhel96_vuln_poc"
 #   - AAP syncs group_vars from the Git project on each launch
-#
-# To update allowlists: edit this file, commit, push, and re-sync the
-# AAP project (or rely on "Update Revision on Launch").
 
 # -- Target identification ------------------------------------------------- #
 
@@ -17,46 +14,39 @@ cve_poc_environment: "poc"
 cve_poc_resource_id: "rhel09-vuln-poc-01"
 cve_poc_rhel_major_version: "9"
 
-# -- Allowlists ------------------------------------------------------------ #
-# Only advisories AND packages listed here will be applied.
-# Add entries after verifying them with `dnf updateinfo` on the VM.
-# Example:
-#   cve_allowed_advisories:
-#     - "RHSA-2025:1234"
-#     - "RHSA-2025:5678"
-#   cve_allowed_packages:
-#     - "curl"
-#     - "openssl"
+# -- Severity controls ----------------------------------------------------- #
+# Allowed severity levels accepted from Datadog SOAR / Slack approval.
 
-cve_allowed_advisories:
-  - "RHSA-2026:55439"
-
-cve_allowed_packages:
-  - "curl"
-  - "libcurl"
+cve_allowed_severities:
+  - "critical"
+  - "high"
+  - "medium"
+  - "low"
+  - "info"
+  - "important"
+  - "moderate"
 
 # -- Service restart controls ---------------------------------------------- #
 # Services that the playbook is allowed to restart after patching.
-# Any service reported by `dnf needs-restarting --services` that is NOT in
-# this list will be logged but NOT restarted; the playbook will flag it for
-# manual review.
+# Any service reported by `dnf needs-restarting --services` that is in this
+# list will be restarted; others will be logged for manual review.
 
 cve_allowed_restart_services:
   - "curl"
   - "openssl"
+  - "httpd"
+  - "nginx"
+  - "sshd"
+  - "rsyslog"
+  - "systemd-journald"
 
 # -- Reboot controls ------------------------------------------------------- #
 # Whether the playbook is allowed to reboot the VM when the advisory
-# requires it (e.g. kernel patches). Set to false for the first demo
-# iteration to keep things simple.
+# requires it (e.g. kernel patches).
 
 cve_allow_reboot: false
 
 # -- Datadog callback (optional) ------------------------------------------- #
-# When cve_datadog_callback_enabled is true, the playbook will attempt to
-# post structured evidence to a Datadog Workflow webhook at the end of
-# the run. The URL must be configured in AAP as a credential or injected
-# env var -- never hardcoded here.
 
 cve_datadog_callback_enabled: false
 cve_datadog_callback_url: ""
