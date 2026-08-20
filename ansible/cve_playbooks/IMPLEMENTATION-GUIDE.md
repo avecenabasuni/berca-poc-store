@@ -31,7 +31,7 @@ ansible/cve_playbooks/
   inventory/
     hosts.yml                    # Reference inventory (AAP manages the actual inventory)
   group_vars/
-    rhel09-vuln-poc-01.yml       # Allowlists, controls, and configuration
+    rhel96_vuln_poc.yml          # Allowlists, controls, and configuration
   rhel96-cve-preflight.yml       # Read-only scan: advisories, Agent, subscription
   rhel96-cve-remediation.yml     # Main patching playbook (AAP Job Template)
   rhel96-cve-validate.yml        # Post-patch health check (read-only)
@@ -105,7 +105,7 @@ Below is a detailed breakdown of what each playbook does, when to run it, what v
 1. **Step 1 -- Environment Validation:** Asserts RHEL 9 distribution.
 2. **Step 2 -- Host & Parameter Validation:** Confirms target host is `rhel09-vuln-poc-01` and all required extra_vars are present.
 3. **Step 3 -- Baseline Recording:** Queries and records pre-patch installed version (`curl-7.76.1-29.el9_6.x86_64`).
-4. **Step 4 -- Strict Allowlist Check:** Validates that `advisory_id` and `package_name` are explicitly allowed in `group_vars/rhel09-vuln-poc-01.yml`. Aborts immediately if not allowlisted.
+4. **Step 4 -- Strict Allowlist Check:** Validates that `advisory_id` and `package_name` are explicitly allowed in `group_vars/rhel96_vuln_poc.yml`. Aborts immediately if not allowlisted.
 5. **Step 5 -- Repository Metadata Verification:** Refreshes DNF cache and verifies `RHSA-2026:55439` is available from signed Red Hat repos.
 6. **Step 6 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno` dry-run, then applies only the approved advisory via `dnf upgrade-minimal --assumeyes --advisory=RHSA-2026:55439`.
 7. **Step 7 -- Post-Patch Version Verification:** Queries new RPM version and asserts version changed to fixed version (`curl-7.76.1-40.el9_8.5.x86_64`).
@@ -370,7 +370,7 @@ Reboot required:      no
 
 ### Step 3: Update the allowlists
 
-`group_vars/rhel09-vuln-poc-01.yml` in this repository is already configured with this advisory and package:
+`group_vars/rhel96_vuln_poc.yml` in this repository is already configured with this advisory and package:
 
 ```yaml
 cve_allowed_advisories:
@@ -503,14 +503,14 @@ This syncs the Git repository so AAP can find the playbooks and group_vars.
 
    | Field | Value |
    |---|---|
-   | Name | `rhel09-vuln-poc-01` |
+   | Name | `rhel96_vuln_poc` |
 
    > [!IMPORTANT]
-   > The group name **must** be `rhel09-vuln-poc-01` because the playbooks use
-   > `hosts: rhel09-vuln-poc-01`. This also ensures that the `group_vars/rhel09-vuln-poc-01.yml`
+   > The group name **must** be `rhel96_vuln_poc` because the playbooks use
+   > `hosts: rhel96_vuln_poc`. This also ensures that the `group_vars/rhel96_vuln_poc.yml`
    > file from the Git project is automatically loaded for this group.
 
-6. Click **Save**, then go into the `rhel09-vuln-poc-01` group.
+6. Click **Save**, then go into the `rhel96_vuln_poc` group.
 
 7. Go to the **Hosts** tab, click **Add > New host**:
 
@@ -1152,8 +1152,8 @@ All five templates share the same:
 | AAP project sync fails | Check Git URL, branch, and Source Control Credential |
 | Playbook not found in template dropdown | Ensure project synced successfully; playbook path is relative to repo root |
 | Survey not prompting on API launch | Survey must be **Enabled** in the Survey tab |
-| Playbook fails on allowlist assertion | Add the advisory/package to `group_vars/rhel09-vuln-poc-01.yml`, commit, push, and re-sync the AAP project |
-| `group_vars` not loading in AAP | Verify the inventory group name is exactly `rhel09-vuln-poc-01` (matches the filename) |
+| Playbook fails on allowlist assertion | Add the advisory/package to `group_vars/rhel96_vuln_poc.yml`, commit, push, and re-sync the AAP project |
+| `group_vars` not loading in AAP | Verify the inventory group name is exactly `rhel96_vuln_poc` (matches the filename) |
 | No security advisories found | VM may be fully patched. Restore an older Nutanix snapshot |
 | Datadog shows duplicate hosts | Ensure VM hostname matches `hostname:` in `datadog.yaml` |
 | Datadog finding not appearing | Wait up to 1 hour. Check SBOM is enabled. Verify Agent 7.46+ |

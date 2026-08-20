@@ -100,7 +100,7 @@ No playbooks exist yet. Reference spec: [`MEMORY-HOT-ADD-POC.md`](../load-test/M
 #### Cross-Scenario: Final Verification Items from ANSIBLE-HANDOFF.md Section 10
 
 - [ ] Confirm SCM project synced to agreed commit
-- [ ] Confirm both inventory groups (`berca_poc_vm` + `rhel09-vuln-poc-01`) and Machine Credentials work
+- [ ] Confirm both inventory groups (`berca_poc_vm` + `rhel96_vuln_poc`) and Machine Credentials work
 - [ ] Confirm all Job Templates have `allow_simultaneous: false` and shared operation lock
 - [ ] Verify native pool/disk/autoscale/rollback pass positive AND negative tests
 - [ ] Verify CVE allowlist uses advisory actually present on the demo RHEL VM (not placeholder values)
