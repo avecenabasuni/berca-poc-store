@@ -72,8 +72,8 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
 [1. Gather facts & verify RHEL 9.6]
   └── [2. Assert host: rhel09-vuln-poc-01 & validate inputs]
         └── [3. Dynamic check: Verify package is currently installed]
-              └── [4. Clean DNF cache & verify advisory in enabled RHEL repos]
-                    └── [5. Dry-run, then dnf upgrade-minimal --advisory=<ID> <package>]
+              └── [4. Clean DNF cache & verify CVE in enabled RHEL repos]
+                    └── [5. Dry-run, then dnf upgrade-minimal --cves=<CVE_ID> <package>]
                           └── [6. Assert package version changed]
                                 └── [7. dnf needs-restarting --services & restart services]
                                       └── [8. Conditional reboot (if needed & allowed)]
@@ -83,10 +83,10 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
 
 ### Safety Gates Enforced by Ansible
 1. **Host Boundary Assertion:** Will reject execution if targeted at any host other than `rhel09-vuln-poc-01`.
-2. **Dynamic Pre-Flight Checks:** Dynamically verifies package is installed on the host and the requested advisory exists in enabled RHEL DNF repositories before any change is attempted.
+2. **Dynamic Pre-Flight Checks:** Dynamically verifies package is installed on the host and the requested CVE update exists in enabled RHEL DNF repositories before any change is attempted.
 3. **Severity Allowlist:** Accepts severities `critical`, `high`, `medium`, `low`, and `info`.
 4. **Input Sanitization:** Validates regex patterns on all inputs to strictly prevent shell injection or arbitrary arguments.
-5. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --advisory=<ID> <package>` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
+5. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --cves=<CVE_ID> <package>` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
 6. **Structured Evidence Return:** Emits JSON stats back to AAP:
    ```json
    {

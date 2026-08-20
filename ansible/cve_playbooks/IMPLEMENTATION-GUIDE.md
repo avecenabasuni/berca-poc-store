@@ -105,8 +105,8 @@ Below is a detailed breakdown of what each playbook does, when to run it, what v
 1. **Step 1 -- Host Boundary Assertion:** Asserts RHEL 9 distribution and confirms target host is strictly `rhel09-vuln-poc-01`.
 2. **Step 2 -- Input Validation & Injection Sanitization:** Validates required parameters, matches regex patterns to block shell argument injection, and validates severity against allowlist (`critical`, `high`, `medium`, `low`, `info`).
 3. **Step 3 -- Dynamic Package Installation Check:** Runs `rpm -q {{ package_name }}` to verify the package is actually installed on the host before touching anything.
-4. **Step 4 -- Repository Metadata Verification:** Refreshes DNF cache and dynamically verifies the requested `advisory_id` exists in the enabled RHEL DNF repositories.
-5. **Step 5 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno` dry-run, then applies only the approved advisory via `dnf upgrade-minimal --assumeyes --advisory={{ advisory_id }} {{ package_name }}`.
+4. **Step 4 -- Repository Metadata Verification:** Refreshes DNF cache and dynamically verifies the requested `cve_id` exists in the enabled RHEL DNF repositories (`dnf updateinfo info --cves={{ cve_id }}`).
+5. **Step 5 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno --cves={{ cve_id }} {{ package_name }}` dry-run, then applies the CVE patch via `dnf upgrade-minimal --assumeyes --cves={{ cve_id }} {{ package_name }}`.
 6. **Step 6 -- Post-Patch Version Verification:** Queries RPM and asserts the package version actually changed.
 7. **Step 7 -- Controlled Service Restarts:** Runs `dnf needs-restarting --services` and selectively restarts services listed in `cve_allowed_restart_services`.
 8. **Step 8 -- Conditional Reboot Management:** Checks `dnf needs-restarting --reboothint`. Reboots only if required AND `cve_allow_reboot: true`.
@@ -400,8 +400,8 @@ cve_allow_reboot: false
 > The remediation playbook dynamically accepts any Datadog finding with remediation available across all severity levels (`critical`, `high`, `medium`, `low`, `info`).
 > Before applying any change, it dynamically verifies:
 > 1. Target package is currently installed (`rpm -q {{ package_name }}`).
-> 2. Advisory exists in enabled RHEL repositories (`dnf updateinfo info --advisory={{ advisory_id }}`).
-> 3. Execution is strictly bounded to `dnf upgrade-minimal --advisory={{ advisory_id }} {{ package_name }}`.
+> 2. CVE update exists in enabled RHEL repositories (`dnf updateinfo info --cves={{ cve_id }}`).
+> 3. Execution is strictly bounded to `dnf upgrade-minimal --cves={{ cve_id }} {{ package_name }}`.
 
 ### Step 4: Create the Nutanix snapshot
 
