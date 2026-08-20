@@ -307,7 +307,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const attributes = $.Steps.Check_Already_Remediated.attributes || {};\nconst status = String(attributes.status || '').toLowerCase();\nconst finding = $.Steps.Validate_Finding.data.finding;\nif (status === 'resolved' || status === 'auto_closed') {\n  throw new Error('ALREADY_REMEDIATED: finding status is ' + status);\n}\nif (status !== 'open') throw new Error('NOT_ACTIONABLE: finding status is ' + (status || 'unknown'));\nreturn finding;"
+            "value": "const attributes = $.Steps.Check_Already_Remediated.attributes || {};\nconst status = String(attributes.status || '').toLowerCase();\nconst finding = $.Steps.Validate_Finding.data.finding;\nif (status === 'resolved' || status === 'auto_closed') {\n  throw new Error('ALREADY_REMEDIATED: finding status is ' + status);\n}\nif (status !== 'open') throw new Error('NOT_ACTIONABLE: finding status is ' + (status || 'unknown'));\nconst originalFindingId = String(finding.finding_id || '');\nconst aapFindingId = originalFindingId.replace(/[^A-Za-z0-9+._:-]/g, function(character) {\n  return '-' + character.charCodeAt(0).toString(16).padStart(2, '0') + '-';\n});\nif (!/^[A-Za-z0-9][A-Za-z0-9+._:-]*$/.test(aapFindingId)) {\n  throw new Error('Unable to create a safe AAP finding reference');\n}\nreturn Object.assign({}, finding, { aap_finding_id: aapFindingId });"
           }
         ],
         "outboundEdges": [
@@ -426,7 +426,7 @@
                 "package_name": "{{ Steps.Evaluate_Remediation_Status.data.package_name }}",
                 "cve_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
                 "severity": "{{ Steps.Evaluate_Remediation_Status.data.severity }}",
-                "finding_id": "{{ Steps.Evaluate_Remediation_Status.data.finding_id }}",
+                "finding_id": "{{ Steps.Evaluate_Remediation_Status.data.aap_finding_id }}",
                 "approval_reference": "{{ InstanceId }}"
               }
             }
