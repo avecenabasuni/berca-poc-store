@@ -135,7 +135,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const findings = $.Steps.Prioritize_Findings.data || [];\nconst eligible = findings.filter(function(f) {\n  return f.hostname === 'rhel09-vuln-poc-01' &&\n    f.environment === 'poc' &&\n    f.finding_status === 'open' &&\n    f.remediation_available === true &&\n    f.cve_id !== '' &&\n    f.advisory_id !== '' &&\n    f.package_name !== '' &&\n    f.fixed_version !== '';\n});\nconst top = eligible.slice(0, 1);\nconst selectionSummary = top.length === 1\n  ? 'Selected the highest-priority open finding with an available fix on the approved POC host.'\n  : findings.length === 0\n    ? 'Datadog security query returned zero rows.'\n    : findings.map(function(f) {\n        return 'host=' + (f.hostname || 'empty') +\n          ', severity=' + (f.severity || 'empty') +\n          ', status=' + (f.finding_status || 'empty') +\n          ', remediation=' + String(f.remediation_available) +\n          ', advisory=' + (f.advisory_id || 'empty') +\n          ', package=' + (f.package_name || 'empty') +\n          ', fixed=' + (f.fixed_version || 'empty');\n      }).join(' | ');\n$.Helpers.setVariable('eligible_findings_count', eligible.length);\n$.Helpers.setVariable('total_findings_count', top.length);\n$.Helpers.setVariable('has_eligible_finding', top.length === 1);\n$.Helpers.setVariable('selection_summary', selectionSummary);\nreturn top;"
+            "value": "const findings = $.Steps.Prioritize_Findings.data || [];\nconst eligible = findings.filter(function(f) {\n  return f.hostname === 'rhel09-vuln-poc-01' &&\n    f.environment === 'poc' &&\n    f.finding_status === 'open' &&\n    f.remediation_available === true &&\n    f.cve_id !== '' &&\n    f.package_name !== '' &&\n    f.fixed_version !== '';\n});\nconst top = eligible.slice(0, 1);\nconst selectionSummary = top.length === 1\n  ? 'Selected the highest-priority open finding with an available fix on the approved POC host.'\n  : findings.length === 0\n    ? 'Datadog security query returned zero rows.'\n    : findings.map(function(f) {\n        return 'host=' + (f.hostname || 'empty') +\n          ', severity=' + (f.severity || 'empty') +\n          ', status=' + (f.finding_status || 'empty') +\n          ', remediation=' + String(f.remediation_available) +\n          ', scanner_advisory=' + (f.advisory_id || 'empty') +\n          ', cve_selector=' + (f.cve_id || 'empty') +\n          ', package=' + (f.package_name || 'empty') +\n          ', fixed=' + (f.fixed_version || 'empty');\n      }).join(' | ');\n$.Helpers.setVariable('eligible_findings_count', eligible.length);\n$.Helpers.setVariable('total_findings_count', top.length);\n$.Helpers.setVariable('has_eligible_finding', top.length === 1);\n$.Helpers.setVariable('selection_summary', selectionSummary);\nreturn top;"
           }
         ],
         "outboundEdges": [
@@ -205,7 +205,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const selected = $.Steps.Select_Top_Findings.data || [];\nconst finding = selected[0];\nif (!finding || typeof finding !== 'object') {\n  throw new Error('Selected finding is missing or malformed');\n}\nconst reasons = [];\nconst required = ['finding_id', 'resource_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nrequired.forEach(function(field) {\n  if (finding[field] === undefined || finding[field] === null || String(finding[field]).trim() === '') {\n    reasons.push('Missing or empty field: ' + field);\n  }\n});\nif (finding.remediation_available !== true) reasons.push('Remediation is not available');\nif (reasons.length > 0) throw new Error('Finding validation failed: ' + reasons.join('; '));\nreturn { passed: true, finding: finding };"
+            "value": "const selected = $.Steps.Select_Top_Findings.data || [];\nconst finding = selected[0];\nif (!finding || typeof finding !== 'object') {\n  throw new Error('Selected finding is missing or malformed');\n}\nconst reasons = [];\nconst required = ['finding_id', 'resource_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'finding_status', 'fixed_version'];\nrequired.forEach(function(field) {\n  if (finding[field] === undefined || finding[field] === null || String(finding[field]).trim() === '') {\n    reasons.push('Missing or empty field: ' + field);\n  }\n});\nif (finding.remediation_available !== true) reasons.push('Remediation is not available');\nif (reasons.length > 0) throw new Error('Finding validation failed: ' + reasons.join('; '));\nreturn { passed: true, finding: finding };"
           }
         ],
         "outboundEdges": [
@@ -239,7 +239,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const result = $.Steps.Validate_Finding.data;\nconst f = result && result.finding;\nconst reasons = [];\nif (!result || result.passed !== true || !f) reasons.push('Finding validation did not pass');\nelse {\n  if (f.environment !== 'poc') reasons.push('Environment must be poc');\n  if (f.hostname !== 'rhel09-vuln-poc-01') reasons.push('Host is outside the approved inventory');\n  if (f.finding_status !== 'open') reasons.push('Finding must still be open');\n  if (f.remediation_available !== true || f.fixed_version === '') reasons.push('A fixed version must be available');\n  if (!/^CVE-[0-9]{4}-[0-9]+$/i.test(f.cve_id)) reasons.push('CVE identifier format is invalid');\n  if (!/^[A-Za-z0-9][A-Za-z0-9:._-]*$/.test(f.advisory_id)) reasons.push('Advisory identifier format is unsafe');\n  if (!/^[A-Za-z0-9][A-Za-z0-9+._-]*$/.test(f.package_name)) reasons.push('Package name format is unsafe');\n}\nif (reasons.length > 0) throw new Error('Remediation policy blocked: ' + reasons.join('; '));\nreturn result;"
+            "value": "const result = $.Steps.Validate_Finding.data;\nconst f = result && result.finding;\nconst reasons = [];\nif (!result || result.passed !== true || !f) reasons.push('Finding validation did not pass');\nelse {\n  if (f.environment !== 'poc') reasons.push('Environment must be poc');\n  if (f.hostname !== 'rhel09-vuln-poc-01') reasons.push('Host is outside the approved inventory');\n  if (f.finding_status !== 'open') reasons.push('Finding must still be open');\n  if (f.remediation_available !== true || f.fixed_version === '') reasons.push('A fixed version must be available');\n  if (!/^CVE-[0-9]{4}-[0-9]+$/i.test(f.cve_id)) reasons.push('CVE identifier format is invalid');\n  if (!/^[A-Za-z0-9][A-Za-z0-9+._-]*$/.test(f.package_name)) reasons.push('Package name format is unsafe');\n}\nif (reasons.length > 0) throw new Error('Remediation policy blocked: ' + reasons.join('; '));\nreturn result;"
           }
         ],
         "outboundEdges": [
@@ -358,7 +358,7 @@
           },
           {
             "name": "promptText",
-            "value": "RHEL Vulnerability Remediation Approval Required\n\nTarget: rhel09-vuln-poc-01\nEnvironment: poc\nSeverity: {{ Steps.Evaluate_Remediation_Status.data.severity }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nInstalled: {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\nFixed: {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\nEligible findings discovered: {{ Variables.eligible_findings_count }}\n\nApprove to launch AAP Job Template 24 for this Datadog-selected finding. The target host is fixed to the POC inventory, and no command, repository, host, or version override is accepted from the workflow."
+            "value": "RHEL Vulnerability Remediation Approval Required\n\nTarget: rhel09-vuln-poc-01\nEnvironment: poc\nSeverity: {{ Steps.Evaluate_Remediation_Status.data.severity }}\nCVE remediation selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nScanner advisory metadata: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nInstalled: {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\nFixed: {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\nEligible findings discovered: {{ Variables.eligible_findings_count }}\n\nApprove to launch AAP Job Template 24 for this Datadog-selected CVE. The target host is fixed to the POC inventory, and no command, repository, host, or version override is accepted from the workflow."
           },
           {
             "name": "teamId",
@@ -422,7 +422,7 @@
             "name": "body",
             "value": {
               "extra_vars": {
-                "advisory_id": "{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}",
+                "advisory_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
                 "package_name": "{{ Steps.Evaluate_Remediation_Status.data.package_name }}",
                 "cve_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
                 "severity": "{{ Steps.Evaluate_Remediation_Status.data.severity }}",
@@ -1184,7 +1184,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL Vulnerability Remediation Fully Verified\n\nAAP completed the approved advisory patch, the host is healthy, and Datadog reports the selected finding as resolved.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nApproved by: {{ Steps.Request_Approval.responder.username }}"
+            "value": "RHEL Vulnerability Remediation Fully Verified\n\nAAP completed the approved CVE patch, the host is healthy, and Datadog reports the selected finding as resolved.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nApproved by: {{ Steps.Request_Approval.responder.username }}"
           }
         ],
         "display": {
@@ -1208,7 +1208,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL Patch Applied - Datadog Rescan Pending\n\nAAP completed the approved advisory patch and the host is healthy. The selected finding is not resolved yet; this is expected until the next host SBOM evaluation.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\n\nNo automatic retry or rollback was started. Datadog remains the final verification authority."
+            "value": "RHEL Patch Applied - Datadog Rescan Pending\n\nAAP completed the approved CVE patch and the host is healthy. The selected finding is not resolved yet; this is expected until the next host SBOM evaluation.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\n\nNo automatic retry or rollback was started. Datadog remains the final verification authority."
           }
         ],
         "display": {
@@ -1256,7 +1256,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL CVE Remediation Failed\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nReason: {{ Variables.failure_reason }}\n\nNo automatic retry, downgrade, or rollback was attempted. Review AAP Job Template 24 and use the approved Nutanix reset runbook if required."
+            "value": "RHEL CVE Remediation Failed\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nReason: {{ Variables.failure_reason }}\n\nNo automatic retry, downgrade, or rollback was attempted. Review AAP Job Template 24 and use the approved Nutanix reset runbook if required."
           }
         ],
         "readinessGate": {
@@ -1283,7 +1283,7 @@
           },
           {
             "name": "text",
-            "value": ":no_entry_sign: *Security Remediation Rejected*\n\n*Rejected by:* {{ Steps.Request_Approval.responder.username }}\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n_No changes were made to the host. The workflow will continue to the next finding._"
+            "value": ":no_entry_sign: *Security Remediation Rejected*\n\n*Rejected by:* {{ Steps.Request_Approval.responder.username }}\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE selector:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Scanner advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n_No changes were made to the host._"
           }
         ],
         "display": {
