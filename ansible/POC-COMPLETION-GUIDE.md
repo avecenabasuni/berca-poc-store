@@ -37,35 +37,118 @@ Based on [`ANSIBLE-HANDOFF.md`](../load-test/datadog/ANSIBLE-HANDOFF.md) as of 2
 
 ### Ansible Engineer TODO
 
-#### Scenario 3: Storefront Rollback — Create AAP Job Templates
-Playbooks exist (`fault-rollback.yml`, `recover-rollback.yml`). Need to create AAP Job Templates:
+#### Scenario 3: Storefront Deployment Rollback — Setup Guide & Job Templates
 
-- [ ] Create Fault Job Template: **Deploy Storefront Demo-Bad**
-  - Playbook: `fault-rollback.yml`
-  - Inventory: `berca_poc_vm`
-  - Survey: None (fault injection, no audit IDs)
-  - Concurrent jobs: disabled
-- [ ] Create Remediation Job Template: **Rollback Storefront to Stable**
-  - Playbook: `recover-rollback.yml`
-  - Inventory: `berca_poc_vm`
-  - Survey: `monitor_id`, `investigation_id`, `workflow_instance_id` (all required)
-  - Concurrent jobs: disabled
-- [ ] Record the numeric Job Template IDs and hand them to Datadog colleague
+**Overview:**
+Simulates a candidate deployment that passes container startup healthcheck (`/api/healthz` returns `200`) but degrades the catalog page (`/id/store` returns `503` with 2.5s delay). Datadog detects deployment regression, triggers a Slack approval card, and dispatches AAP to roll back to the immutable stable digest.
 
-#### Scenario 4: Storefront Autoscale — Create AAP Job Templates
-Playbooks exist (`fault-autoscale.yml`, `recover-autoscale.yml`). Need to create AAP Job Templates:
+**1. Required Host / Group Variables in AAP:**
+In Inventory **`Ansible Datadog Collab POC VMs`** > Group **`berca_poc_vm`** > **Variables (YAML)**:
+```yaml
+poc_project_path: /home/ave/berca-poc-store
+poc_storefront_release_config_file: /etc/berca-poc/storefront-release.env
+```
 
-- [ ] Create Fault Job Template: **Start Storefront Capacity Spike**
-  - Playbook: `fault-autoscale.yml`
-  - Inventory: `berca_poc_vm`
-  - Survey: None (fault injection)
-  - Concurrent jobs: disabled
-- [ ] Create Remediation Job Template: **Scale Storefront to 2**
-  - Playbook: `recover-autoscale.yml`
-  - Inventory: `berca_poc_vm`
-  - Survey: `monitor_id`, `investigation_id`, `workflow_instance_id` (all required)
-  - Concurrent jobs: disabled
-- [ ] Record the numeric Job Template IDs and hand them to Datadog colleague
+**2. VM Pre-requisite File:**
+Ensure `/etc/berca-poc/storefront-release.env` exists on `berca_poc_vm` (owned by `root:root`, mode `0600`):
+```dotenv
+STOREFRONT_STABLE_IMAGE=ghcr.io/avecenabasuni/berca-storefront@sha256:<stable-digest>
+STOREFRONT_STABLE_VERSION=stable-<git-sha>
+STOREFRONT_BAD_IMAGE=ghcr.io/avecenabasuni/berca-storefront@sha256:<demo-bad-digest>
+STOREFRONT_BAD_VERSION=demo-bad-<git-sha>
+```
+
+**3. Create Fault Job Template:**
+- [ ] **Name:** `Deploy Storefront Demo-Bad`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/fault-rollback.yml`
+  - **Credentials:** `Datadog Credential` (with sudo/become)
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked (become: true)`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey:** None (launched with empty payload `{}`)
+  - **Verification:**
+    ```bash
+    curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/api/healthz  # Returns 200
+    curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/id/store     # Returns 503
+    ```
+
+**4. Create Remediation Job Template with Survey:**
+- [ ] **Name:** `Rollback Storefront to Stable`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/recover-rollback.yml`
+  - **Credentials:** `Datadog Credential`
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey Configuration (Enabled):**
+    | # | Question | Answer Variable | Type | Required | Default |
+    |---|---|---|---|---|---|
+    | 1 | Datadog Monitor ID | `monitor_id` | Text | Yes | `manual-test` |
+    | 2 | Bits Investigation ID | `investigation_id` | Text | Yes | `manual-test` |
+    | 3 | Workflow Instance ID | `workflow_instance_id` | Text | Yes | `manual-test` |
+  - **Verification:**
+    ```bash
+    curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/id/store     # Returns 200
+    ```
+    - Check Datadog tag: `DD_VERSION=stable`, error rate `< 1%`.
+
+- [ ] **Record Numeric Job Template IDs** and share with Datadog colleague:
+  - Fault JT ID: `____` (use with Fault Control Token)
+  - Remediation JT ID: `____` (use with Remediation Token)
+
+---
+
+#### Scenario 4: Storefront Horizontal Autoscale — Setup Guide & Job Templates
+
+**Overview:**
+Simulates a traffic spike on the storefront service behind Traefik (port `8000`). Datadog detects capacity degradation (p95 latency spike) and prompts approval in Slack. AAP scales the storefront from 1 to 2 healthy replicas behind Traefik without touching backend or database.
+
+**1. Required Host / Group Variables in AAP:**
+In Inventory **`Ansible Datadog Collab POC VMs`** > Group **`berca_poc_vm`** > **Variables (YAML)**:
+```yaml
+poc_project_path: /home/ave/berca-poc-store
+poc_autoscale_spike_rate: 10
+```
+
+**2. Create Fault Job Template:**
+- [ ] **Name:** `Start Storefront Capacity Spike`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/fault-autoscale.yml`
+  - **Credentials:** `Datadog Credential`
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey:** None (launched with empty payload `{}`)
+  - **Verification:**
+    - Verify `docker compose ps` shows `traffic-spike` container running under `autoscale-demo` profile.
+    - Datadog p95 latency monitor transitions to `ALERT`.
+
+**3. Create Remediation Job Template with Survey:**
+- [ ] **Name:** `Scale Storefront to 2`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/recover-autoscale.yml`
+  - **Credentials:** `Datadog Credential`
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey Configuration (Enabled):**
+    | # | Question | Answer Variable | Type | Required | Default |
+    |---|---|---|---|---|---|
+    | 1 | Datadog Monitor ID | `monitor_id` | Text | Yes | `manual-test` |
+    | 2 | Bits Investigation ID | `investigation_id` | Text | Yes | `manual-test` |
+    | 3 | Workflow Instance ID | `workflow_instance_id` | Text | Yes | `manual-test` |
+  - **Verification:**
+    - `docker compose ps` shows exactly 2 healthy storefront replicas.
+    - Traefik routes traffic across both replicas; p95 latency drops to `< 500ms`.
+
+- [ ] **Record Numeric Job Template IDs** and share with Datadog colleague:
+  - Fault JT ID: `____` (use with Fault Control Token)
+  - Remediation JT ID: `____` (use with Remediation Token)
 
 #### Scenario 6: Nutanix Memory Hot-Add — Build Playbooks & AAP Templates
 No playbooks exist yet. Reference spec: [`MEMORY-HOT-ADD-POC.md`](../load-test/MEMORY-HOT-ADD-POC.md).
