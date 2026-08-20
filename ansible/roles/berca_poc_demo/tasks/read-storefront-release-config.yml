@@ -23,15 +23,20 @@
     src: "{{ poc_storefront_release_config_file }}"
   register: _storefront_release_config_raw
 
+- name: Decode storefront release configuration content
+  ansible.builtin.set_fact:
+    _storefront_release_config_text: "{{ _storefront_release_config_raw.content | b64decode }}"
+
 - name: Parse storefront release configuration lines
   ansible.builtin.set_fact:
     _storefront_release_config_lines: >-
-      {{ (_storefront_release_config_raw.content | b64decode | replace('\r', ''))
-         .split('\n')
-         | map('trim')
-         | reject('match', '^#')
-         | reject('equalto', '')
-         | list }}
+      {{
+        _storefront_release_config_text.splitlines()
+        | map('trim')
+        | reject('match', '^#')
+        | reject('equalto', '')
+        | list
+      }}
 
 - name: Reject unknown or duplicate release configuration keys
   ansible.builtin.assert:
@@ -43,6 +48,7 @@
       - (_storefront_release_config_lines | select('match', '^STOREFRONT_BAD_VERSION=') | list | length) == 1
     fail_msg: >-
       Storefront release configuration must contain exactly four approved keys.
+      Raw text: {{ _storefront_release_config_text }}
       Found lines: {{ _storefront_release_config_lines }}
 
 - name: Extract approved storefront releases
