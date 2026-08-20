@@ -22,6 +22,51 @@
     chdir: "{{ poc_project_path }}"
   failed_when: false
 
+# --- Autoscale & Memory cleanup ---
+
+- name: Stop and remove traffic-spike container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - autoscale-demo
+      - rm
+      - -s
+      - -f
+      - traffic-spike
+    chdir: "{{ poc_project_path }}"
+  failed_when: false
+
+- name: Reset storefront scale to 1 replica
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - up
+      - -d
+      - --scale
+      - storefront=1
+      - --no-recreate
+      - storefront
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
+  failed_when: false
+
+- name: Stop and remove memory-pressure container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - memory-demo
+      - rm
+      - -s
+      - -f
+      - memory-pressure
+    chdir: "{{ poc_project_path }}"
+  failed_when: false
+
 - name: Ensure PgBouncer and PostgreSQL are running
   ansible.builtin.command:
     argv:
