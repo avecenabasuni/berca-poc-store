@@ -1,20 +1,28 @@
 {
   "id": "8c53e448-c013-4f3e-b4a2-e44eefcf2300",
-  "name": "[POC] SOAR ",
-  "description": "POC vulnerability workflow. Notification path tested; AAP launch, patching, polling, Datadog rescan, and resolved-finding verification are pending end-to-end validation.",
-  "tags": [],
-  "published": true,
+  "name": "[POC] RHEL CVE Approval-Gated Remediation",
+  "description": "Approval-gated remediation for the allowlisted RHEL 9.6 CVE demo host. Datadog selects and approves the finding, AAP Job Template 24 applies the bounded advisory, and Datadog verifies host and finding state.",
+  "tags": [
+    "env:poc",
+    "service:rhel-vulnerability-remediation",
+    "use_case:security-remediation"
+  ],
+  "published": false,
   "spec": {
     "triggers": [
       {
-        "startStepNames": ["Query_Findings"],
+        "startStepNames": [
+          "Query_Findings"
+        ],
         "scheduleTrigger": {
           "rruleExpression": "DTSTART:20260812T100830Z\nFREQ=DAILY;INTERVAL=1;BYHOUR=9;BYMINUTE=0",
           "overlapBehavior": "EXCLUSIVE_RUN"
         }
       },
       {
-        "startStepNames": ["Query_Findings"],
+        "startStepNames": [
+          "Query_Findings"
+        ],
         "selfServiceTrigger": {}
       }
     ],
@@ -25,7 +33,7 @@
         "parameters": [
           {
             "name": "query",
-            "value": "SELECT ts,\n  status,\n  severity,\n  resource_id,\n  finding_id,\n  resource_name,\n  remediation_available,\n  cve_id,\n  package_name,\n  installed_version,\n  fixed_version,\n  advisory_id,\n  runtime_active\nFROM dd.security_findings(\n  columns => ARRAY[\n    'timestamp',\n    '@status',\n    '@severity',\n    '@resource_id',\n    '@finding_id',\n    '@resource_name',\n    '@remediation.is_available',\n    '@advisory.cve',\n    '@package.name',\n    '@package.version',\n    '@remediation.package.base.version',\n    '@advisory.id',\n    '@package.is_running'\n  ],\n  filter => '@status:open @severity:high @remediation.is_available:true @risk.has_exploit_available:true @advisory.cve:*',\n  finding_types => ARRAY['host_and_container_vulnerability']\n) AS (\n  ts TIMESTAMP,\n  status VARCHAR,\n  severity VARCHAR,\n  resource_id VARCHAR,\n  finding_id VARCHAR,\n  resource_name VARCHAR,\n  remediation_available BOOLEAN,\n  cve_id VARCHAR,\n  package_name VARCHAR,\n  installed_version VARCHAR,\n  fixed_version VARCHAR,\n  advisory_id VARCHAR,\n  runtime_active BOOLEAN\n)\nWHERE cve_id IS NOT NULL\nLIMIT 10"
+            "value": "SELECT ts,\n  status,\n  severity,\n  resource_id,\n  finding_id,\n  resource_name,\n  remediation_available,\n  cve_id,\n  package_name,\n  installed_version,\n  fixed_version,\n  advisory_id,\n  runtime_active\nFROM dd.security_findings(\n  columns => ARRAY[\n    'timestamp',\n    '@status',\n    '@severity',\n    '@resource_id',\n    '@finding_id',\n    '@resource_name',\n    '@remediation.is_available',\n    '@advisory.cve',\n    '@package.name',\n    '@package.version',\n    '@remediation.package.base.version',\n    '@advisory.id',\n    '@package.is_running'\n  ],\n  filter => '@status:open @severity:(critical OR high) @remediation.is_available:true @risk.has_exploit_available:true @advisory.cve:*',\n  finding_types => ARRAY['host_and_container_vulnerability']\n) AS (\n  ts TIMESTAMP,\n  status VARCHAR,\n  severity VARCHAR,\n  resource_id VARCHAR,\n  finding_id VARCHAR,\n  resource_name VARCHAR,\n  remediation_available BOOLEAN,\n  cve_id VARCHAR,\n  package_name VARCHAR,\n  installed_version VARCHAR,\n  fixed_version VARCHAR,\n  advisory_id VARCHAR,\n  runtime_active BOOLEAN\n)\nWHERE cve_id IS NOT NULL\n  AND resource_name = 'rhel09-vuln-poc-01'\nLIMIT 10"
           }
         ],
         "outboundEdges": [
@@ -48,8 +56,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 192
+            "x": 0,
+            "y": 0
           }
         }
       },
@@ -59,7 +67,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const rawFindings = $.Steps.Query_Findings.data || [];\n\n$.Helpers.setVariable('raw_findings_count', rawFindings.length);\n\nconst structuredFindings = rawFindings.map(function(row) {\n  return {\n    finding_id: row.finding_id ? String(row.finding_id).trim() : '',\n    resource_id: row.resource_id ? String(row.resource_id).trim() : '',\n    hostname: row.resource_name ? String(row.resource_name).trim() : '',\n    environment: 'poc',\n    severity: row.severity ? String(row.severity).toLowerCase().trim() : '',\n    cve_id: row.cve_id ? String(row.cve_id).trim() : '',\n    package_name: row.package_name ? String(row.package_name).trim() : '',\n    installed_version: row.installed_version ? String(row.installed_version).trim() : '',\n    fixed_version: row.fixed_version ? String(row.fixed_version).trim() : '',\n    advisory_id: row.advisory_id ? String(row.advisory_id).trim() : '',\n    finding_status: row.status ? String(row.status).toLowerCase().trim() : '',\n    runtime_active: row.runtime_active === true || row.runtime_active === 'true'\n  };\n});\n\nreturn structuredFindings;"
+            "value": "const rows = $.Steps.Query_Findings.data || [];\n$.Helpers.setVariable('raw_findings_count', rows.length);\nreturn rows.map(function(row) {\n  return {\n    finding_id: row.finding_id ? String(row.finding_id).trim() : '',\n    resource_id: row.resource_id ? String(row.resource_id).trim() : '',\n    hostname: row.resource_name ? String(row.resource_name).trim() : '',\n    environment: 'poc',\n    severity: row.severity ? String(row.severity).toLowerCase().trim() : '',\n    remediation_available: row.remediation_available === true || row.remediation_available === 'true',\n    cve_id: row.cve_id ? String(row.cve_id).trim() : '',\n    package_name: row.package_name ? String(row.package_name).trim() : '',\n    installed_version: row.installed_version ? String(row.installed_version).trim() : '',\n    fixed_version: row.fixed_version ? String(row.fixed_version).trim() : '',\n    advisory_id: row.advisory_id ? String(row.advisory_id).trim() : '',\n    finding_status: row.status ? String(row.status).toLowerCase().trim() : '',\n    runtime_active: row.runtime_active === true || row.runtime_active === 'true'\n  };\n});"
           }
         ],
         "outboundEdges": [
@@ -82,8 +90,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 360
+            "x": 0,
+            "y": 220
           }
         }
       },
@@ -116,8 +124,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 480
+            "x": 0,
+            "y": 440
           }
         }
       },
@@ -127,7 +135,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const findings = $.Steps.Prioritize_Findings.data || [];\nconst top = findings.slice(0, 1);\n$.Helpers.setVariable('total_findings_count', top.length);\nreturn top;"
+            "value": "const findings = $.Steps.Prioritize_Findings.data || [];\nconst allowedPackages = ['curl', 'libcurl'];\nconst eligible = findings.filter(function(f) {\n  return f.hostname === 'rhel09-vuln-poc-01' &&\n    f.environment === 'poc' &&\n    ['critical', 'high'].includes(f.severity) &&\n    f.finding_status === 'open' &&\n    f.remediation_available === true &&\n    f.advisory_id === 'RHSA-2026:55439' &&\n    allowedPackages.includes(f.package_name) &&\n    f.fixed_version !== '';\n});\nconst top = eligible.slice(0, 1);\n$.Helpers.setVariable('eligible_findings_count', eligible.length);\n$.Helpers.setVariable('total_findings_count', top.length);\nreturn top;"
           }
         ],
         "outboundEdges": [
@@ -150,8 +158,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 600
+            "x": 0,
+            "y": 660
           }
         }
       },
@@ -184,8 +192,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 720
+            "x": 0,
+            "y": 880
           }
         }
       },
@@ -210,8 +218,8 @@
         ],
         "display": {
           "bounds": {
-            "x": -984,
-            "y": 912
+            "x": 0,
+            "y": 1100
           }
         }
       },
@@ -221,7 +229,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const finding = $.Current.Value;\nconst reasons = [];\n\nconst requiredFields = ['finding_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nfor (var i = 0; i < requiredFields.length; i++) {\n  var field = requiredFields[i];\n  if (!finding[field] || finding[field] === '') {\n    reasons.push('Missing or empty required field: ' + field);\n  }\n}\n\nif (reasons.length > 0) {\n  throw new Error('Data validation failed: ' + reasons.join(', '));\n}\n\nreturn { passed: true, reasons: [], finding: finding };"
+            "value": "const finding = $.Current.Value;\nconst reasons = [];\nconst required = ['finding_id', 'resource_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nrequired.forEach(function(field) {\n  if (finding[field] === undefined || finding[field] === null || String(finding[field]).trim() === '') {\n    reasons.push('Missing or empty field: ' + field);\n  }\n});\nif (finding.remediation_available !== true) reasons.push('Remediation is not available');\nif (reasons.length > 0) throw new Error('Finding validation failed: ' + reasons.join('; '));\nreturn { passed: true, finding: finding };"
           }
         ],
         "outboundEdges": [
@@ -244,8 +252,8 @@
         ],
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 1020
+            "x": 0,
+            "y": 1320
           }
         }
       },
@@ -255,7 +263,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const validationResult = $.Steps.Validate_Finding.data;\nconst finding = validationResult && validationResult.finding;\nconst policyChecks = [];\n\nif (!validationResult || !validationResult.passed) {\n  policyChecks.push('Data validation did not pass');\n}\nif (!finding || finding.environment !== 'poc') {\n  policyChecks.push('Environment must be poc, got: ' + (finding ? finding.environment : 'unknown'));\n}\nvar severity = finding && finding.severity ? finding.severity.toLowerCase() : '';\nif (severity !== 'critical' && severity !== 'high') {\n  policyChecks.push('Severity must be critical or high, got: ' + severity);\n}\nif (!finding || finding.finding_status !== 'open') {\n  policyChecks.push('Finding status must be open, got: ' + (finding ? finding.finding_status : 'unknown'));\n}\nif (!finding || !finding.fixed_version || finding.fixed_version.trim() === '') {\n  policyChecks.push('Fixed version must exist and be non-empty');\n}\n\nif (policyChecks.length > 0) {\n  throw new Error('Remediation policy enforcement failed: ' + policyChecks.join('; '));\n}\n\nreturn validationResult;"
+            "value": "const result = $.Steps.Validate_Finding.data;\nconst f = result && result.finding;\nconst reasons = [];\nif (!result || result.passed !== true || !f) reasons.push('Finding validation did not pass');\nelse {\n  if (f.environment !== 'poc') reasons.push('Environment must be poc');\n  if (f.hostname !== 'rhel09-vuln-poc-01') reasons.push('Host is outside the approved inventory');\n  if (!['critical', 'high'].includes(f.severity)) reasons.push('Severity must be critical or high');\n  if (f.finding_status !== 'open') reasons.push('Finding must still be open');\n  if (f.remediation_available !== true || f.fixed_version === '') reasons.push('A fixed version must be available');\n  if (f.advisory_id !== 'RHSA-2026:55439') reasons.push('Advisory is outside the Ansible allowlist');\n  if (!['curl', 'libcurl'].includes(f.package_name)) reasons.push('Package is outside the Ansible allowlist');\n}\nif (reasons.length > 0) throw new Error('Remediation policy blocked: ' + reasons.join('; '));\nreturn result;"
           }
         ],
         "outboundEdges": [
@@ -279,7 +287,7 @@
         "display": {
           "bounds": {
             "x": 0,
-            "y": 1140
+            "y": 1540
           }
         }
       },
@@ -313,7 +321,7 @@
         "display": {
           "bounds": {
             "x": 0,
-            "y": 1332
+            "y": 1760
           }
         }
       },
@@ -323,7 +331,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const liveStatus = $.Steps.Check_Already_Remediated.attributes.status;\nconst finding = $.Steps.Validate_Finding.data.finding;\n\nif (liveStatus === 'resolved' || liveStatus === 'auto_closed') {\n  throw new Error('ALREADY_REMEDIATED: Finding is already in status: ' + liveStatus + '. Skipping to avoid duplicate remediation.');\n}\n\nreturn finding;"
+            "value": "const attributes = $.Steps.Check_Already_Remediated.attributes || {};\nconst status = String(attributes.status || '').toLowerCase();\nconst finding = $.Steps.Validate_Finding.data.finding;\nif (status === 'resolved' || status === 'auto_closed') {\n  throw new Error('ALREADY_REMEDIATED: finding status is ' + status);\n}\nif (status !== 'open') throw new Error('NOT_ACTIONABLE: finding status is ' + (status || 'unknown'));\nreturn finding;"
           }
         ],
         "outboundEdges": [
@@ -347,7 +355,7 @@
         "display": {
           "bounds": {
             "x": 0,
-            "y": 1500
+            "y": 1980
           }
         }
       },
@@ -359,11 +367,11 @@
             "name": "actionChoices",
             "value": [
               {
-                "displayName": "✅ Approve",
+                "displayName": "\u2705 Approve",
                 "outboundBranch": "approve"
               },
               {
-                "displayName": "🚫 Reject",
+                "displayName": "\ud83d\udeab Reject",
                 "outboundBranch": "reject"
               }
             ]
@@ -374,7 +382,7 @@
           },
           {
             "name": "promptText",
-            "value": "🔒 *Security Remediation Approval Required*\n*Priority Finding {{ Current.Index }} of {{ Variables.total_findings_count }}*\n_This is an intelligently prioritized finding — not mass patching._\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*Environment:* {{ Steps.Evaluate_Remediation_Status.data.environment }}\n*Severity:* {{ Steps.Evaluate_Remediation_Status.data.severity }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Installed version:* {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\n*Fixed version:* {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*Runtime active:* {{ Steps.Evaluate_Remediation_Status.data.runtime_active }}\n*Priority score:* {{ Steps.Evaluate_Remediation_Status.data.priority_score }}\n\n*Requested action:* Apply the approved security advisory via Ansible Automation Platform.\n_Approving will trigger a fixed AAP Job Template. No arbitrary commands will be executed._\n\n_Selected from a larger pool based on severity + exploit availability + remediation availability + runtime relevance._"
+            "value": "RHEL CVE Remediation Approval Required\n\nTarget: rhel09-vuln-poc-01\nEnvironment: poc\nSeverity: {{ Steps.Evaluate_Remediation_Status.data.severity }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nInstalled: {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\nFixed: {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\n\nApprove to launch fixed AAP Job Template 24. Ansible independently enforces the host, RHSA, and package allowlists. No arbitrary host, command, repository, or version is accepted."
           },
           {
             "name": "teamId",
@@ -405,14 +413,15 @@
         ],
         "display": {
           "bounds": {
-            "x": -192,
-            "y": 1692
+            "x": 0,
+            "y": 2200
           }
         }
       },
       {
         "name": "Launch_AAP_Job",
         "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "AAP_CVE_REMEDIATION",
         "parameters": [
           {
             "name": "verb",
@@ -420,18 +429,16 @@
           },
           {
             "name": "url",
-            "value": "https://YOUR_AAP_CONTROLLER/api/v2/job_templates/FIXED_TEMPLATE_ID/launch/"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/24/launch/"
           },
           {
             "name": "requestHeaders",
             "value": [
               {
                 "key": "Content-Type",
-                "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer YOUR_AAP_API_TOKEN_SECRET"]
+                "value": [
+                  "application/json"
+                ]
               }
             ]
           },
@@ -440,23 +447,199 @@
             "value": {
               "extra_vars": {
                 "advisory_id": "{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}",
-                "approval_reference": "{{ InstanceId }}",
-                "cve_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
-                "environment": "{{ Steps.Evaluate_Remediation_Status.data.environment }}",
-                "finding_id": "{{ Steps.Evaluate_Remediation_Status.data.finding_id }}",
-                "fixed_version": "{{ Steps.Evaluate_Remediation_Status.data.fixed_version }}",
-                "installed_version": "{{ Steps.Evaluate_Remediation_Status.data.installed_version }}",
                 "package_name": "{{ Steps.Evaluate_Remediation_Status.data.package_name }}",
-                "requested_action": "apply_rhel_security_advisory",
-                "resource_id": "{{ Steps.Evaluate_Remediation_Status.data.resource_id }}",
-                "schema_version": "1.0",
-                "severity": "{{ Steps.Evaluate_Remediation_Status.data.severity }}"
+                "cve_id": "{{ Steps.Evaluate_Remediation_Status.data.cve_id }}",
+                "severity": "{{ Steps.Evaluate_Remediation_Status.data.severity }}",
+                "finding_id": "{{ Steps.Evaluate_Remediation_Status.data.finding_id }}",
+                "approval_reference": "{{ InstanceId }}"
               }
             }
           },
           {
             "name": "responseParsing",
             "value": "json"
+          },
+          {
+            "name": "allowExpiredCertificate",
+            "value": true
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Normalize_AAP_Launch",
+            "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Notify_Failure"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2420
+          }
+        }
+      },
+      {
+        "name": "Normalize_AAP_Launch",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const response = $.Steps.Launch_AAP_Job || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nconst rawId = body.id !== undefined && body.id !== null ? body.id : body.job;\nconst jobId = rawId !== undefined && rawId !== null ? String(rawId) : '';\nconst accepted = [200, 201, 202].includes(httpStatus) && jobId !== '';\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', String(body.status || 'pending'));\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'AAP launch did not return an accepted HTTP status and job ID');\nreturn { accepted: accepted, http_status: httpStatus, job_id: jobId };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_AAP_Launch",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2640
+          }
+        }
+      },
+      {
+        "name": "Validate_AAP_Launch",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Steps.Normalize_AAP_Launch.data.accepted }}",
+                "rightValue": true
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Initialize_AAP_Polling",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Notify_Failure",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 2860
+          }
+        }
+      },
+      {
+        "name": "Initialize_AAP_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "ACTION_RUNNING"
+              },
+              {
+                "name": "poll_count",
+                "value": 0
+              },
+              {
+                "name": "keep_polling",
+                "value": true
+              },
+              {
+                "name": "failure_reason",
+                "value": ""
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "AAP_While_Loop",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 3080
+          }
+        }
+      },
+      {
+        "name": "AAP_While_Loop",
+        "actionId": "com.datadoghq.core.whileLoop",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "lt",
+                "leftValue": "{{ Variables.poll_count }}",
+                "rightValue": 30
+              },
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.keep_polling }}",
+                "rightValue": true
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Evaluate_Final_AAP_Status",
+            "branchName": "main"
+          },
+          {
+            "nextStepName": "AAP_Poll_Sleep",
+            "branchName": "loopStart"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 3300
+          }
+        }
+      },
+      {
+        "name": "AAP_Poll_Sleep",
+        "actionId": "com.datadoghq.core.sleep",
+        "parameters": [
+          {
+            "name": "durationSeconds",
+            "value": 10
           }
         ],
         "outboundEdges": [
@@ -465,28 +648,17 @@
             "branchName": "main"
           }
         ],
-        "errorHandlers": [
-          {
-            "retryStrategy": {
-              "kind": "RETRY_STRATEGY_LINEAR",
-              "linear": {
-                "interval": "10s",
-                "maxRetries": 2
-              }
-            },
-            "fallbackStepName": "Notify_Failure"
-          }
-        ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 1884
+            "x": 520,
+            "y": 3520
           }
         }
       },
       {
         "name": "Get_AAP_Job_Status",
         "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "AAP_CVE_REMEDIATION",
         "parameters": [
           {
             "name": "verb",
@@ -494,29 +666,31 @@
           },
           {
             "name": "url",
-            "value": "https://YOUR_AAP_CONTROLLER/api/v2/jobs/{{ Steps.Launch_AAP_Job.body.id }}/"
+            "value": "https://192.168.2.66/api/controller/v2/jobs/{{ Variables.job_id }}/"
           },
           {
             "name": "requestHeaders",
             "value": [
               {
                 "key": "Content-Type",
-                "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer YOUR_AAP_API_TOKEN_SECRET"]
+                "value": [
+                  "application/json"
+                ]
               }
             ]
           },
           {
             "name": "responseParsing",
             "value": "json"
+          },
+          {
+            "name": "allowExpiredCertificate",
+            "value": true
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Evaluate_AAP_Result",
+            "nextStepName": "Normalize_AAP_Status",
             "branchName": "main"
           }
         ],
@@ -525,65 +699,329 @@
             "retryStrategy": {
               "kind": "RETRY_STRATEGY_LINEAR",
               "linear": {
-                "interval": "1s",
+                "interval": "5s",
                 "maxRetries": 0
               }
             },
-            "fallbackStepName": "Notify_Failure"
+            "fallbackStepName": "Set_AAP_Status_Check_Failed"
           }
         ],
-        "completionGate": {
-          "completionCondition": {
-            "operand1": "{{ Steps.Get_AAP_Job_Status.body.status }}",
-            "operator": "OPERATOR_EQUAL",
-            "operand2": "successful"
-          },
-          "retryStrategy": {
-            "kind": "RETRY_STRATEGY_LINEAR",
-            "linear": {
-              "interval": "30s",
-              "maxRetries": 30
-            }
-          }
-        },
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 2100
+            "x": 520,
+            "y": 3740
           }
         }
       },
       {
-        "name": "Evaluate_AAP_Result",
+        "name": "Normalize_AAP_Status",
         "actionId": "com.datadoghq.datatransformation.func",
         "parameters": [
           {
             "name": "script",
-            "value": "const jobStatus = $.Steps.Get_AAP_Job_Status.body.status;\nconst jobId = $.Steps.Get_AAP_Job_Status.body.id;\n\nconst terminalFailures = ['failed', 'error', 'canceled', 'cancel_request'];\nif (terminalFailures.indexOf(jobStatus) !== -1) {\n  throw new Error('AAP job reached terminal failure state: ' + jobStatus + ' (Job ID: ' + jobId + '). Manual investigation required.');\n}\n\nif (jobStatus === 'successful') {\n  return { status: 'successful', jobId: jobId };\n}\n\nreturn { status: jobStatus, jobId: jobId };"
+            "value": "const response = $.Steps.Get_AAP_Job_Status || {};\nconst body = response.body || {};\nconst expected = String($.Variables.job_id || '');\nconst returned = body.id !== undefined && body.id !== null ? String(body.id) : '';\nconst raw = String(body.status || '').toLowerCase();\nconst valid = Number(response.status || 0) === 200 && returned === expected;\nlet state = 'unexpected';\nlet detail = '';\nif (['new', 'pending', 'waiting', 'running'].includes(raw)) state = 'running';\nelse if (raw === 'successful') state = 'succeeded';\nelse if (['failed', 'error', 'canceled', 'cancel_request'].includes(raw)) {\n  state = 'failed';\n  detail = 'AAP terminal state: ' + raw;\n} else detail = 'Unknown AAP job status: ' + (raw || 'empty');\n$.Helpers.setVariable('status_response_valid', valid);\n$.Helpers.setVariable('raw_job_state', raw);\n$.Helpers.setVariable('job_state', state);\nif (detail) $.Helpers.setVariable('failure_reason', detail);\nreturn { valid: valid, raw_state: raw, normalized_state: state, job_id: returned };"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Validate_AAP_Status_Response",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 520,
+            "y": 3960
+          }
+        }
+      },
+      {
+        "name": "Validate_AAP_Status_Response",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.status_response_valid }}",
+                "rightValue": true
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Check_AAP_In_Progress",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Set_AAP_Status_Check_Failed",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 520,
+            "y": 4180
+          }
+        }
+      },
+      {
+        "name": "Check_AAP_In_Progress",
+        "actionId": "com.datadoghq.core.if",
+        "parameters": [
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "{{ Variables.job_state }}",
+                "rightValue": "running"
+              }
+            ]
+          },
+          {
+            "name": "joinOperator",
+            "value": "and"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_AAP_Poll_Count",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "Stop_AAP_Polling",
+            "branchName": "false"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 520,
+            "y": 4400
+          }
+        }
+      },
+      {
+        "name": "Set_AAP_Status_Check_Failed",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "STATUS_CHECK_FAILED"
+              },
+              {
+                "name": "job_state",
+                "value": "failed"
+              },
+              {
+                "name": "keep_polling",
+                "value": false
+              },
+              {
+                "name": "failure_reason",
+                "value": "Status response was invalid, unauthorized, unreachable, or did not match the launched job"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_AAP_Poll_Count",
+            "branchName": "main"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 1100,
+            "y": 4400
+          }
+        }
+      },
+      {
+        "name": "Stop_AAP_Polling",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "keep_polling",
+                "value": false
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Increment_AAP_Poll_Count",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 900,
+            "y": 4620
+          }
+        }
+      },
+      {
+        "name": "Increment_AAP_Poll_Count",
+        "actionId": "com.datadoghq.datatransformation.func",
+        "parameters": [
+          {
+            "name": "script",
+            "value": "const currentCount = $.Variables.poll_count || 0;\nconst newCount = currentCount + 1;\n$.Helpers.setVariable('poll_count', newCount);\nreturn newCount;"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        },
+        "display": {
+          "bounds": {
+            "x": 520,
+            "y": 4840
+          }
+        }
+      },
+      {
+        "name": "Evaluate_Final_AAP_Status",
+        "actionId": "com.datadoghq.core.switch",
+        "parameters": [
+          {
+            "name": "switchExpression",
+            "value": "{{ Variables.job_state }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "succeeded",
+                "value": "succeeded"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "failed",
+                "value": "failed"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "timeout",
+                "value": "running"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
           }
         ],
         "outboundEdges": [
           {
             "nextStepName": "Validate_Operational_Health",
-            "branchName": "main"
-          }
-        ],
-        "errorHandlers": [
+            "branchName": "succeeded"
+          },
           {
-            "retryStrategy": {
-              "kind": "RETRY_STRATEGY_LINEAR",
-              "linear": {
-                "interval": "1s",
-                "maxRetries": 0
-              }
-            },
-            "fallbackStepName": "Notify_Failure"
+            "nextStepName": "Notify_Failure",
+            "branchName": "failed"
+          },
+          {
+            "nextStepName": "Set_AAP_Timeout",
+            "branchName": "timeout"
+          },
+          {
+            "nextStepName": "Set_AAP_Unexpected_State",
+            "branchName": "default"
           }
         ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 2316
+            "x": 0,
+            "y": 5060
+          }
+        }
+      },
+      {
+        "name": "Set_AAP_Timeout",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "ACTION_TIMEOUT"
+              },
+              {
+                "name": "job_state",
+                "value": "timeout"
+              },
+              {
+                "name": "raw_job_state",
+                "value": "timeout"
+              },
+              {
+                "name": "failure_reason",
+                "value": "AAP job did not reach a terminal state within 300 seconds"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Notify_Failure",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 700,
+            "y": 5280
+          }
+        }
+      },
+      {
+        "name": "Set_AAP_Unexpected_State",
+        "actionId": "com.datadoghq.core.setVariables",
+        "parameters": [
+          {
+            "name": "variables",
+            "value": [
+              {
+                "name": "workflow_result",
+                "value": "ACTION_FAILED"
+              },
+              {
+                "name": "failure_reason",
+                "value": "Polling ended without a recognized terminal state"
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "Notify_Failure",
+            "branchName": "main"
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 1050,
+            "y": 5060
           }
         }
       },
@@ -620,8 +1058,8 @@
         ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 2436
+            "x": 0,
+            "y": 5280
           }
         }
       },
@@ -654,8 +1092,8 @@
         ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 2604
+            "x": 0,
+            "y": 5500
           }
         }
       },
@@ -688,42 +1126,71 @@
         ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 2724
+            "x": 0,
+            "y": 5720
           }
         }
       },
       {
         "name": "Evaluate_Vulnerability_Status",
-        "actionId": "com.datadoghq.datatransformation.func",
+        "actionId": "com.datadoghq.core.switch",
         "parameters": [
           {
-            "name": "script",
-            "value": "const status = $.Steps.Check_Vulnerability_Status.attributes.status;\nconst findingId = $.Steps.Check_Vulnerability_Status.attributes.finding_id;\n\nif (status === 'resolved') {\n  throw new Error('FINDING_RESOLVED: Vulnerability confirmed remediated. Finding ID: ' + findingId);\n}\n\nif (status === 'open' || status === 'in-progress' || status === 'muted') {\n  return { outcome: 'pending_rescan', status: status, finding_id: findingId };\n}\n\nreturn { outcome: 'unexpected_status', status: status, finding_id: findingId };"
+            "name": "switchExpression",
+            "value": "{{ Steps.Check_Vulnerability_Status.attributes.status }}"
+          },
+          {
+            "name": "cases",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "verified",
+                "value": "resolved"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "verified",
+                "value": "auto_closed"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "pending",
+                "value": "open"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "pending",
+                "value": "in-progress"
+              },
+              {
+                "comparisonOperator": "eq",
+                "outboundBranch": "pending",
+                "value": "muted"
+              },
+              {
+                "outboundBranch": "default"
+              }
+            ]
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Notify_Patch_Applied",
-            "branchName": "main"
-          }
-        ],
-        "errorHandlers": [
+            "nextStepName": "Notify_Remediation_Verified",
+            "branchName": "verified"
+          },
           {
-            "retryStrategy": {
-              "kind": "RETRY_STRATEGY_LINEAR",
-              "linear": {
-                "interval": "1s",
-                "maxRetries": 0
-              }
-            },
-            "fallbackStepName": "Notify_Remediation_Verified"
+            "nextStepName": "Notify_Patch_Applied",
+            "branchName": "pending"
+          },
+          {
+            "nextStepName": "Notify_Verification_Error",
+            "branchName": "default"
           }
         ],
         "display": {
           "bounds": {
-            "x": -960,
-            "y": 2916
+            "x": 0,
+            "y": 5940
           }
         }
       },
@@ -741,13 +1208,13 @@
           },
           {
             "name": "text",
-            "value": ":white_check_mark: *Remediation Fully Verified — Closed Loop*\n\nThe patch was applied successfully AND Datadog has confirmed the finding is now *resolved*.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n*Host health:*\n• Up: {{ Steps.Check_Host_Health.data.up }}\n• Agent version: {{ Steps.Check_Host_Health.data.agent_version }}\n\n*Security status:* resolved ✓\n_Approved by: {{ Steps.Request_Approval.responder.username }}_"
+            "value": "RHEL CVE Remediation Fully Verified\n\nAAP completed the allowlisted patch, the host is healthy, and Datadog reports the finding as resolved.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nApproved by: {{ Steps.Request_Approval.responder.username }}"
           }
         ],
         "display": {
           "bounds": {
-            "x": -576,
-            "y": 3108
+            "x": -520,
+            "y": 6160
           }
         }
       },
@@ -765,13 +1232,13 @@
           },
           {
             "name": "text",
-            "value": ":large_yellow_circle: *Patch Applied — Pending Security Rescan*\n\nAAP successfully applied the patch and the host is healthy. However, the finding is still *open* in Datadog — this is expected. Datadog must complete a vulnerability rescan (SBOM re-evaluation) to close this finding.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n*Host health:*\n• Up: {{ Steps.Check_Host_Health.data.up }}\n• Agent version: {{ Steps.Check_Host_Health.data.agent_version }}\n\n*Security status:* open (rescan pending)\n_Stage: patch_applied_pending_security_rescan_\n_Approved by: {{ Steps.Request_Approval.responder.username }}_"
+            "value": "RHEL Patch Applied - Datadog Rescan Pending\n\nAAP completed the allowlisted patch and the host is healthy. The finding is not resolved yet; this is expected until the next host SBOM evaluation.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\n\nNo automatic retry or rollback was started. Datadog remains the final verification authority."
           }
         ],
         "display": {
           "bounds": {
-            "x": -960,
-            "y": 3108
+            "x": 0,
+            "y": 6160
           }
         }
       },
@@ -789,13 +1256,13 @@
           },
           {
             "name": "text",
-            "value": ":warning: *Vulnerability Verification Error*\n\nThe patch was applied by AAP and the host is healthy, but Datadog returned an unexpected status for the security finding. Manual verification is required.\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Finding ID:* {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n\n:warning: *Action required:* Manually verify the finding status in Datadog Security."
+            "value": "RHEL CVE Verification Requires Review\n\nAAP completed successfully and the host is reporting, but Datadog returned an unsupported finding status.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\nAAP Job: {{ Variables.job_id }}\n\nNo additional change was attempted."
           }
         ],
         "display": {
           "bounds": {
-            "x": -192,
-            "y": 2916
+            "x": 520,
+            "y": 6160
           }
         }
       },
@@ -813,7 +1280,7 @@
           },
           {
             "name": "text",
-            "value": ":rotating_light: *Security Remediation Failed — Escalation Required*\n\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Package:* {{ Steps.Evaluate_Remediation_Status.data.package_name }}\n*Advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n*AAP Job ID:* {{ Steps.Launch_AAP_Job.body.id }}\n*Final AAP Status:* {{ Steps.Get_AAP_Job_Status.body.status }}\n\n:warning: *Action required:* No automatic rollback will be attempted. Operators must investigate the AAP job and host health manually.\n_Do not re-run the workflow until the root cause is understood._"
+            "value": "RHEL CVE Remediation Failed\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nAdvisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nReason: {{ Variables.failure_reason }}\n\nNo automatic retry, downgrade, or rollback was attempted. Review AAP Job Template 24 and use the approved Nutanix reset runbook if required."
           }
         ],
         "readinessGate": {
@@ -821,8 +1288,8 @@
         },
         "display": {
           "bounds": {
-            "x": 192,
-            "y": 2724
+            "x": 1050,
+            "y": 5500
           }
         }
       },
@@ -845,8 +1312,8 @@
         ],
         "display": {
           "bounds": {
-            "x": -192,
-            "y": 1884
+            "x": -700,
+            "y": 2420
           }
         }
       },
@@ -864,13 +1331,13 @@
           },
           {
             "name": "text",
-            "value": ":ballot_box_with_check: *Duplicate Remediation Prevented*\n\nThis finding is already remediated or pending rescan. No action taken.\n\n*Host:* {{ Steps.Validate_Finding.data.finding.hostname }}\n*CVE:* {{ Steps.Validate_Finding.data.finding.cve_id }}\n*Advisory:* {{ Steps.Validate_Finding.data.finding.advisory_id }}\n*Finding ID:* {{ Steps.Validate_Finding.data.finding.finding_id }}\n*Current status:* {{ Steps.Check_Already_Remediated.attributes.status }}\n\n_Workflow continues to next finding._"
+            "value": "Duplicate CVE Remediation Prevented\n\nThe finding is already resolved or is no longer actionable. No AAP job was launched.\n\nHost: {{ Steps.Validate_Finding.data.finding.hostname }}\nCVE: {{ Steps.Validate_Finding.data.finding.cve_id }}\nFinding: {{ Steps.Validate_Finding.data.finding.finding_id }}\nStatus: {{ Steps.Check_Already_Remediated.attributes.status }}"
           }
         ],
         "display": {
           "bounds": {
-            "x": 576,
-            "y": 1692
+            "x": -700,
+            "y": 1980
           }
         }
       },
@@ -888,7 +1355,7 @@
           },
           {
             "name": "text",
-            "value": ":no_entry: *Security Finding Blocked by Data Validation or Policy Gate*\n\n*CVE:* {{ Steps.Validate_Finding.data.finding.cve_id }}\n*Host:* {{ Steps.Validate_Finding.data.finding.hostname }}\n*Severity:* {{ Steps.Validate_Finding.data.finding.severity }}\n*Advisory:* {{ Steps.Validate_Finding.data.finding.advisory_id }}\n\n_No changes were made. The workflow will continue to the next finding._"
+            "value": "CVE Remediation Blocked by Policy\n\nThe finding did not match the fixed POC host, severity, remediation availability, RHSA, or package allowlist. No AAP job was launched.\n\nWorkflow Instance: {{ InstanceId }}\nReview the blocked step output for the exact reason."
           }
         ],
         "readinessGate": {
@@ -896,8 +1363,8 @@
         },
         "display": {
           "bounds": {
-            "x": 960,
-            "y": 1500
+            "x": 700,
+            "y": 1540
           }
         }
       },
@@ -915,13 +1382,13 @@
           },
           {
             "name": "text",
-            "value": ":white_check_mark: *Daily Security Scan Complete — No Action Required*\n\n*Scope:* All monitored hosts | *Environment:* poc\n\nNo prioritized findings requiring action today. This is a normal business outcome.\n\n*Raw findings detected (pre-prioritization):* {{ Variables.raw_findings_count }}\n\n_Next scan will run tomorrow at 09:00 UTC._"
+            "value": "RHEL CVE Scan Complete - No Eligible Finding\n\nNo open critical/high finding matched the fixed gates for rhel09-vuln-poc-01, RHSA-2026:55439, and curl or libcurl.\n\nRaw Findings: {{ Variables.raw_findings_count }}\nEligible Findings: {{ Variables.eligible_findings_count }}\nNo AAP job was launched."
           }
         ],
         "display": {
           "bounds": {
-            "x": 1344,
-            "y": 912
+            "x": 700,
+            "y": 1100
           }
         }
       },
@@ -939,13 +1406,13 @@
           },
           {
             "name": "text",
-            "value": ":checkered_flag: *Daily Security Remediation Run Complete*\n\n*Total findings processed:* {{ Variables.total_findings_count }} of {{ Variables.raw_findings_count }} detected\n*Environment:* poc\n\nAll prioritized findings have been reviewed. Check individual messages above for per-finding outcomes (approved, rejected, blocked, duplicate, or failed).\n\n_Next scheduled run: tomorrow at 09:00 UTC._"
+            "value": "RHEL CVE Workflow Run Complete\n\nSelected Findings: {{ Variables.total_findings_count }}\nEligible Findings: {{ Variables.eligible_findings_count }}\nRaw Findings: {{ Variables.raw_findings_count }}\nEnvironment: poc\n\nReview the per-finding notification for approval, execution, and verification status."
           }
         ],
         "display": {
           "bounds": {
-            "x": -768,
-            "y": 3372
+            "x": -700,
+            "y": 1320
           }
         }
       },
@@ -963,7 +1430,7 @@
           },
           {
             "name": "text",
-            "value": ":rotating_light: *WORKFLOW ERROR — Daily Security Scan Failed*\n\nThe security remediation workflow encountered an unexpected technical error. This is *NOT* a clean \"no findings\" result.\n\n*Instance ID:* {{ InstanceId }}\n*Workflow:* {{ WorkflowName }}\n\n:warning: *Action required:* Investigate the workflow run immediately to determine the root cause (Datadog API error, DDSQL query failure, or data processing fault).\n_The scan results for today are unreliable. Do NOT treat this as \"no action required\"._"
+            "value": ":rotating_light: *WORKFLOW ERROR \u2014 Daily Security Scan Failed*\n\nThe security remediation workflow encountered an unexpected technical error. This is *NOT* a clean \"no findings\" result.\n\n*Instance ID:* {{ InstanceId }}\n*Workflow:* {{ WorkflowName }}\n\n:warning: *Action required:* Investigate the workflow run immediately to determine the root cause (Datadog API error, DDSQL query failure, or data processing fault).\n_The scan results for today are unreliable. Do NOT treat this as \"no action required\"._"
           }
         ],
         "readinessGate": {
@@ -971,12 +1438,23 @@
         },
         "display": {
           "bounds": {
-            "x": 1728,
-            "y": 720
+            "x": 1100,
+            "y": 440
           }
         }
       }
     ],
-    "handle": "avecena.basuniberca.co.id-Aug-12-2026-0802"
+    "handle": "avecena.basuniberca.co.id-Aug-12-2026-0802",
+    "connectionEnvs": [
+      {
+        "env": "default",
+        "connections": [
+          {
+            "connectionId": "a3c4c251-9b87-4998-be44-518ac445bade",
+            "label": "AAP_CVE_REMEDIATION"
+          }
+        ]
+      }
+    ]
   }
 }
