@@ -83,11 +83,13 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
 
 ### Safety Gates Enforced by Ansible
 1. **Host Boundary Assertion:** Will reject execution if targeted at any host other than `rhel09-vuln-poc-01`.
-2. **Dynamic Pre-Flight Checks:** Dynamically verifies package is installed on the host and the requested CVE update exists in enabled RHEL DNF repositories before any change is attempted.
-3. **Severity Allowlist:** Accepts severities `critical`, `high`, `medium`, `low`, and `info`.
-4. **Input Sanitization:** Validates regex patterns on all inputs to strictly prevent shell injection or arbitrary arguments.
-5. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --cves=<CVE_ID> <package>` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
-6. **Structured Evidence Return:** Emits JSON stats back to AAP:
+2. **Scanner Component to RPM Resolution:** Resolves scanner component names (e.g. `vim`, `curl`, `openssl`) to corresponding RHEL 9 binary RPM packages via `cve_component_rpm_map`.
+3. **Dynamic Pre-Flight Checks:** Dynamically verifies that target packages are installed on the host and the requested CVE update exists in enabled RHEL DNF repositories before any change is attempted.
+4. **Severity Allowlist:** Accepts severities `critical`, `high`, `medium`, `low`, and `info`.
+5. **Input Sanitization:** Validates regex patterns on all inputs to strictly prevent shell injection or arbitrary arguments.
+6. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --cves=<CVE_ID> <target_rpms>` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
+7. **Post-Patch CVE Verification:** Asserts that the CVE is no longer listed in pending updates (`dnf updateinfo list updates --cves=<CVE_ID>`).
+8. **Structured Evidence Return:** Emits JSON stats back to AAP:
    ```json
    {
      "remediation_evidence": {
@@ -96,11 +98,13 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
        "resource_id": "rhel09-vuln-poc-01",
        "advisory_id": "<ADVISORY_ID>",
        "cve_id": "<CVE_ID>",
+       "component_name": "<PACKAGE_NAME>",
+       "target_rpms": ["vim-enhanced", "vim-common", "vim-minimal", "vim-filesystem"],
        "severity": "<SEVERITY>",
-       "package_name": "<PACKAGE_NAME>",
-       "version_before": "<VERSION_BEFORE>",
-       "version_after": "<VERSION_AFTER>",
+       "versions_before": ["..."],
+       "versions_after": ["..."],
        "package_changed": true,
+       "cve_resolved": true,
        "datadog_agent_active": true,
        "systemd_failures": "none",
        "status": "patch_applied_pending_security_rescan"

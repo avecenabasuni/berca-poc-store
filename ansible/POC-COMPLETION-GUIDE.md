@@ -13,8 +13,8 @@ Based on [`ANSIBLE-HANDOFF.md`](../load-test/datadog/ANSIBLE-HANDOFF.md) as of 2
 |---:|---|---|---|---|
 | 1 | PgBouncer Pool Saturation | `fault-pool.yml`, `recover-pool.yml` | **JT 21** (Fault), **JT 18** (Remediation) | Yes |
 | 2 | Synthetic Disk Full | `fault-disk.yml`, `recover-disk.yml` | **JT 22** (Fault), **JT 19** (Remediation) | Yes |
-| 3 | Storefront Deployment Rollback | `fault-rollback.yml`, `recover-rollback.yml` | **JT 29** (Fault), **JT 30** (Remediation) | Ready for verification |
-| 4 | Storefront Horizontal Autoscale | `fault-autoscale.yml`, `recover-autoscale.yml` | **JT 31** (Fault), **JT 32** (Remediation) | Ready for verification |
+| 3 | Storefront Deployment Rollback | `fault-rollback.yml`, `recover-rollback.yml` | **JT 29** (Fault), **JT 30** (Remediation) | Yes |
+| 4 | Storefront Horizontal Autoscale | `fault-autoscale.yml`, `recover-autoscale.yml` | **JT 31** (Fault), **JT 32** (Remediation) | Yes |
 | 5 | RHEL 9.6 Package Vulnerability | 5 CVE playbooks in `cve_playbooks/` | **JT 24** (Remediation) + Preflight/Validate/Reset/Rollback | Yes |
 | 6 | Nutanix VM Memory Hot-Add | **No playbooks exist** | No templates | Not started |
 | - | Global Reset | `reset.yml` | **JT 20** (Reset) | Yes |
@@ -59,7 +59,7 @@ STOREFRONT_BAD_VERSION=demo-bad-1f5584fd0b09
 ```
 
 **3. Create Fault Job Template:**
-- [ ] **Name:** `Deploy Storefront Demo-Bad`
+- [x] **Name:** `Deploy Storefront Demo-Bad` (JT 29)
   - **Job Type:** `Run`
   - **Inventory:** `Ansible Datadog Collab POC VMs`
   - **Project:** `Ansible Datadog Playbooks`
@@ -79,7 +79,7 @@ STOREFRONT_BAD_VERSION=demo-bad-1f5584fd0b09
     ```
 
 **4. Create Remediation Job Template with Survey:**
-- [ ] **Name:** `Rollback Storefront to Stable`
+- [x] **Name:** `Rollback Storefront to Stable` (JT 30)
   - **Job Type:** `Run`
   - **Inventory:** `Ansible Datadog Collab POC VMs`
   - **Project:** `Ansible Datadog Playbooks`
@@ -122,7 +122,7 @@ poc_autoscale_spike_rate: 10
 ```
 
 **2. Create Fault Job Template:**
-- [ ] **Name:** `Start Storefront Capacity Spike`
+- [x] **Name:** `Start Storefront Capacity Spike` (JT 31)
   - **Job Type:** `Run`
   - **Inventory:** `Ansible Datadog Collab POC VMs`
   - **Project:** `Ansible Datadog Playbooks`
@@ -140,7 +140,7 @@ poc_autoscale_spike_rate: 10
     - Datadog p95 latency monitor transitions to `ALERT`.
 
 **3. Create Remediation Job Template with Survey:**
-- [ ] **Name:** `Scale Storefront to 2`
+- [x] **Name:** `Scale Storefront to 2` (JT 32)
   - **Job Type:** `Run`
   - **Inventory:** `Ansible Datadog Collab POC VMs`
   - **Project:** `Ansible Datadog Playbooks`

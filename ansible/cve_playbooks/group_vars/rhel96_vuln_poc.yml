@@ -26,6 +26,55 @@ cve_allowed_severities:
   - "important"
   - "moderate"
 
+# -- Component to RPM package mapping -------------------------------------- #
+# Scanners (e.g. Trivy / Datadog CSM) report vulnerability findings at the
+# source component level (e.g. "vim", "curl", "openssl"). This mapping resolves
+# the component name to its corresponding binary RPM packages in RHEL 9.
+# If a package name is not in this map, it defaults to [package_name].
+
+cve_component_rpm_map:
+  vim:
+    - "vim-enhanced"
+    - "vim-common"
+    - "vim-minimal"
+    - "vim-filesystem"
+  curl:
+    - "curl"
+    - "libcurl"
+  openssl:
+    - "openssl"
+    - "openssl-libs"
+  sudo:
+    - "sudo"
+  systemd:
+    - "systemd"
+    - "systemd-libs"
+    - "systemd-pam"
+    - "systemd-udev"
+  glibc:
+    - "glibc"
+    - "glibc-common"
+    - "glibc-all-langpacks"
+  openssh:
+    - "openssh"
+    - "openssh-clients"
+    - "openssh-server"
+  gnutls:
+    - "gnutls"
+  libssh:
+    - "libssh"
+    - "libssh-config"
+  libxml2:
+    - "libxml2"
+    - "python3-libxml2"
+  zlib:
+    - "zlib"
+  python3:
+    - "python3"
+    - "python3-libs"
+  bash:
+    - "bash"
+
 # -- Service restart controls ---------------------------------------------- #
 # Services that the playbook is allowed to restart after patching.
 # Any service reported by `dnf needs-restarting --services` that is in this
