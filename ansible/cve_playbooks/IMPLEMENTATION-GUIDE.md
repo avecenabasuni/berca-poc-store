@@ -19,8 +19,8 @@ All AAP configuration is done through the **AAP web UI**. CLI commands are only
 used for VM preparation and optional local testing.
 
 This document covers two tracks:
-- **Ansible/AAP track** -- for the engineer setting up the automation
-- **Datadog track** -- for your coworker configuring the detection and workflow
+- **Ansible/AAP track** -- for the engineer setting up the automation (Part A below)
+- **Datadog track** -- for your coworker configuring the detection and workflow (Part B below, or share the dedicated standalone [Datadog Handover Guide](DATADOG-HANDOVER-GUIDE.md))
 
 ---
 
@@ -46,6 +46,222 @@ ansible/cve_playbooks/
 | `rhel96-cve-validate` | No | RHEL 9.6 CVE Validate | Yes (2 fields, optional) |
 | `rhel96-cve-reset-check` | No | RHEL 9.6 CVE Reset Check | No |
 | `rhel96-cve-rollback` | **Yes** | RHEL 9.6 CVE Rollback | Yes (1 field, optional) |
+
+---
+
+## Playbook Functions & Expected Outcomes
+
+Below is a detailed breakdown of what each playbook does, when to run it, what variables it takes, and the exact expected outcome upon execution.
+
+### 1. `rhel96-cve-preflight.yml` -- Pre-Demo Discovery & Health Scan
+
+* **AAP Template:** `RHEL 9.6 CVE Preflight`
+* **Changes to VM:** **No (Read-only)**
+* **When to run:** Before running a demo or test, to confirm the VM is healthy and that unpatched security advisories are present.
+* **Input variables:** None required (no Survey).
+
+#### Key Functions:
+1. **Asserts OS and Host Identity:** Confirms OS is RHEL 9.x and hostname matches `rhel09-vuln-poc-01`.
+2. **Checks Red Hat Subscription & Repositories:** Validates `subscription-manager identity`, subscription status, and enabled DNF repositories.
+3. **Refreshes DNF Cache & Scans Advisories:** Cleans expired cache (`dnf clean expire-cache`), rebuilds metadata (`dnf makecache`), and queries available security errata (`dnf updateinfo list updates security`).
+4. **Verifies Dependencies:** Checks if `dnf-utils` is installed (required for `needs-restarting`) and confirms `dnf-automatic` timer is inactive.
+5. **Validates Datadog Agent:** Asserts `datadog-agent` service is active and outputs its installed version.
+
+#### Expected Outcome:
+* **Terminal / AAP Job Output:** All assertions pass with green `OK` messages.
+* **Summary Block Output:**
+  ```text
+  TASK [Preflight summary] ******************************************************
+  ok: [rhel09-vuln-poc-01] => {
+      "msg": [
+          "== Preflight Summary ==",
+          "Host: rhel09-vuln-poc-01",
+          "OS: RedHat 9.6",
+          "Subscription: system identity: <UUID> org: <ORG_ID>",
+          "Security advisories available: <COUNT> (e.g. 50+)",
+          "Datadog Agent: Datadog Agent 7.xx.x",
+          "dnf-utils installed: yes"
+      ]
+  }
+  ```
+* **Success Criteria:** `failed=0`, confirming the VM has available security advisories (e.g. `RHSA-2026:55439`) and is ready for the remediation workflow.
+
+---
+
+### 2. `rhel96-cve-remediation.yml` -- Automated Security Patching (12-Step Closed Loop)
+
+* **AAP Template:** `RHEL 9.6 CVE Remediation`
+* **Changes to VM:** **Yes (Applies security patch)**
+* **When to run:** Triggered automatically by Datadog Workflow after human approval (or manually via AAP Survey for testing).
+* **Input variables (Survey / extra_vars):**
+  - `advisory_id`: `RHSA-2026:55439`
+  - `package_name`: `curl`
+  - `cve_id`: `CVE-2026-1965`
+  - `severity`: `high` or `critical`
+  - `finding_id`: Datadog Finding ID (e.g. `manual-aap-test`)
+  - `approval_reference`: Workflow Run ID (e.g. `manual-dev-test`)
+
+#### Key Functions (12-Step Architecture):
+1. **Step 1 -- Environment Validation:** Asserts RHEL 9 distribution.
+2. **Step 2 -- Host & Parameter Validation:** Confirms target host is `rhel09-vuln-poc-01` and all required extra_vars are present.
+3. **Step 3 -- Baseline Recording:** Queries and records pre-patch installed version (`curl-7.76.1-29.el9_6.x86_64`).
+4. **Step 4 -- Strict Allowlist Check:** Validates that `advisory_id` and `package_name` are explicitly allowed in `group_vars/rhel96_vuln_poc.yml`. Aborts immediately if not allowlisted.
+5. **Step 5 -- Repository Metadata Verification:** Refreshes DNF cache and verifies `RHSA-2026:55439` is available from signed Red Hat repos.
+6. **Step 6 -- Dry-run & Bounded Patching:** Executes `dnf upgrade-minimal --assumeno` dry-run, then applies only the approved advisory via `dnf upgrade-minimal --assumeyes --advisory=RHSA-2026:55439`.
+7. **Step 7 -- Post-Patch Version Verification:** Queries new RPM version and asserts version changed to fixed version (`curl-7.76.1-40.el9_8.5.x86_64`).
+8. **Step 8 -- Controlled Service Restarts:** Runs `dnf needs-restarting --services` and selectively restarts only services listed in `cve_allowed_restart_services`.
+9. **Step 9 -- Conditional Reboot Management:** Checks `dnf needs-restarting --reboothint`. Reboots only if required AND `cve_allow_reboot: true` (for `curl`, no reboot is required).
+10. **Step 10 -- SSH Recovery Wait:** Waits for SSH availability if reboot was performed.
+11. **Step 11 -- Operational Health Check:** Verifies Datadog Agent is active, checks for failed systemd units, and tests live agent telemetry.
+12. **Step 12 -- Evidence Publication:** Builds a structured JSON evidence payload and publishes it via Ansible `set_stats` for AAP/Datadog callbacks.
+
+#### Expected Outcome:
+* **Package Change:** `curl` and `libcurl` are upgraded to `7.76.1-40.el9_8.5.x86_64`.
+* **Telemetry & Services:** Datadog Agent remains `active`; no systemd unit failures.
+* **AAP `set_stats` / Artifact Output:**
+  ```json
+  {
+    "remediation_evidence": {
+      "schema_version": "1.0",
+      "environment": "poc",
+      "resource_id": "rhel09-vuln-poc-01",
+      "os_version": "RedHat 9.6",
+      "advisory_id": "RHSA-2026:55439",
+      "cve_id": "CVE-2026-1965",
+      "severity": "high",
+      "package_name": "curl",
+      "version_before": "curl-7.76.1-29.el9_6.x86_64",
+      "version_after": "curl-7.76.1-40.el9_8.5.x86_64",
+      "package_changed": true,
+      "services_restarted": ["curl"],
+      "services_skipped": [],
+      "reboot_required": false,
+      "reboot_performed": false,
+      "datadog_agent_active": true,
+      "systemd_failures": "none",
+      "finding_id": "manual-aap-test",
+      "approval_reference": "manual-dev-test",
+      "status": "patch_applied_pending_security_rescan"
+    }
+  }
+  ```
+* **Success Criteria:** AAP Job completes with status **Successful** (`failed=0`).
+
+---
+
+### 3. `rhel96-cve-validate.yml` -- Post-Patch Health & Verification
+
+* **AAP Template:** `RHEL 9.6 CVE Validate`
+* **Changes to VM:** **No (Read-only)**
+* **When to run:** After remediation, to verify that the security advisory is no longer pending and the VM is fully operational.
+* **Input variables (Survey / extra_vars - optional):**
+  - `advisory_id`: `RHSA-2026:55439` (optional)
+  - `package_name`: `curl` (optional)
+
+#### Key Functions:
+1. **Verifies Package State:** Checks the current installed RPM version.
+2. **Confirms Advisory Removal:** Queries `dnf updateinfo list updates security` and confirms `RHSA-2026:55439` is **no longer listed** in pending updates.
+3. **Validates Datadog Agent:** Checks that Datadog Agent is active and reporting version.
+4. **Checks Systemd Units:** Scans for any failed systemd services (`systemctl list-units --state=failed`).
+5. **Checks Process Restarts & Reboot:** Evaluates `needs-restarting --services` and `--reboothint`.
+6. **Checks Time Synchronization:** Verifies system uptime and `chronyd` status.
+
+#### Expected Outcome:
+* **Summary Block Output:**
+  ```text
+  TASK [Validation summary] *****************************************************
+  ok: [rhel09-vuln-poc-01] => {
+      "msg": [
+          "== Post-Patch Validation Summary ==",
+          "Host: rhel09-vuln-poc-01",
+          "OS: RedHat 9.6",
+          "Package: curl-7.76.1-40.el9_8.5.x86_64",
+          "Advisory still pending: no",
+          "Datadog Agent: active",
+          "Failed systemd units: none",
+          "Services needing restart: 0",
+          "Reboot recommended: no"
+      ]
+  }
+  ```
+* **Success Criteria:** `Advisory still pending: no`, `Datadog Agent: active`, and `Failed systemd units: none`.
+
+---
+
+### 4. `rhel96-cve-reset-check.yml` -- Post-Snapshot-Restore Verification
+
+* **AAP Template:** `RHEL 9.6 CVE Reset Check`
+* **Changes to VM:** **No (Read-only)**
+* **When to run:** Immediately after restoring the Nutanix VM snapshot (`rhel09-poc-pre-security-patch-YYYYMMDD`), before re-arming the demo.
+* **Input variables:** None required (no Survey).
+
+#### Key Functions:
+1. **Asserts VM Identity:** Confirms distribution and hostname (`rhel09-vuln-poc-01`).
+2. **Verifies Time Sync (Chrony):** Checks `chronyc tracking` to ensure hypervisor restore did not cause clock drift.
+3. **Verifies Network Connectivity:** Checks IP address (`192.168.2.65`) and interface state.
+4. **Verifies Repositories:** Confirms Red Hat subscription and enabled DNF repos are functional.
+5. **Confirms Vulnerability Baseline:** Queries `dnf updateinfo list updates security` and asserts that security advisories are pending again (`length > 0`).
+6. **Confirms Datadog Agent:** Asserts Datadog Agent is running.
+
+#### Expected Outcome:
+* **Summary Block Output:**
+  ```text
+  TASK [Post-restore summary] ***************************************************
+  ok: [rhel09-vuln-poc-01] => {
+      "msg": [
+          "== Post-Snapshot-Restore Summary ==",
+          "Host: rhel09-vuln-poc-01",
+          "OS: RedHat 9.6",
+          "Chrony: OK",
+          "Subscription: system identity: <UUID>",
+          "Repos enabled: 2",
+          "Security advisories: <COUNT> (advisories present again)",
+          "Datadog Agent: active",
+          "",
+          "If all checks pass, wait for Datadog to show the vulnerability",
+          "finding before arming the remediation workflow."
+      ]
+  }
+  ```
+* **Success Criteria:** Confirms VM state has cleanly reverted to the pre-patch vulnerable baseline.
+
+---
+
+### 5. `rhel96-cve-rollback.yml` -- In-Guest Package Downgrade (Fast Lab Reset)
+
+* **AAP Template:** `RHEL 9.6 CVE Rollback`
+* **Changes to VM:** **Yes (Downgrades package)**
+* **When to run:** For quick lab iterations when you want to return `curl` back to the vulnerable version without restoring a full Nutanix snapshot.
+* **Input variables (Survey / extra_vars - optional):**
+  - `package_name`: `curl` (default: `curl`)
+
+#### Key Functions:
+1. **Checks Current Patched Version:** Records current package version (`curl-7.76.1-40...`).
+2. **Executes DNF Downgrade:** Runs `dnf downgrade -y curl libcurl` (with fallback to `dnf history undo last -y`).
+3. **Confirms Baseline Version:** Verifies post-rollback version reverted to `curl-7.76.1-29...`.
+4. **Cleans Cache & Validates Advisory:** Rebuilds DNF cache and verifies `RHSA-2026:55439` is listed in pending updates again.
+5. **Verifies Datadog Agent:** Confirms Datadog Agent is active and ready for the next SBOM scan.
+
+#### Expected Outcome:
+* **Package Change:** `curl` and `libcurl` are downgraded back to the vulnerable baseline version.
+* **Summary Block Output:**
+  ```text
+  TASK [Rollback Summary] *******************************************************
+  ok: [rhel09-vuln-poc-01] => {
+      "msg": [
+          "== Rollback Execution Summary ==",
+          "Host: rhel09-vuln-poc-01",
+          "Package: curl",
+          "Version before rollback: curl-7.76.1-40.el9_8.5.x86_64",
+          "Version after rollback: curl-7.76.1-29.el9_6.x86_64",
+          "Datadog Agent: active",
+          "Advisories pending: 1 (or more)",
+          "",
+          "Datadog will detect the vulnerable package on the next SBOM scan cycle."
+      ]
+  }
+  ```
+* **Success Criteria:** Package is reverted to vulnerable baseline; `RHSA-2026:55439` is visible in pending updates; Datadog will re-detect the CVE on the next SBOM cycle.
 
 ---
 
@@ -348,7 +564,7 @@ This is the main Job Template that Datadog will trigger.
    | Credentials | `RHEL 9.6 POC VM - Machine Credential` |
    | Verbosity | `1 (Verbose)` |
    | Limit | `rhel09-vuln-poc-01` |
-   | Options | Check **Enable Webhook** |
+   | Options | Leave **Enable Webhook** unchecked *(Datadog uses the standard REST API)* |
 
 4. Click **Save**.
 
@@ -356,12 +572,12 @@ This is the main Job Template that Datadog will trigger.
 
    | # | Question | Answer Variable | Answer Type | Required | Default |
    |---|---|---|---|---|---|
-   | 1 | Red Hat Security Advisory ID | `advisory_id` | Text | Yes | _(empty)_ |
-   | 2 | Package name to patch | `package_name` | Text | Yes | _(empty)_ |
-   | 3 | CVE ID | `cve_id` | Text | Yes | _(empty)_ |
-   | 4 | Severity (critical/high) | `severity` | Multiple Choice (single) | Yes | `critical` |
-   | 5 | Datadog Finding ID | `finding_id` | Text | Yes | _(empty)_ |
-   | 6 | Approval Reference | `approval_reference` | Text | Yes | _(empty)_ |
+   | 1 | Red Hat Security Advisory ID | `advisory_id` | Text | Yes | `RHSA-2026:55439` |
+   | 2 | Package name to patch | `package_name` | Text | Yes | `curl` |
+   | 3 | CVE ID | `cve_id` | Text | Yes | `CVE-2026-1965` |
+   | 4 | Severity (critical/high) | `severity` | Multiple Choice (single) | Yes | `high` |
+   | 5 | Datadog Finding ID | `finding_id` | Text | Yes | `manual-test` |
+   | 6 | Approval Reference | `approval_reference` | Text | Yes | `manual-approval` |
 
    For the **Severity** field (question 4), set the multiple choice options to:
    ```text
@@ -373,17 +589,14 @@ This is the main Job Template that Datadog will trigger.
 7. Click **Save**.
 
 > [!IMPORTANT]
-> When Datadog calls the AAP API to launch this Job Template, it sends
-> `extra_vars` that automatically fill the Survey fields. The Survey acts as
-> input validation -- if a required field is missing, AAP will reject the
-> launch.
+> **Why is "Enable Webhook" NOT needed?**
+> In AAP, the "Enable Webhook" checkbox is strictly for GitHub/GitLab Git push events.
+> Datadog connects directly via the **AAP REST API endpoint** (`POST /api/v2/job_templates/<ID>/launch/`)
+> using the API Token configured in Step 15. The Survey fields are automatically populated
+> by Datadog's payload in `extra_vars`.
 
-8. Note the **Job Template ID** from the URL (e.g., `https://<AAP>/templates/job_template/<ID>/`).
-   Your Datadog coworker needs this ID for the webhook URL.
-
-9. If you enabled **Enable Webhook**, copy the **Webhook URL** and **Webhook Key**
-   from the template details page. These can be used as an alternative to
-   API token auth.
+8. The **Job Template ID** is **`24`** (from URL `https://<AAP>/#/templates/job_template/24/details`).
+   Share this ID (`24`) with your Datadog coworker for Step D7.
 
 ### Step 11: Configure AAP -- Job Template (Validate)
 
@@ -457,40 +670,102 @@ This Job Template executes the in-guest DNF downgrade to return the VM to the vu
 To chain preflight, remediation, and validation into one visual pipeline:
 
 1. Navigate to **Resources > Templates > Add > Add workflow job template**.
-2. Name it `RHEL 9.6 CVE Full Pipeline`.
-3. Open the **Visualizer** and build this flow:
+2. Fill in:
+   - **Name**: `RHEL 9.6 CVE Full Pipeline`
+   - **Organization**: `Default`
+   - **Inventory**: `Ansible Datadog Collab POC VMs`
+3. Click **Save**, then switch to the **Visualizer** tab.
+4. Click **Start** (or the **Add Node** button) to configure the first node:
+   - **Node Type**: `Job Template`
+   - **Job Template**: Select `RHEL 9.6 CVE Preflight`
+   - **Convergence**: `All` (default)
+   - **Node Alias**: *(leave empty or enter `Preflight Scan`)*
+   - Click **Save**.
+
+5. Hover over the `Preflight` node and click the **+** (Add node) icon on the right edge:
+   - **Status / Run Type**: `On Success` (green line)
+   - **Node Type**: `Job Template`
+   - **Job Template**: Select `RHEL 9.6 CVE Remediation`
+   - **Convergence**: `All`
+   - **Node Alias**: `Remediate CVE`
+   - When the modal asks for the **Survey / Prompt** values, fill in these defaults:
+     - **Red Hat Security Advisory ID**: `RHSA-2026:55439`
+     - **Package name to patch**: `curl`
+     - **CVE ID**: `CVE-2026-1965`
+     - **Severity**: `high`
+     - **Datadog Finding ID**: `manual-test`
+     - **Approval Reference**: `manual-approval`
+   - Click **Save**.
+
+6. Hover over the `Remediation` node and click the **+** (Add node) icon:
+   - **Status / Run Type**: `On Success` (green line)
+   - **Node Type**: `Job Template`
+   - **Job Template**: Select `RHEL 9.6 CVE Validate`
+   - **Convergence**: `All`
+   - **Node Alias**: *(leave empty or enter `Post-Patch Validate`)*
+   - Click **Save**.
+
+7. Click the **Save** button at the top-right of the Visualizer to save the workflow.
 
 ```text
-[Preflight] --on success--> [Remediation] --on success--> [Validate]
-                                  |
-                             on failure
-                                  |
-                                  v
-                             [Notify/Stop]
+[Preflight Scan] --(On Success)--> [Remediate CVE] --(On Success)--> [Post-Patch Validate]
 ```
 
-4. For each node, select the corresponding Job Template.
-5. The Remediation node must pass through the Survey variables. Under node
-   settings, select **Prompt** for extra variables so the Survey is shown
-   when the workflow launches.
+> [!TIP]
+> When you launch this Workflow Template, AAP automatically detects that the Remediation node has an active Survey and will prompt you to enter the `advisory_id`, `package_name`, and `cve_id` at launch!
 
-### Step 15: Configure AAP -- API Token for Datadog
+### Step 15: Configure AAP -- Service Account & API Token for Datadog
 
-Your Datadog coworker needs an API token to launch Job Templates via HTTP.
+To follow security best practices, create a dedicated service account user for Datadog instead of using your personal administrator account.
 
-1. Navigate to **Access > Users**, select the service account or your user.
-2. Go to the **Tokens** tab.
-3. Click **Add**, set:
-   - Scope: `Write`
-   - Description: `Datadog Workflow Integration`
+#### A. Create the Service Account User
+1. In AAP Web UI, navigate to **Access > Users**.
+2. Click **Add > Add user**.
+3. Fill in:
+
+   | Field | Value |
+   |---|---|
+   | Username | `svc_datadog_cve` |
+   | Password | *(enter a secure password)* |
+   | Confirm Password | *(re-enter password)* |
+   | First Name | `Datadog` |
+   | Last Name | `Service Account` |
+   | Email | `datadog-sa@example.com` *(or your team email)* |
+   | Organization | `Default` |
+   | User Type | `Normal User` |
+
 4. Click **Save**.
-5. **Copy the token immediately** -- it will not be shown again.
-6. Share the token securely with your Datadog coworker (not over email/chat/Git).
 
-Your coworker needs:
-- AAP host URL: `https://<AAP_HOST>`
-- Job Template ID: the ID from Step 10
-- API Token: the token from this step
+#### B. Grant Permissions to the Service Account
+1. While on the `svc_datadog_cve` user page, switch to the **Roles** tab (or **User Access** tab).
+2. Click **Add roles** (or **Add permissions**).
+3. Select resource type: **Job Templates**.
+4. Check the box for:
+   - **`RHEL 9.6 CVE Remediation`** (ID `24`)
+   - *(Optional)* **`RHEL 9.6 CVE Full Pipeline`**
+5. Under Role, select **Execute** (or **Admin**).
+6. Click **Save**.
+
+#### C. Generate the API Token
+1. Still under **Access > Users > `svc_datadog_cve`**, go to the **Tokens** tab.
+2. Click **Add**.
+3. Fill in:
+   - **Application**: *(leave empty for Personal Access Token)*
+   - **Description**: `Datadog Workflow Integration Token`
+   - **Scope**: `Write`
+4. Click **Save**.
+5. **Copy the token string immediately** -- AAP will only display this token once.
+6. Store and share the token securely with your Datadog coworker (never commit to Git).
+
+#### D. Information Handover for Datadog Coworker
+Provide these details to your Datadog teammate for configuring Step D6 & D7:
+
+```text
+AAP Host URL:      https://<AAP_HOST>
+Job Template ID:   24
+Service Account:   svc_datadog_cve
+API Token:         <PASTE_COPIED_TOKEN_HERE>
+```
 
 ### Step 16: Test the full AAP flow
 
@@ -756,7 +1031,7 @@ Before building the Workflow, set up a Connection credential for AAP.
    |---|---|
    | Connection | `AAP - CVE Remediation` |
    | Method | `POST` |
-   | URL Path | `/api/v2/job_templates/<TEMPLATE_ID>/launch/` |
+   | URL Path | `/api/v2/job_templates/24/launch/` |
    | Headers | `Content-Type: application/json` |
    | Body | See below |
 
@@ -854,13 +1129,13 @@ Create a Datadog dashboard for the live demo that shows:
 
 After completing Part A, you should have these five Job Templates in AAP:
 
-| Job Template | Playbook | Survey | Webhook | Purpose |
+| Job Template | Playbook | Survey | Launch Method | Purpose |
 |---|---|---|---|---|
-| `RHEL 9.6 CVE Preflight` | `rhel96-cve-preflight.yml` | No | No | Pre-demo advisory scan |
-| `RHEL 9.6 CVE Remediation` | `rhel96-cve-remediation.yml` | Yes (6 fields) | Yes | Main patching (Datadog triggers this) |
-| `RHEL 9.6 CVE Validate` | `rhel96-cve-validate.yml` | Yes (2 optional) | No | Post-patch health check |
-| `RHEL 9.6 CVE Reset Check` | `rhel96-cve-reset-check.yml` | No | No | Post-snapshot-restore check |
-| `RHEL 9.6 CVE Rollback` | `rhel96-cve-rollback.yml` | Yes (1 optional) | No | In-guest package downgrade for lab reset |
+| `RHEL 9.6 CVE Preflight` | `rhel96-cve-preflight.yml` | No | AAP UI / CLI | Pre-demo advisory scan |
+| `RHEL 9.6 CVE Remediation` | `rhel96-cve-remediation.yml` | Yes (6 fields) | Datadog REST API | Main patching (Datadog triggers this) |
+| `RHEL 9.6 CVE Validate` | `rhel96-cve-validate.yml` | Yes (2 optional) | AAP UI / CLI | Post-patch health check |
+| `RHEL 9.6 CVE Reset Check` | `rhel96-cve-reset-check.yml` | No | AAP UI / CLI | Post-snapshot-restore check |
+| `RHEL 9.6 CVE Rollback` | `rhel96-cve-rollback.yml` | Yes (1 optional) | AAP UI / CLI | In-guest package downgrade for lab reset |
 
 All five templates share the same:
 - Inventory: `Ansible Datadog Collab POC VMs`
