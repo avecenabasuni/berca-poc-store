@@ -174,7 +174,7 @@
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Loop_Findings",
+            "nextStepName": "Validate_Finding",
             "branchName": "main"
           }
         ],
@@ -198,38 +198,12 @@
         }
       },
       {
-        "name": "Loop_Findings",
-        "actionId": "com.datadoghq.core.forLoop",
-        "parameters": [
-          {
-            "name": "inputList",
-            "value": "{{ Steps.Select_Top_Findings.data }}"
-          }
-        ],
-        "outboundEdges": [
-          {
-            "nextStepName": "Notify_All_Done",
-            "branchName": "main"
-          },
-          {
-            "nextStepName": "Validate_Finding",
-            "branchName": "loopStart"
-          }
-        ],
-        "display": {
-          "bounds": {
-            "x": 0,
-            "y": 1100
-          }
-        }
-      },
-      {
         "name": "Validate_Finding",
         "actionId": "com.datadoghq.datatransformation.func",
         "parameters": [
           {
             "name": "script",
-            "value": "const finding = $.Current.Value;\nconst reasons = [];\nconst required = ['finding_id', 'resource_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nrequired.forEach(function(field) {\n  if (finding[field] === undefined || finding[field] === null || String(finding[field]).trim() === '') {\n    reasons.push('Missing or empty field: ' + field);\n  }\n});\nif (finding.remediation_available !== true) reasons.push('Remediation is not available');\nif (reasons.length > 0) throw new Error('Finding validation failed: ' + reasons.join('; '));\nreturn { passed: true, finding: finding };"
+            "value": "const selected = $.Steps.Select_Top_Findings.data || [];\nconst finding = selected[0];\nif (!finding || typeof finding !== 'object') {\n  throw new Error('Selected finding is missing or malformed');\n}\nconst reasons = [];\nconst required = ['finding_id', 'resource_id', 'hostname', 'environment', 'severity', 'cve_id', 'package_name', 'installed_version', 'advisory_id', 'finding_status', 'fixed_version'];\nrequired.forEach(function(field) {\n  if (finding[field] === undefined || finding[field] === null || String(finding[field]).trim() === '') {\n    reasons.push('Missing or empty field: ' + field);\n  }\n});\nif (finding.remediation_available !== true) reasons.push('Remediation is not available');\nif (reasons.length > 0) throw new Error('Finding validation failed: ' + reasons.join('; '));\nreturn { passed: true, finding: finding };"
           }
         ],
         "outboundEdges": [
@@ -1389,30 +1363,6 @@
           "bounds": {
             "x": 700,
             "y": 1100
-          }
-        }
-      },
-      {
-        "name": "Notify_All_Done",
-        "actionId": "com.datadoghq.slack.send_simple_message",
-        "parameters": [
-          {
-            "name": "channel",
-            "value": "#datadog-security"
-          },
-          {
-            "name": "teamId",
-            "value": "T0BP8NVNHS4"
-          },
-          {
-            "name": "text",
-            "value": "RHEL CVE Workflow Run Complete\n\nSelected Findings: {{ Variables.total_findings_count }}\nEligible Findings: {{ Variables.eligible_findings_count }}\nRaw Findings: {{ Variables.raw_findings_count }}\nEnvironment: poc\n\nReview the per-finding notification for approval, execution, and verification status."
-          }
-        ],
-        "display": {
-          "bounds": {
-            "x": -700,
-            "y": 1320
           }
         }
       },
