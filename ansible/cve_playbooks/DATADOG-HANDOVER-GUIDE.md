@@ -85,7 +85,7 @@ When Datadog Workflow calls the AAP launch endpoint, `rhel96-cve-remediation.yml
 
 ### Safety Gates Enforced by Ansible
 1. **Host Boundary Assertion:** Will reject execution if targeted at any host other than `rhel09-vuln-poc-01`.
-2. **Explicit Allowlists:** `group_vars/rhel96_vuln_poc.yml` strictly limits patching to `RHSA-2026:55439` and package `curl` / `libcurl`.
+2. **Explicit Allowlists:** `group_vars/rhel09-vuln-poc-01.yml` strictly limits patching to `RHSA-2026:55439` and package `curl` / `libcurl`.
 3. **Minimal Blast Radius:** Uses `dnf upgrade-minimal --advisory=RHSA-2026:55439` instead of `dnf update` (does NOT upgrade the entire OS or unrelated packages).
 4. **Structured Evidence Return:** Emits JSON stats back to AAP:
    ```json

@@ -4,8 +4,8 @@
 # Every patch job validates against these allowlists before touching the VM.
 #
 # AAP loads this file automatically because:
-#   - The file is named "rhel96_vuln_poc.yml" inside "group_vars/"
-#   - The AAP Inventory has a group named "rhel96_vuln_poc"
+#   - The file is named "rhel09-vuln-poc-01.yml" inside "group_vars/"
+#   - The AAP Inventory has a group named "rhel09-vuln-poc-01"
 #   - AAP syncs group_vars from the Git project on each launch
 #
 # To update allowlists: edit this file, commit, push, and re-sync the
