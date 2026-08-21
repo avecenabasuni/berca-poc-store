@@ -3,14 +3,11 @@
 # via Nutanix Prism Central v3 API (Power Off -> Resize -> Power On),
 # then verify baseline health.
 #
+# All Nutanix API calls use delegate_to: localhost so they run directly
+# from the AAP runner container without requiring SSH to the target VM.
+#
 # Job Template: "Restore Application VM Memory Baseline"
 # No survey -- presenter one-button reset.
-#
-# Nutanix credentials come from AAP Inventory/Credential variables:
-#   nutanix_prism_endpoint  (e.g. https://prism.bercalab.my.id:9440)
-#   nutanix_vm_uuid         (fixed VM UUID)
-#   nutanix_username
-#   nutanix_password
 
 - name: Restore Application VM Memory Baseline
   hosts: berca_poc_vm
@@ -133,6 +130,7 @@
 
         # ------------------------------------------------------------ #
         # Step 1: Power Off VM via Nutanix Prism Central v3 API
+        # (Executed from AAP runner localhost)
         # ------------------------------------------------------------ #
 
         - name: Get current VM spec before power off
@@ -146,6 +144,8 @@
             return_content: true
             status_code: 200
           register: _nutanix_vm_get_pre_off
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Request VM power off via Nutanix Prism Central API
@@ -163,6 +163,8 @@
             return_content: true
             status_code: [200, 202]
           register: _nutanix_vm_off_update
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Poll power off task until complete
@@ -179,6 +181,8 @@
           until: (_nutanix_off_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
           retries: "{{ poc_nutanix_task_poll_retries }}"
           delay: "{{ poc_nutanix_task_poll_delay }}"
+          delegate_to: localhost
+          become: false
           no_log: true
           when: _nutanix_vm_off_update.json.status.execution_context.task_uuid is defined
 
@@ -196,10 +200,13 @@
           until: (_nutanix_vm_state_poll.json.status.resources.power_state | default('')) == 'OFF'
           retries: "{{ poc_nutanix_power_poll_retries }}"
           delay: "{{ poc_nutanix_power_poll_delay }}"
+          delegate_to: localhost
+          become: false
           no_log: true
 
         # ------------------------------------------------------------ #
         # Step 2: Update VM Memory to 16 GiB while OFF
+        # (Executed from AAP runner localhost)
         # ------------------------------------------------------------ #
 
         - name: Get current VM spec while powered off
@@ -213,6 +220,8 @@
             return_content: true
             status_code: 200
           register: _nutanix_vm_get_off
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Update VM memory to baseline (16 GiB) while powered off
@@ -230,6 +239,8 @@
             return_content: true
             status_code: [200, 202]
           register: _nutanix_vm_mem_update
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Extract Nutanix memory resize task UUID
@@ -250,6 +261,8 @@
           until: (_nutanix_mem_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
           retries: "{{ poc_nutanix_task_poll_retries }}"
           delay: "{{ poc_nutanix_task_poll_delay }}"
+          delegate_to: localhost
+          become: false
           no_log: true
           when: _nutanix_task_uuid != 'direct_apply'
 
@@ -265,6 +278,7 @@
 
         # ------------------------------------------------------------ #
         # Step 3: Power On VM via Nutanix Prism Central v3 API
+        # (Executed from AAP runner localhost)
         # ------------------------------------------------------------ #
 
         - name: Get current VM spec before powering on
@@ -278,6 +292,8 @@
             return_content: true
             status_code: 200
           register: _nutanix_vm_get_pre_on
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Power on VM via Nutanix Prism Central API
@@ -295,6 +311,8 @@
             return_content: true
             status_code: [200, 202]
           register: _nutanix_vm_on_update
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Poll power on task until complete
@@ -311,6 +329,8 @@
           until: (_nutanix_on_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
           retries: "{{ poc_nutanix_task_poll_retries }}"
           delay: "{{ poc_nutanix_task_poll_delay }}"
+          delegate_to: localhost
+          become: false
           no_log: true
           when: _nutanix_vm_on_update.json.status.execution_context.task_uuid is defined
 

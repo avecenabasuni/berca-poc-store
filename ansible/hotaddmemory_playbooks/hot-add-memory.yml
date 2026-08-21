@@ -169,6 +169,8 @@
             return_content: true
             status_code: 200
           register: _nutanix_vm_get
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Extract current VM memory and spec version
@@ -205,6 +207,8 @@
             return_content: true
             status_code: [200, 202]
           register: _nutanix_vm_update
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Extract Nutanix task UUID
@@ -233,6 +237,8 @@
           until: (_nutanix_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
           retries: "{{ poc_nutanix_task_poll_retries }}"
           delay: "{{ poc_nutanix_task_poll_delay }}"
+          delegate_to: localhost
+          become: false
           no_log: true
 
         - name: Assert Nutanix task succeeded
