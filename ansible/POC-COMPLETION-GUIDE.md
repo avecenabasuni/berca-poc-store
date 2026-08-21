@@ -166,35 +166,58 @@ poc_autoscale_spike_rate: 10
   - Fault JT ID: **`31`** (launched by `svc-datadog-fault-control` token)
   - Remediation JT ID: **`32`** (launched by `svc-datadog-remediation` token)
 
-#### Scenario 6: Nutanix Memory Hot-Add — Build Playbooks & AAP Templates
-No playbooks exist yet. Reference spec: [`MEMORY-HOT-ADD-POC.md`](../load-test/MEMORY-HOT-ADD-POC.md).
+#### Scenario 6: Nutanix Memory Hot-Add — Setup Guide & Job Templates
+Reference spec: [`MEMORY-HOT-ADD-POC.md`](../load-test/MEMORY-HOT-ADD-POC.md).
 
-- [ ] Create playbook `ansible/inject-memory.yml`
-  - Target: `berca_poc_vm`
-  - Action: Run `docker compose --profile memory-demo up -d memory-pressure`
-  - Preflight: Verify Docker daemon, Compose v2, project path, no other scenario active
-- [ ] Create playbook `ansible/hot-add-memory.yml`
-  - Target: Nutanix Prism API (not SSH to guest)
-  - Action: Hot-add VM memory from 16 GiB (16384 MiB) to 24 GiB (24576 MiB)
-  - Verify: In-guest `free -m` shows >=24 GiB, Datadog Agent reports updated memory
-  - Do NOT stop `memory-pressure` — hot-add happens while pressure is still active
-- [ ] Create playbook `ansible/restore-memory.yml`
-  - Target: `berca_poc_vm` (SSH) + Nutanix Prism API
-  - Action: Stop and remove `memory-pressure` container, restore VM RAM to 16 GiB via Nutanix API
-  - Verify: Guest sees 16 GiB, application healthy, storefront responds HTTP 200
-- [ ] Create Fault Job Template: **Inject Application VM Memory Pressure**
-  - Playbook: `inject-memory.yml`
-  - Inventory: `berca_poc_vm`
-  - Concurrent jobs: disabled
-- [ ] Create Remediation Job Template: **Hot Add Application VM Memory to 24 GiB**
-  - Playbook: `hot-add-memory.yml`
-  - Credential: Nutanix Prism API credential (stored in AAP, not in playbook)
-  - Concurrent jobs: disabled
-- [ ] Create Reset Job Template: **Restore Application VM Memory to 16 GiB**
-  - Playbook: `restore-memory.yml`
-  - Credential: Nutanix Prism API + Machine SSH
-  - Concurrent jobs: disabled
-- [ ] Record the numeric Job Template IDs and hand them to Datadog colleague
+**1. Create Nutanix Custom Credential Type & Credential:**
+- [ ] Create Credential Type **`Nutanix Prism Central`** with fields `nutanix_prism_endpoint`, `nutanix_vm_uuid`, `nutanix_username`, `nutanix_password` (secret).
+- [ ] Create Credential **`Nutanix Prism - Datadog Lab`** with URL `https://10.10.10.88:9440`, UUID `ad56d1d6-9642-4883-b69b-bea5897a0aff`, username, and password.
+
+**2. Create Fault Job Template:**
+- [ ] **Name:** `Inject Application VM Memory Pressure`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/hotaddmemory_playbooks/inject-memory.yml`
+  - **Credentials:** `Datadog Credential` (SSH)
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey:** None
+  - **User Access:** User `svc-datadog-fault-control` -> Role `Execute`
+
+**3. Create Remediation Job Template with Survey:**
+- [ ] **Name:** `Hot Add Application VM Memory to 24 GiB`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/hotaddmemory_playbooks/hot-add-memory.yml`
+  - **Credentials:** `Datadog Credential` + `Nutanix Prism - Datadog Lab`
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey Configuration (Enabled):**
+    | # | Prompt / Question | Description | Answer Variable Name | Type | Required | Default Answer |
+    |---|---|---|---|---|---|---|
+    | 1 | Datadog Monitor ID | ID of the Datadog monitor triggering remediation | `monitor_id` | Text | Yes | `manual-test` |
+    | 2 | Bits Investigation ID | ID of the Bits investigation session | `investigation_id` | Text | Yes | `manual-test` |
+    | 3 | Workflow Instance ID | Execution ID of the Datadog remediation workflow | `workflow_instance_id` | Text | Yes | `manual-test` |
+  - **User Access:** User `svc-datadog-remediation` -> Role `Execute`
+
+**4. Create Reset Job Template:**
+- [ ] **Name:** `Restore Application VM Memory Baseline`
+  - **Job Type:** `Run`
+  - **Inventory:** `Ansible Datadog Collab POC VMs`
+  - **Project:** `Ansible Datadog Playbooks`
+  - **Playbook:** `ansible/hotaddmemory_playbooks/restore-memory.yml`
+  - **Credentials:** `Datadog Credential` + `Nutanix Prism - Datadog Lab`
+  - **Limit:** `berca_poc_vm`
+  - **Options:** `Privilege Escalation: Checked`, `Enable Concurrent Jobs: Unchecked`
+  - **Survey:** None
+  - **User Access:** User `svc-datadog-fault-control` -> Role `Execute`
+
+**5. Record Numeric Job Template IDs:**
+- [x] Fault JT ID: **`33`** (launched by `svc-datadog-fault-control` token)
+- [x] Remediation JT ID: **`34`** (launched by `svc-datadog-remediation` token)
+- [x] Reset JT ID: **`35`** (launched by `svc-datadog-fault-control` token)
 
 #### Cross-Scenario: Final Verification Items from ANSIBLE-HANDOFF.md Section 10
 
@@ -350,6 +373,138 @@ Use this section to verify that all configured Job Templates in AAP execute corr
 4. **Lab Reset (Optional):** Launch `RHEL 9.6 CVE Rollback` (or restore Nutanix snapshot).
 
 ---
+
+### Scenario 6: Nutanix Memory Hot-Add (JT 33, JT 34, JT 35)
+
+#### Step 1: Baseline Verification (Before Fault)
+Check that VM `192.168.2.44` is currently at the 16 GiB baseline:
+```bash
+# On the VM (192.168.2.44)
+free -h
+# Expected: Total ~15-16 GiB, MemAvailable >= 2.5 GiB
+
+sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active, total_gb: .memory_total_bytes}'
+# Expected: { "profile": "baseline_16g", "pressure": false, ... }
+```
+
+#### Step 2: Trigger Memory Fault (JT 33: `Inject Application VM Memory Pressure`)
+1. **Launch in AAP:**
+   * Open Job Template **`Inject Application VM Memory Pressure`** (JT 33) → Click **Launch** (no survey).
+2. **Expected AAP Outcome:**
+   * Status: **`Successful`** (`failed=0`).
+   * Published stats artifact contains:
+     ```json
+     {
+       "poc_action": "fault_memory",
+       "poc_memory_fault_changed": true,
+       "poc_memory_profile": "baseline_16g",
+       "poc_memory_pressure_active": true
+     }
+     ```
+3. **VM / Endpoint Verification:**
+   ```bash
+   # Check container running
+   docker ps --filter "name=memory_pressure"
+   # Expected: Container "berca_poc_memory_pressure" is Up
+
+   # Check usable memory reduced
+   free -h
+   # Expected: available memory significantly dropped
+
+   sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active, usable_pct: .memory_usable_fraction}'
+   # Expected: { "profile": "baseline_16g", "pressure": true, "usable_pct": <0.15 }
+   ```
+4. **Idempotency Test:** Re-running JT 33 while pressure is active must return `Successful` without failing or restarting containers (`poc_memory_fault_changed: false`).
+
+---
+
+#### Step 3: Trigger Remediation (JT 34: `Hot Add Application VM Memory to 24 GiB`)
+1. **Launch in AAP:**
+   * Open Job Template **`Hot Add Application VM Memory to 24 GiB`** (JT 34) → Click **Launch**.
+   * Fill Survey:
+     - `Datadog Monitor ID`: `manual-test`
+     - `Bits Investigation ID`: `manual-test`
+     - `Workflow Instance ID`: `manual-test`
+   * Click **Next** → **Launch**.
+2. **Expected AAP Outcome:**
+   * Status: **`Successful`** (`failed=0`).
+   * Playbook updates Prism Central via API, polls task to `SUCCEEDED`, and waits for Linux kernel memory hot-plug to take effect.
+   * Published stats artifact contains:
+     ```json
+     {
+       "poc_action": "hot_add_memory",
+       "poc_classification": "MEMORY_PRESSURE",
+       "poc_hot_add_changed": true,
+       "poc_memory_before_gib": 16,
+       "poc_memory_after_gib": 24,
+       "poc_memory_profile": "target_24g",
+       "poc_memory_pressure_active": true,
+       "nutanix_task_uuid": "...",
+       "poc_storefront_healthy": true
+     }
+     ```
+3. **VM / Prism Verification:**
+   ```bash
+   # Check guest sees 24 GiB RAM
+   free -h
+   # Expected: Total shows ~23-24 GiB
+
+   # Verify memory pressure container is STILL active (hot-add occurred while workload ran)
+   docker ps --filter "name=memory_pressure"
+   # Expected: Container is still running
+
+   # Check status endpoint
+   sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active, total_bytes: .memory_total_bytes}'
+   # Expected: { "profile": "target_24g", "pressure": true, ... }
+
+   # Check Storefront is still healthy
+   curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/id/store
+   # Expected: 200
+   ```
+4. **Prism Central UI Check:**
+   * Open Prism Central → VM `Datadog-Lab-Ubuntu` → Memory shows **24 GiB**.
+
+---
+
+#### Step 4: Stop Pressure and Reset Baseline (JT 35: `Restore Application VM Memory Baseline`)
+1. **Stop Pressure First (or use JT 20 Global Reset):**
+   ```bash
+   # On VM
+   docker compose --profile memory-demo rm -sf memory-pressure
+   # Or launch Global Reset (JT 20) in AAP
+   ```
+2. **Launch Reset in AAP:**
+   * Open Job Template **`Restore Application VM Memory Baseline`** (JT 35) → Click **Launch** (no survey).
+3. **Expected AAP Outcome:**
+   * Status: **`Successful`** (`failed=0`).
+   * Playbook restores Prism Central memory back to 16 GiB, waits for Linux kernel memory adjustment, and verifies full stack health (SSH, Datadog Agent, Storefront).
+   * Published stats artifact contains:
+     ```json
+     {
+       "poc_action": "restore_memory_baseline",
+       "poc_restore_changed": true,
+       "poc_memory_before_gib": 24,
+       "poc_memory_after_gib": 16,
+       "poc_memory_profile": "baseline_16g",
+       "poc_storefront_healthy": true,
+       "poc_datadog_agent_active": true,
+       "poc_storefront_http_status": 200
+     }
+     ```
+4. **VM / Prism Verification:**
+   ```bash
+   # Check guest sees 16 GiB RAM
+   free -h
+   # Expected: Total shows ~15-16 GiB
+
+   # Check status endpoint
+   sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active}'
+   # Expected: { "profile": "baseline_16g", "pressure": false }
+
+   # Check Storefront responds OK
+   curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/id/store
+   # Expected: 200
+   ```
 
 ### Global Reset (JT 20: `Reset Berca POC Demo`)
 Use JT 20 anytime to restore all application scenarios back to a clean baseline:
