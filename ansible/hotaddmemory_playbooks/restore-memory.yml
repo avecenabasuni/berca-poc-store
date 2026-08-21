@@ -19,6 +19,18 @@
   gather_facts: true
   vars:
     poc_action: restore_memory_baseline
+    # Memory scenario defaults (duplicated from berca_poc_demo for AAP scope)
+    poc_memory_baseline_mib: 16384
+    poc_memory_target_mib: 24576
+    poc_memory_baseline_tolerance_min_gib: 15
+    poc_memory_baseline_tolerance_max_gib: 17
+    poc_memory_target_tolerance_min_gib: 23
+    poc_memory_target_tolerance_max_gib: 25
+    # Nutanix API polling
+    poc_nutanix_task_poll_retries: 30
+    poc_nutanix_task_poll_delay: 10
+    poc_nutanix_guest_ram_poll_retries: 30
+    poc_nutanix_guest_ram_poll_delay: 5
   tasks:
     - name: Validate Nutanix credentials are provided
       ansible.builtin.assert:

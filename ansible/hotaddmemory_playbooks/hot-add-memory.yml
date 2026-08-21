@@ -27,6 +27,18 @@
     poc_classification: MEMORY_PRESSURE
     poc_requested_action: hot_add_memory
     poc_target_profile: application_vm_memory_24g
+    # Memory scenario defaults (duplicated from berca_poc_demo for AAP scope)
+    poc_memory_baseline_mib: 16384
+    poc_memory_target_mib: 24576
+    poc_memory_baseline_tolerance_min_gib: 15
+    poc_memory_baseline_tolerance_max_gib: 17
+    poc_memory_target_tolerance_min_gib: 23
+    poc_memory_target_tolerance_max_gib: 25
+    # Nutanix API polling
+    poc_nutanix_task_poll_retries: 30
+    poc_nutanix_task_poll_delay: 10
+    poc_nutanix_guest_ram_poll_retries: 30
+    poc_nutanix_guest_ram_poll_delay: 5
   tasks:
     - name: Validate audit IDs from survey
       ansible.builtin.assert:
