@@ -1,0 +1,116 @@
+---
+# Start the bounded memory-pressure container for Nutanix hot-add demo.
+# Does NOT touch Nutanix or VM RAM -- only starts the synthetic pressure.
+#
+# Cross-role includes use include_role to reach berca_poc_demo tasks.
+
+- name: Initialize memory fault mutation state
+  ansible.builtin.set_fact:
+    _memory_fault_started_by_job: false
+
+- name: Verify other fault scenarios are inactive
+  ansible.builtin.include_role:
+    name: berca_poc_demo
+    tasks_from: read-scenario-conflicts
+
+- name: Read memory state before fault injection
+  ansible.builtin.include_role:
+    name: berca_poc_demo
+    tasks_from: read-memory-state
+
+- name: Read storefront state before fault injection
+  ansible.builtin.include_role:
+    name: berca_poc_demo
+    tasks_from: read-storefront-state
+
+- name: Handle already-running memory pressure
+  when: poc_memory_pressure_active | bool
+  block:
+    - name: Verify existing memory pressure state
+      ansible.builtin.assert:
+        that:
+          - poc_memory_profile in ['baseline_16g', 'target_24g']
+          - poc_storefront_healthy | bool
+          - poc_traefik_healthy | bool
+        fail_msg: "Memory pressure exists, but application health is not valid."
+
+    - name: Publish idempotent memory fault evidence
+      ansible.builtin.set_stats:
+        data:
+          poc_memory_fault_changed: false
+          poc_memory_profile: "{{ poc_memory_profile }}"
+          poc_memory_pressure_active: true
+
+    - name: Release lock before ending idempotent fault
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: release-lock
+
+    - name: End host after idempotent memory fault
+      ansible.builtin.meta: end_host
+
+- name: Verify memory baseline for fault injection
+  ansible.builtin.assert:
+    that:
+      - poc_memory_profile == 'baseline_16g'
+      - (poc_memory_available_mib | int) >= (poc_memory_min_available_mib | int)
+      - poc_storefront_healthy | bool
+      - poc_traefik_healthy | bool
+      - poc_storefront_release_mode != 'demo-bad'
+      - not (poc_autoscale_spike_active | bool)
+    fail_msg: >-
+      Memory fault requires: VM at baseline 16 GiB profile,
+      MemAvailable >= {{ poc_memory_min_available_mib }} MiB
+      (current: {{ poc_memory_available_mib }} MiB),
+      healthy storefront and Traefik, no active deployment or autoscale fault.
+
+- name: Record memory-pressure ownership by this job
+  ansible.builtin.set_fact:
+    _memory_fault_started_by_job: true
+
+- name: Start bounded memory-pressure container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - memory-demo
+      - up
+      - -d
+      - memory-pressure
+    chdir: "{{ poc_project_path }}"
+  changed_when: true
+
+- name: Wait for memory-pressure container to run
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ poc_memory_pressure_container }}"
+  register: _memory_pressure_wait
+  changed_when: false
+  until: (_memory_pressure_wait.stdout | trim) == 'true'
+  retries: "{{ poc_wait_retries }}"
+  delay: "{{ poc_wait_delay }}"
+
+- name: Read final memory state after fault
+  ansible.builtin.include_role:
+    name: berca_poc_demo
+    tasks_from: read-memory-state
+
+- name: Verify memory pressure is active
+  ansible.builtin.assert:
+    that:
+      - poc_memory_pressure_active | bool
+    fail_msg: "Memory pressure container did not reach running state."
+
+- name: Publish memory fault evidence
+  ansible.builtin.set_stats:
+    data:
+      poc_memory_fault_changed: true
+      poc_memory_profile: "{{ poc_memory_profile }}"
+      poc_memory_total_gib: "{{ poc_memory_total_gib }}"
+      poc_memory_available_gib: "{{ poc_memory_available_gib }}"
+      poc_memory_pressure_active: true

@@ -1,0 +1,71 @@
+---
+# Read-only memory state collection.
+# Sets facts:
+#   poc_memory_pressure_active  (bool)
+#   poc_memory_total_gib        (float)
+#   poc_memory_available_gib    (float)
+#   poc_memory_available_mib    (int)
+#   poc_memory_profile          (baseline_16g | target_24g | unexpected)
+
+- name: Check memory-pressure container running state
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - -f
+      - "{{ '{{.State.Running}}' }}"
+      - "{{ poc_memory_pressure_container }}"
+  register: _memory_pressure_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Set memory pressure active fact
+  ansible.builtin.set_fact:
+    poc_memory_pressure_active: "{{ (_memory_pressure_inspect.rc == 0) and ((_memory_pressure_inspect.stdout | trim) == 'true') }}"
+
+- name: Read MemTotal from /proc/meminfo
+  ansible.builtin.command:
+    argv:
+      - awk
+      - "/^MemTotal:/ {print $2}"
+      - /proc/meminfo
+  register: _meminfo_total
+  changed_when: false
+
+- name: Read MemAvailable from /proc/meminfo
+  ansible.builtin.command:
+    argv:
+      - awk
+      - "/^MemAvailable:/ {print $2}"
+      - /proc/meminfo
+  register: _meminfo_available
+  changed_when: false
+
+- name: Compute memory facts
+  ansible.builtin.set_fact:
+    poc_memory_total_gib: "{{ ((_meminfo_total.stdout | trim | int) / 1048576) | round(2) }}"
+    poc_memory_available_gib: "{{ ((_meminfo_available.stdout | trim | int) / 1048576) | round(2) }}"
+    poc_memory_available_mib: "{{ ((_meminfo_available.stdout | trim | int) / 1024) | int }}"
+
+- name: Determine memory profile
+  ansible.builtin.set_fact:
+    poc_memory_profile: >-
+      {{
+        'baseline_16g'
+        if (poc_memory_total_gib | float) >= (poc_memory_baseline_tolerance_min_gib | float)
+           and (poc_memory_total_gib | float) <= (poc_memory_baseline_tolerance_max_gib | float)
+        else (
+          'target_24g'
+          if (poc_memory_total_gib | float) >= (poc_memory_target_tolerance_min_gib | float)
+             and (poc_memory_total_gib | float) <= (poc_memory_target_tolerance_max_gib | float)
+          else 'unexpected'
+        )
+      }}
+
+- name: Display memory state
+  ansible.builtin.debug:
+    msg: >-
+      Memory: total={{ poc_memory_total_gib }} GiB,
+      available={{ poc_memory_available_gib }} GiB ({{ poc_memory_available_mib }} MiB),
+      profile={{ poc_memory_profile }},
+      pressure_active={{ poc_memory_pressure_active }}

@@ -1,0 +1,37 @@
+---
+# Stop and remove the memory-pressure container. Idempotent.
+
+- name: Stop and remove memory-pressure container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - --profile
+      - memory-demo
+      - rm
+      - -s
+      - -f
+      - memory-pressure
+    chdir: "{{ poc_project_path }}"
+  failed_when: false
+
+- name: Verify memory-pressure container is gone
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - "{{ poc_memory_pressure_container }}"
+  register: _memory_stop_verify
+  changed_when: false
+  failed_when: false
+
+- name: Assert container is removed
+  ansible.builtin.assert:
+    that:
+      - _memory_stop_verify.rc != 0
+    fail_msg: "memory-pressure container is still present after stop attempt."
+    success_msg: "OK -- memory-pressure container removed."
+
+- name: Update memory pressure fact
+  ansible.builtin.set_fact:
+    poc_memory_pressure_active: false

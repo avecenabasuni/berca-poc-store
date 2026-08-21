@@ -47,3 +47,14 @@ poc_storefront_wait_delay: 2
 
 # Stale lock threshold (seconds)
 poc_lock_stale_seconds: 600
+
+# Memory pressure scenario
+poc_memory_pressure_container: berca_poc_memory_pressure
+poc_memory_baseline_mib: 16384
+poc_memory_target_mib: 24576
+poc_memory_baseline_tolerance_min_gib: 15
+poc_memory_baseline_tolerance_max_gib: 17
+poc_memory_target_tolerance_min_gib: 23
+poc_memory_target_tolerance_max_gib: 25
+poc_memory_min_available_mib: 2560
+

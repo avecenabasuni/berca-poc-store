@@ -65,6 +65,8 @@
       - demo-fault
       - --profile
       - autoscale-demo
+      - --profile
+      - memory-demo
       - config
       - --services
     chdir: "{{ poc_project_path }}"
@@ -83,3 +85,5 @@
     - traefik
     - storefront
     - traffic-spike
+    - memory-pressure
+

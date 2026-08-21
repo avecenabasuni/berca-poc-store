@@ -1,0 +1,10 @@
+---
+# Nutanix API polling defaults (only used by hot-add / restore playbooks).
+# Memory container name, baseline/target tolerances, and min available MiB
+# remain in berca_poc_demo/defaults/main.yml because shared tasks
+# (status, reset, scenario-conflicts) depend on them.
+
+poc_nutanix_task_poll_retries: 30
+poc_nutanix_task_poll_delay: 10
+poc_nutanix_guest_ram_poll_retries: 30
+poc_nutanix_guest_ram_poll_delay: 5

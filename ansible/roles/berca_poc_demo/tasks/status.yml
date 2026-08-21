@@ -11,6 +11,9 @@
 - name: Read storefront state
   ansible.builtin.include_tasks: read-storefront-state.yml
 
+- name: Read memory state
+  ansible.builtin.include_tasks: read-memory-state.yml
+
 - name: Check log-generator container health
   ansible.builtin.command:
     argv:
@@ -69,6 +72,10 @@
         traefik_healthy: "{{ poc_traefik_healthy }}"
         autoscale_spike_active: "{{ poc_autoscale_spike_active }}"
         autoscale_state: "{{ poc_autoscale_state }}"
+        memory_pressure_active: "{{ poc_memory_pressure_active }}"
+        memory_total_gib: "{{ poc_memory_total_gib }}"
+        memory_available_gib: "{{ poc_memory_available_gib }}"
+        memory_profile: "{{ poc_memory_profile }}"
         log_generator_status: "{{ _log_gen_status.stdout | default('unavailable') }}"
         datadog_agent_status: "{{ _dd_agent_status.stdout | default('unavailable') }}"
 
@@ -82,4 +89,5 @@
       trigger={{ poc_disk_trigger_exists }}, marker={{ poc_disk_marker_exists }},
       storefront_replicas={{ poc_storefront_replica_count }},
       storefront_healthy={{ poc_storefront_healthy }},
-      autoscale={{ poc_autoscale_state }}, release={{ poc_storefront_release_mode }}.
+      autoscale={{ poc_autoscale_state }}, release={{ poc_storefront_release_mode }},
+      memory_pressure={{ poc_memory_pressure_active }}, memory_profile={{ poc_memory_profile }}.

@@ -1,0 +1,312 @@
+---
+# Remediation Job Template: hot-add VM memory from 16 GiB to 24 GiB via
+# Nutanix Prism Central v3 API. Does NOT stop memory-pressure -- the
+# hot-add happens while pressure is still active to demonstrate that
+# vertical scaling resolves the degradation.
+#
+# Job Template: "Hot Add Application VM Memory to 24 GiB"
+# Survey fields: monitor_id, investigation_id, workflow_instance_id
+#
+# Nutanix credentials come from AAP Inventory/Credential variables:
+#   nutanix_prism_endpoint  (e.g. https://prism.bercalab.my.id:9440)
+#   nutanix_vm_uuid         (fixed VM UUID)
+#   nutanix_username
+#   nutanix_password
+
+- name: Hot Add Application VM Memory to 24 GiB
+  hosts: berca_poc_vm
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  gather_facts: true
+  vars:
+    poc_action: hot_add_memory
+    schema_version: "1.0"
+    poc_environment: poc
+    poc_service: berca-backend
+    poc_classification: MEMORY_PRESSURE
+    poc_requested_action: hot_add_memory
+    poc_target_profile: application_vm_memory_24g
+  tasks:
+    - name: Validate audit IDs from survey
+      ansible.builtin.assert:
+        that:
+          - (monitor_id | default(none)) is string
+          - (monitor_id | default('') | length) > 0
+          - (monitor_id | default('') | length) <= 128
+          - (monitor_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+          - (investigation_id | default(none)) is string
+          - (investigation_id | default('') | length) > 0
+          - (investigation_id | default('') | length) <= 128
+          - (investigation_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+          - (workflow_instance_id | default(none)) is string
+          - (workflow_instance_id | default('') | length) > 0
+          - (workflow_instance_id | default('') | length) <= 128
+          - (workflow_instance_id | default('')) is match('^[A-Za-z0-9._:/-]+$')
+        fail_msg: "All audit IDs must be bounded non-empty strings."
+
+    - name: Validate Nutanix credentials are provided
+      ansible.builtin.assert:
+        that:
+          - (nutanix_prism_endpoint | default('') | length) > 0
+          - (nutanix_vm_uuid | default('') | length) > 0
+          - (nutanix_username | default('') | length) > 0
+          - (nutanix_password | default('') | length) > 0
+        fail_msg: >-
+          ABORT: Nutanix credentials must be provided via AAP
+          Inventory/Credential. Required: nutanix_prism_endpoint,
+          nutanix_vm_uuid, nutanix_username, nutanix_password.
+      no_log: true
+
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute hot-add memory with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        # ------------------------------------------------------------ #
+        # Read current state
+        # ------------------------------------------------------------ #
+
+        - name: Read memory state
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: read-memory-state
+
+        - name: Read storefront state
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: read-storefront-state
+
+        # ------------------------------------------------------------ #
+        # Idempotent check -- already at 24 GiB
+        # ------------------------------------------------------------ #
+
+        - name: Handle VM already at target 24 GiB
+          when: poc_memory_profile == 'target_24g'
+          block:
+            - name: Publish idempotent hot-add evidence
+              ansible.builtin.set_stats:
+                data:
+                  poc_hot_add_changed: false
+                  poc_memory_profile: "{{ poc_memory_profile }}"
+                  poc_memory_total_gib: "{{ poc_memory_total_gib }}"
+
+            - name: Release lock before ending idempotent hot-add
+              ansible.builtin.include_role:
+                name: berca_poc_demo
+                tasks_from: release-lock
+
+            - name: End host after idempotent hot-add
+              ansible.builtin.meta: end_host
+
+        # ------------------------------------------------------------ #
+        # Pre-flight assertions
+        # ------------------------------------------------------------ #
+
+        - name: Assert VM is at baseline 16 GiB
+          ansible.builtin.assert:
+            that:
+              - poc_memory_profile == 'baseline_16g'
+            fail_msg: >-
+              ABORT: VM memory profile is '{{ poc_memory_profile }}'
+              ({{ poc_memory_total_gib }} GiB), expected 'baseline_16g'.
+              Hot-add only operates from baseline to target.
+
+        - name: Assert memory pressure is active
+          ansible.builtin.assert:
+            that:
+              - poc_memory_pressure_active | bool
+            fail_msg: >-
+              ABORT: Memory pressure container is not active.
+              Hot-add remediation must happen while pressure is running.
+
+        - name: Assert application services are still observable
+          ansible.builtin.assert:
+            that:
+              - poc_storefront_healthy | bool
+              - poc_traefik_healthy | bool
+            fail_msg: "ABORT: Storefront or Traefik is not healthy."
+
+        - name: Store pre-hot-add memory state
+          ansible.builtin.set_fact:
+            _memory_before_gib: "{{ poc_memory_total_gib }}"
+
+        # ------------------------------------------------------------ #
+        # Nutanix Prism Central v3 API -- get current VM spec
+        # ------------------------------------------------------------ #
+
+        - name: Get current VM spec from Nutanix
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_vm_get
+          no_log: true
+
+        - name: Extract current VM memory and spec version
+          ansible.builtin.set_fact:
+            _nutanix_current_memory_mib: "{{ _nutanix_vm_get.json.spec.resources.memory_size_mib }}"
+            _nutanix_spec_version: "{{ _nutanix_vm_get.json.metadata.spec_version }}"
+            _nutanix_vm_spec: "{{ _nutanix_vm_get.json.spec }}"
+            _nutanix_vm_metadata: "{{ _nutanix_vm_get.json.metadata }}"
+
+        - name: Display current Nutanix VM memory
+          ansible.builtin.debug:
+            msg: "Nutanix VM current memory: {{ _nutanix_current_memory_mib }} MiB (spec_version: {{ _nutanix_spec_version }})"
+
+        # ------------------------------------------------------------ #
+        # Nutanix Prism Central v3 API -- update VM memory
+        # ------------------------------------------------------------ #
+
+        - name: Build updated VM spec with target memory
+          ansible.builtin.set_fact:
+            _nutanix_update_body:
+              spec: "{{ _nutanix_vm_spec | combine({'resources': _nutanix_vm_spec.resources | combine({'memory_size_mib': poc_memory_target_mib | int})}) }}"
+              metadata: "{{ _nutanix_vm_metadata | combine({'spec_version': _nutanix_spec_version | int}) }}"
+
+        - name: Update VM memory via Nutanix Prism Central API
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: PUT
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            body: "{{ _nutanix_update_body }}"
+            body_format: json
+            return_content: true
+            status_code: [200, 202]
+          register: _nutanix_vm_update
+          no_log: true
+
+        - name: Extract Nutanix task UUID
+          ansible.builtin.set_fact:
+            _nutanix_task_uuid: "{{ _nutanix_vm_update.json.status.execution_context.task_uuid | default(_nutanix_vm_update.json.status.state | default('unknown')) }}"
+
+        - name: Display Nutanix task UUID
+          ansible.builtin.debug:
+            msg: "Nutanix update task UUID: {{ _nutanix_task_uuid }}"
+
+        # ------------------------------------------------------------ #
+        # Poll Nutanix task until completion
+        # ------------------------------------------------------------ #
+
+        - name: Poll Nutanix task until complete
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/tasks/{{ _nutanix_task_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_task_poll
+          until: (_nutanix_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
+          retries: "{{ poc_nutanix_task_poll_retries }}"
+          delay: "{{ poc_nutanix_task_poll_delay }}"
+          no_log: true
+
+        - name: Assert Nutanix task succeeded
+          ansible.builtin.assert:
+            that:
+              - _nutanix_task_poll.json.status == 'SUCCEEDED'
+            fail_msg: >-
+              ABORT: Nutanix memory update task failed.
+              Task UUID: {{ _nutanix_task_uuid }},
+              Status: {{ _nutanix_task_poll.json.status | default('unknown') }}
+
+        # ------------------------------------------------------------ #
+        # Wait for guest to see updated RAM
+        # ------------------------------------------------------------ #
+
+        - name: Wait for guest to report target memory
+          ansible.builtin.command:
+            argv:
+              - awk
+              - "/^MemTotal:/ {print $2}"
+              - /proc/meminfo
+          register: _guest_ram_poll
+          changed_when: false
+          until: ((_guest_ram_poll.stdout | trim | int) / 1048576) | round(0) | int >= (poc_memory_target_tolerance_min_gib | int)
+          retries: "{{ poc_nutanix_guest_ram_poll_retries }}"
+          delay: "{{ poc_nutanix_guest_ram_poll_delay }}"
+
+        # ------------------------------------------------------------ #
+        # Post-hot-add verification
+        # ------------------------------------------------------------ #
+
+        - name: Read final memory state
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: read-memory-state
+
+        - name: Assert VM is at target 24 GiB profile
+          ansible.builtin.assert:
+            that:
+              - poc_memory_profile == 'target_24g'
+              - (poc_memory_total_gib | float) >= (poc_memory_target_tolerance_min_gib | float)
+            fail_msg: >-
+              Hot-add verification failed: guest reports {{ poc_memory_total_gib }} GiB
+              (profile: {{ poc_memory_profile }}), expected target_24g.
+
+        - name: Assert memory pressure is still active
+          ansible.builtin.assert:
+            that:
+              - poc_memory_pressure_active | bool
+            fail_msg: "Memory pressure container stopped unexpectedly during hot-add."
+
+        - name: Read final storefront state
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: read-storefront-state
+
+        - name: Assert application is still healthy
+          ansible.builtin.assert:
+            that:
+              - poc_storefront_healthy | bool
+              - poc_traefik_healthy | bool
+            fail_msg: "Application health check failed after hot-add."
+
+        - name: Publish hot-add evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_hot_add_changed: true
+              poc_memory_before_gib: "{{ _memory_before_gib }}"
+              poc_memory_after_gib: "{{ poc_memory_total_gib }}"
+              poc_memory_profile: "{{ poc_memory_profile }}"
+              poc_memory_pressure_active: "{{ poc_memory_pressure_active }}"
+              nutanix_task_uuid: "{{ _nutanix_task_uuid }}"
+              poc_storefront_healthy: "{{ poc_storefront_healthy }}"
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_classification: "{{ poc_classification }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"
+              monitor_id: "{{ monitor_id }}"
+              investigation_id: "{{ investigation_id }}"
+              workflow_instance_id: "{{ workflow_instance_id }}"

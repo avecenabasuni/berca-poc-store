@@ -5,11 +5,23 @@
 - name: Read disk scenario state
   ansible.builtin.include_tasks: read-disk-state.yml
 
-- name: Verify pool and disk scenarios are inactive
+- name: Read memory scenario state
+  ansible.builtin.include_tasks: read-memory-state.yml
+
+- name: Read storefront state
+  ansible.builtin.include_tasks: read-storefront-state.yml
+
+- name: Verify no conflicting scenarios are active
   ansible.builtin.assert:
     that:
       - not (poc_pool_hog_running | bool)
       - not (poc_disk_fault_active | bool)
+      - not (poc_memory_pressure_active | bool)
+      - not (poc_autoscale_spike_active | bool)
+      - poc_storefront_release_mode != 'demo-bad'
     fail_msg: >-
-      Pool or disk fault is active. Storefront autoscale and deployment
-      scenarios must run in isolation.
+      Another fault scenario is active (pool={{ poc_pool_hog_running }},
+      disk={{ poc_disk_fault_active }}, memory={{ poc_memory_pressure_active }},
+      autoscale={{ poc_autoscale_spike_active }},
+      deployment={{ poc_storefront_release_mode }}).
+      Each scenario must run in isolation.

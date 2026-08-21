@@ -1,0 +1,67 @@
+---
+# Fixed fault Job Template: start bounded synthetic memory pressure.
+# Job Template: "Inject Application VM Memory Pressure"
+# No survey -- fixed action with no external parameters.
+
+- name: Inject Application VM Memory Pressure
+  hosts: berca_poc_vm
+  serial: 1
+  any_errors_fatal: true
+  become: true
+  gather_facts: true
+  vars:
+    poc_action: fault_memory
+  tasks:
+    - name: Record execution start time
+      ansible.builtin.set_fact:
+        _poc_start_time: "{{ now(utc=true) }}"
+
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: berca_poc_demo
+        tasks_from: preflight
+
+    - name: Execute memory fault with lock protection
+      block:
+        - name: Acquire shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: acquire-lock
+
+        - name: Start bounded memory pressure
+          ansible.builtin.include_role:
+            name: hotadd_memory
+            tasks_from: fault-memory
+      rescue:
+        - name: Stop failed memory-pressure workload
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - --profile
+              - memory-demo
+              - rm
+              - -s
+              - -f
+              - memory-pressure
+            chdir: "{{ poc_project_path }}"
+          register: _memory_fault_cleanup
+          changed_when: _memory_fault_cleanup.rc == 0
+          failed_when: false
+          when: _memory_fault_started_by_job | default(false) | bool
+
+        - name: Propagate memory fault failure
+          ansible.builtin.fail:
+            msg: "Memory fault injection failed; the pressure cleanup was attempted."
+      always:
+        - name: Release shared operation lock
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: release-lock
+
+        - name: Publish execution evidence
+          ansible.builtin.set_stats:
+            data:
+              poc_action: "{{ poc_action }}"
+              poc_start_time: "{{ _poc_start_time }}"
+              poc_end_time: "{{ now(utc=true) }}"
