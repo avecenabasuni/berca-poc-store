@@ -524,3 +524,5 @@ sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{pool: .pool_saturat
 | [`ansible/cve_playbooks/IMPLEMENTATION-GUIDE.md`](cve_playbooks/IMPLEMENTATION-GUIDE.md) | Full AAP setup guide for CVE playbooks |
 | [`ansible/cve_playbooks/DATADOG-HANDOVER-GUIDE.md`](cve_playbooks/DATADOG-HANDOVER-GUIDE.md) | Datadog engineer handover for CVE scenario (JT 24) |
 | [`load-test/MEMORY-HOT-ADD-POC.md`](../load-test/MEMORY-HOT-ADD-POC.md) | Nutanix memory hot-add specification |
+| [`ansible/hotaddmemory_playbooks/PLAYBOOK-GUIDE.md`](hotaddmemory_playbooks/PLAYBOOK-GUIDE.md) | Scenario 6 Playbook & AAP Setup Guide (JT 33, 34, 35) |
+| [`ansible/hotaddmemory_playbooks/DATADOG-HANDOVER-GUIDE.md`](hotaddmemory_playbooks/DATADOG-HANDOVER-GUIDE.md) | Datadog engineer handover for Nutanix memory hot-add scenario |
