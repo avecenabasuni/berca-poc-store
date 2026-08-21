@@ -8,11 +8,6 @@
   ansible.builtin.set_fact:
     _memory_fault_started_by_job: false
 
-- name: Verify other fault scenarios are inactive
-  ansible.builtin.include_role:
-    name: berca_poc_demo
-    tasks_from: read-scenario-conflicts
-
 - name: Read memory state before fault injection
   ansible.builtin.include_role:
     name: berca_poc_demo
@@ -48,6 +43,12 @@
 
     - name: End host after idempotent memory fault
       ansible.builtin.meta: end_host
+
+# If we reach here, memory pressure is NOT active -- safe to run conflict check
+- name: Verify other fault scenarios are inactive
+  ansible.builtin.include_role:
+    name: berca_poc_demo
+    tasks_from: read-scenario-conflicts
 
 - name: Verify memory baseline for fault injection
   ansible.builtin.assert:
