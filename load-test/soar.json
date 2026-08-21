@@ -358,7 +358,7 @@
           },
           {
             "name": "promptText",
-            "value": "RHEL Vulnerability Remediation Approval Required\n\nTarget: rhel09-vuln-poc-01\nEnvironment: poc\nSeverity: {{ Steps.Evaluate_Remediation_Status.data.severity }}\nCVE remediation selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nScanner advisory metadata: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nInstalled: {{ Steps.Evaluate_Remediation_Status.data.installed_version }}\nFixed: {{ Steps.Evaluate_Remediation_Status.data.fixed_version }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\nEligible findings discovered: {{ Variables.eligible_findings_count }}\n\nApprove to launch AAP Job Template 24 for this Datadog-selected CVE. The target host is fixed to the POC inventory, and no command, repository, host, or version override is accepted from the workflow."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:shield: *SECURITY RESPONSE · APPROVAL REQUIRED*\n*RHEL Vulnerability Remediation*\n━━━━━━━━━━━━━━━━━━━━\n\nDatadog selected one open vulnerability finding with an approved remediation path. Human authorization is required before any host change.\n\n*Target Host:* `rhel09-vuln-poc-01`\n*Environment:* `poc`\n*Severity:* `{{ Steps.Evaluate_Remediation_Status.data.severity }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Scanner Advisory:* `{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}`\n*Package:* `{{ Steps.Evaluate_Remediation_Status.data.package_name }}`\n*Installed Version:* `{{ Steps.Evaluate_Remediation_Status.data.installed_version }}`\n*Fixed Version:* `{{ Steps.Evaluate_Remediation_Status.data.fixed_version }}`\n*Finding ID:* `{{ Steps.Evaluate_Remediation_Status.data.finding_id }}`\n*Eligible Findings:* `{{ Variables.eligible_findings_count }}`\n\n*Approved Response*\n`AAP Job Template 24 · Patch selected package`\n\n:shield: *The target host is fixed in the POC inventory. The workflow cannot supply an arbitrary command, repository, host, or version.*\n\n_Next → Approve to patch or Reject to make no change_"
           },
           {
             "name": "teamId",
@@ -1184,7 +1184,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL Vulnerability Remediation Fully Verified\n\nAAP completed the approved CVE patch, the host is healthy, and Datadog reports the selected finding as resolved.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nApproved by: {{ Steps.Request_Approval.responder.username }}"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *SECURITY RESPONSE · VERIFIED*\n*Vulnerability Remediation Completed*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform completed the approved patch, the host is healthy, and Datadog confirmed that the selected finding is resolved.\n\n*Host:* `{{ Steps.Evaluate_Remediation_Status.data.hostname }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Package:* `{{ Steps.Evaluate_Remediation_Status.data.package_name }}`\n*Scanner Advisory:* `{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}`\n*AAP Job ID:* `{{ Variables.job_id }}`\n*AAP Status:* `{{ Variables.raw_job_state }}`\n*Approved By:* `{{ Steps.Request_Approval.responder.username }}`\n\n:mag: *Datadog telemetry provided the final recovery evidence.*\n\n_Next → Record the verified remediation outcome_"
           }
         ],
         "display": {
@@ -1208,7 +1208,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL Patch Applied - Datadog Rescan Pending\n\nAAP completed the approved CVE patch and the host is healthy. The selected finding is not resolved yet; this is expected until the next host SBOM evaluation.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\n\nNo automatic retry or rollback was started. Datadog remains the final verification authority."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:hourglass_flowing_sand: *SECURITY RESPONSE · VALIDATION PENDING*\n*Patch Applied · Datadog Rescan Pending*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform completed the approved patch and the host is healthy. The finding remains visible until Datadog completes the next host SBOM evaluation.\n\n*Host:* `{{ Steps.Evaluate_Remediation_Status.data.hostname }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Package:* `{{ Steps.Evaluate_Remediation_Status.data.package_name }}`\n*Scanner Advisory:* `{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}`\n*AAP Job ID:* `{{ Variables.job_id }}`\n*AAP Status:* `{{ Variables.raw_job_state }}`\n*Finding Status:* `{{ Steps.Check_Vulnerability_Status.attributes.status }}`\n\n:shield: *No automatic retry or rollback was started. Datadog remains the final verification authority.*\n\n_Next → Wait for the next Datadog vulnerability evaluation_"
           }
         ],
         "display": {
@@ -1232,7 +1232,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL CVE Verification Requires Review\n\nAAP completed successfully and the host is reporting, but Datadog returned an unsupported finding status.\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nFinding: {{ Steps.Evaluate_Remediation_Status.data.finding_id }}\nFinding Status: {{ Steps.Check_Vulnerability_Status.attributes.status }}\nAAP Job: {{ Variables.job_id }}\n\nNo additional change was attempted."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:warning: *SECURITY RESPONSE · REVIEW REQUIRED*\n*Unsupported Verification Status*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform completed successfully and the host is reporting, but Datadog returned a finding status the workflow cannot safely interpret.\n\n*Host:* `{{ Steps.Evaluate_Remediation_Status.data.hostname }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Finding ID:* `{{ Steps.Evaluate_Remediation_Status.data.finding_id }}`\n*Finding Status:* `{{ Steps.Check_Vulnerability_Status.attributes.status }}`\n*AAP Job ID:* `{{ Variables.job_id }}`\n\n:shield: *No additional change was attempted.*\n\n_Next → Review the Datadog finding and workflow execution_"
           }
         ],
         "display": {
@@ -1256,7 +1256,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL CVE Remediation Failed\n\nHost: {{ Steps.Evaluate_Remediation_Status.data.hostname }}\nCVE selector: {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\nPackage: {{ Steps.Evaluate_Remediation_Status.data.package_name }}\nScanner advisory: {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\nAAP Job: {{ Variables.job_id }}\nAAP Status: {{ Variables.raw_job_state }}\nReason: {{ Variables.failure_reason }}\n\nNo automatic retry, downgrade, or rollback was attempted. Review AAP Job Template 24 and use the approved Nutanix reset runbook if required."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:x: *SECURITY RESPONSE · EXECUTION FAILED*\n*RHEL Vulnerability Remediation Failed*\n━━━━━━━━━━━━━━━━━━━━\n\n*Host:* `{{ Steps.Evaluate_Remediation_Status.data.hostname }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Package:* `{{ Steps.Evaluate_Remediation_Status.data.package_name }}`\n*Scanner Advisory:* `{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}`\n*AAP Job ID:* `{{ Variables.job_id }}`\n*AAP Status:* `{{ Variables.raw_job_state }}`\n\n*Failure Reason*\n{{ Variables.failure_reason }}\n\n:shield: *No automatic retry, downgrade, or rollback was attempted.*\n\n_Next → Review AAP Job Template 24 and use the approved Nutanix reset runbook if required_"
           }
         ],
         "readinessGate": {
@@ -1283,7 +1283,7 @@
           },
           {
             "name": "text",
-            "value": ":no_entry_sign: *Security Remediation Rejected*\n\n*Rejected by:* {{ Steps.Request_Approval.responder.username }}\n*Host:* {{ Steps.Evaluate_Remediation_Status.data.hostname }}\n*CVE selector:* {{ Steps.Evaluate_Remediation_Status.data.cve_id }}\n*Scanner advisory:* {{ Steps.Evaluate_Remediation_Status.data.advisory_id }}\n\n_No changes were made to the host._"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:no_entry_sign: *SECURITY RESPONSE · REJECTED*\n*Vulnerability Remediation Not Authorized*\n━━━━━━━━━━━━━━━━━━━━\n\nThe approver rejected the proposed patch. No AAP remediation job was launched.\n\n*Rejected By:* `{{ Steps.Request_Approval.responder.username }}`\n*Host:* `{{ Steps.Evaluate_Remediation_Status.data.hostname }}`\n*CVE Selector:* `{{ Steps.Evaluate_Remediation_Status.data.cve_id }}`\n*Scanner Advisory:* `{{ Steps.Evaluate_Remediation_Status.data.advisory_id }}`\n\n:shield: *No changes were made to the host.*\n\n_Next → Review or close the finding according to the security process_"
           }
         ],
         "display": {
@@ -1307,7 +1307,7 @@
           },
           {
             "name": "text",
-            "value": "Duplicate CVE Remediation Prevented\n\nThe finding is already resolved or is no longer actionable. No AAP job was launched.\n\nHost: {{ Steps.Validate_Finding.data.finding.hostname }}\nCVE: {{ Steps.Validate_Finding.data.finding.cve_id }}\nFinding: {{ Steps.Validate_Finding.data.finding.finding_id }}\nStatus: {{ Steps.Check_Already_Remediated.attributes.status }}"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *SECURITY RESPONSE · NO CHANGE REQUIRED*\n*Duplicate Remediation Prevented*\n━━━━━━━━━━━━━━━━━━━━\n\nThe selected finding is already resolved or is no longer actionable. The workflow safely skipped remediation.\n\n*Host:* `{{ Steps.Validate_Finding.data.finding.hostname }}`\n*CVE Selector:* `{{ Steps.Validate_Finding.data.finding.cve_id }}`\n*Finding ID:* `{{ Steps.Validate_Finding.data.finding.finding_id }}`\n*Finding Status:* `{{ Steps.Check_Already_Remediated.attributes.status }}`\n\n:shield: *No AAP job was launched and no host change was made.*\n\n_Next → Record the idempotent no-change outcome_"
           }
         ],
         "display": {
@@ -1331,7 +1331,7 @@
           },
           {
             "name": "text",
-            "value": "Vulnerability Remediation Blocked by Policy\n\nThe selected finding was not open and remediable on the approved POC host, or it did not contain safe CVE, advisory, package, and fixed-version data. No AAP job was launched.\n\nWorkflow Instance: {{ InstanceId }}\nReview the blocked step output for the exact reason."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:shield: *SECURITY RESPONSE · POLICY BLOCKED*\n*Vulnerability Remediation Not Permitted*\n━━━━━━━━━━━━━━━━━━━━\n\nThe selected finding was not open and remediable on the approved POC host, or it did not contain the bounded CVE, advisory, package, and fixed-version data required by policy.\n\n*Workflow Instance:* `{{ InstanceId }}`\n*Environment:* `poc`\n\n:shield: *No AAP job was launched and no host change was made.*\n\n_Next → Review the policy evaluation output for the exact reason_"
           }
         ],
         "readinessGate": {
@@ -1358,7 +1358,7 @@
           },
           {
             "name": "text",
-            "value": "RHEL Vulnerability Scan Complete - No Remediable Finding\n\nDatadog did not return an open finding with remediation data that AAP can apply on rhel09-vuln-poc-01. No CVE, advisory, or package value is hardcoded in the discovery policy.\n\nRaw Findings: {{ Variables.raw_findings_count }}\nEligible Findings: {{ Variables.eligible_findings_count }}\nEvaluation: {{ Variables.selection_summary }}\n\nNo AAP job was launched. This is a safe, successful no-change outcome."
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *SECURITY RESPONSE · SCAN COMPLETE*\n*No Remediable Finding Selected*\n━━━━━━━━━━━━━━━━━━━━\n\nDatadog did not return an open finding with remediation data that AAP can apply on the approved RHEL POC host. Discovery does not hardcode a CVE, advisory, or package value.\n\n*Target Host:* `rhel09-vuln-poc-01`\n*Raw Findings:* `{{ Variables.raw_findings_count }}`\n*Eligible Findings:* `{{ Variables.eligible_findings_count }}`\n\n*Evaluation*\n{{ Variables.selection_summary }}\n\n:shield: *No AAP job was launched. This is a safe, successful no-change outcome.*\n\n_Next → Continue scheduled vulnerability monitoring_"
           }
         ],
         "display": {
@@ -1382,7 +1382,7 @@
           },
           {
             "name": "text",
-            "value": ":rotating_light: *WORKFLOW ERROR \u2014 Daily Security Scan Failed*\n\nThe security remediation workflow encountered an unexpected technical error. This is *NOT* a clean \"no findings\" result.\n\n*Instance ID:* {{ InstanceId }}\n*Workflow:* {{ WorkflowName }}\n\n:warning: *Action required:* Investigate the workflow run immediately to determine the root cause (Datadog API error, DDSQL query failure, or data processing fault).\n_The scan results for today are unreliable. Do NOT treat this as \"no action required\"._"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:rotating_light: *SECURITY RESPONSE · WORKFLOW ERROR*\n*Daily Vulnerability Scan Failed*\n━━━━━━━━━━━━━━━━━━━━\n\nThe remediation workflow encountered an unexpected technical error. This is not a clean no-findings result.\n\n*Workflow:* `{{ WorkflowName }}`\n*Instance ID:* `{{ InstanceId }}`\n\n*Required Action*\nInvestigate the workflow run for a Datadog API, DDSQL query, connection, or data-processing failure.\n\n:warning: *The scan result is unreliable and must not be treated as “no action required”.*\n\n_Next → Review the failed workflow instance immediately_"
           }
         ],
         "readinessGate": {

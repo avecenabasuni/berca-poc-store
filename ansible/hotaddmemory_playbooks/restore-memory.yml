@@ -73,6 +73,17 @@
             name: berca_poc_demo
             tasks_from: read-memory-state
 
+        - name: Stop bounded memory pressure before restoring baseline
+          ansible.builtin.include_role:
+            name: hotadd_memory
+            tasks_from: stop-memory
+          when: poc_memory_pressure_active | bool
+
+        - name: Refresh memory state after pressure cleanup
+          ansible.builtin.include_role:
+            name: berca_poc_demo
+            tasks_from: read-memory-state
+
         # ------------------------------------------------------------ #
         # Idempotent check -- already at baseline
         # ------------------------------------------------------------ #
@@ -436,15 +447,46 @@
               Restore verification failed: guest reports {{ poc_memory_total_gib }} GiB
               (profile: {{ poc_memory_profile }}), expected baseline_16g.
 
-        - name: Check Datadog Agent is running
-          ansible.builtin.systemd:
-            name: datadog-agent
+        - name: Read Datadog Agent container ID
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - ps
+              - -q
+              - datadog-agent
+            chdir: "{{ poc_project_path }}"
+          register: _dd_agent_container_id
+          changed_when: false
+
+        - name: Assert Datadog Agent container exists
+          ansible.builtin.assert:
+            that:
+              - (_dd_agent_container_id.stdout | trim | length) > 0
+            fail_msg: "Datadog Agent container was not found after memory restore."
+
+        - name: Read Datadog Agent container health
+          ansible.builtin.command:
+            argv:
+              - docker
+              - inspect
+              - --format
+              - "{{ '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' }}"
+              - "{{ _dd_agent_container_id.stdout | trim }}"
           register: _dd_agent_post
-          failed_when: false
+          changed_when: false
+
+        - name: Assert Datadog Agent container is healthy
+          ansible.builtin.assert:
+            that:
+              - (_dd_agent_post.stdout | trim) == 'healthy'
+            fail_msg: >-
+              Datadog Agent container is not healthy after memory restore
+              (state={{ _dd_agent_post.stdout | default('unknown') | trim }}).
 
         - name: Display Datadog Agent status
           ansible.builtin.debug:
-            msg: "Datadog Agent: {{ _dd_agent_post.status.ActiveState | default('unknown') }}"
+            msg: "Datadog Agent container: {{ _dd_agent_post.stdout | trim }}"
 
         - name: Read final storefront state
           ansible.builtin.include_role:
@@ -471,6 +513,14 @@
           ansible.builtin.debug:
             msg: "Storefront HTTP check: {{ _storefront_http.status | default('failed') }}"
 
+        - name: Assert storefront HTTP check succeeded
+          ansible.builtin.assert:
+            that:
+              - (_storefront_http.status | default(0) | int) == 200
+            fail_msg: >-
+              Storefront HTTP check failed after memory restore
+              (status={{ _storefront_http.status | default('unavailable') }}).
+
         - name: Publish restore evidence
           ansible.builtin.set_stats:
             data:
@@ -480,7 +530,7 @@
               poc_memory_profile: "{{ poc_memory_profile }}"
               nutanix_task_uuid: "{{ _nutanix_task_uuid }}"
               poc_storefront_healthy: "{{ poc_storefront_healthy }}"
-              poc_datadog_agent_active: "{{ _dd_agent_post.status.ActiveState | default('unknown') == 'active' }}"
+              poc_datadog_agent_active: "{{ (_dd_agent_post.stdout | trim) == 'healthy' }}"
               poc_storefront_http_status: "{{ _storefront_http.status | default('failed') }}"
       always:
         - name: Release shared operation lock

@@ -186,12 +186,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:chart_with_upwards_trend: *POC CONTROL · STARTED*\n*Storefront Capacity Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nA controlled storefront traffic spike is being activated through the Demo Control API.\n\n*Scenario:* `autoscale`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `start-storefront-spike`\n\n:shield: *Only the pre-defined POC action is permitted.*\n\n_Next → Controlled execution_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:chart_with_upwards_trend: *POC CONTROL · STARTED*\n*Storefront Capacity Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform is starting the approved storefront traffic spike.\n\n*Scenario:* `autoscale`\n*Environment:* `poc`\n*Execution Backend:* `Ansible Automation Platform`\n*Job Template:* `31 · Start Storefront Capacity Spike`\n\n:shield: *The fault-control connection can launch only the approved Job Template.*\n\n_Next → Controlled execution_"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Start_Storefront_Traffic_Spike",
+            "nextStepName": "Launch_AAP_Autoscale_Fault",
             "branchName": "main"
           }
         ],
@@ -216,12 +216,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:package: *POC CONTROL · STARTED*\n*Deployment Regression*\n━━━━━━━━━━━━━━━━━━━━\n\nThe approved known-bad storefront candidate is being deployed through the Demo Control API.\n\n*Scenario:* `rollback`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `deploy-storefront-demo-bad`\n\n:shield: *Only the pre-defined POC action is permitted.*\n\n_Next → Controlled execution_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:package: *POC CONTROL · STARTED*\n*Deployment Regression*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform is deploying the approved known-bad storefront candidate.\n\n*Scenario:* `rollback`\n*Environment:* `poc`\n*Execution Backend:* `Ansible Automation Platform`\n*Job Template:* `29 · Deploy Storefront Demo-Bad`\n\n:shield: *The fault-control connection can launch only the approved Job Template.*\n\n_Next → Controlled execution_"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Deploy_Storefront_Demo_Bad",
+            "nextStepName": "Launch_AAP_Rollback_Fault",
             "branchName": "main"
           }
         ],
@@ -276,12 +276,12 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:test_tube: *POC CONTROL · STARTED*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nThe Demo Control API is starting the bounded low-CPU memory holder on the Berca application VM.\n\n*Scenario:* `memory`\n*Environment:* `poc`\n*Execution Backend:* `Demo Control API`\n*Fixed Action:* `memory`\n\n:shield: *The allocation, timeout, target VM, and safety floor are fixed outside the workflow.*\n\n_Next → Datadog observes backend service degradation_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:test_tube: *POC CONTROL · STARTED*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform is starting the bounded low-CPU memory holder on the Berca application VM.\n\n*Scenario:* `memory`\n*Environment:* `poc`\n*Execution Backend:* `Ansible Automation Platform`\n*Job Template:* `33 · Inject Memory Pressure`\n\n:shield: *The fault-control connection can launch only the approved Job Template. Allocation, timeout, target VM, and safety floor are fixed outside the workflow.*\n\n_Next → Datadog observes backend service degradation_"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Start_Memory_Pressure_Demo",
+            "nextStepName": "Launch_AAP_Memory_Fault",
             "branchName": "main"
           }
         ],
@@ -306,7 +306,7 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:arrows_counterclockwise: *POC CONTROL · RESETTING*\n*Application VM Memory Baseline*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform will stop synthetic memory pressure and restore the Nutanix application VM from 24 GiB to the approved 16 GiB baseline.\n\n*Scenario:* `reset-memory`\n*Environment:* `poc`\n*Execution Backend:* `AAP`\n*Fixed Action:* `Restore Application VM Memory to 16 GiB`"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:arrows_counterclockwise: *POC CONTROL · RESETTING*\n*Application VM Memory Baseline*\n━━━━━━━━━━━━━━━━━━━━\n\nAnsible Automation Platform will stop synthetic memory pressure and restore the Nutanix application VM from 24 GiB to the approved 16 GiB baseline.\n\n*Scenario:* `reset-memory`\n*Environment:* `poc`\n*Execution Backend:* `Ansible Automation Platform`\n*Job Template:* `35 · Restore Memory Baseline`\n\n:shield: *The fault-control connection can launch only the approved reset Job Template.*\n\n_Next → Restore and verify the approved 16 GiB baseline_"
           }
         ],
         "outboundEdges": [
@@ -592,9 +592,9 @@
         }
       },
       {
-        "name": "Start_Memory_Pressure_Demo",
+        "name": "Launch_AAP_Memory_Fault",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
             "name": "verb",
@@ -602,7 +602,7 @@
           },
           {
             "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/33/launch/"
           },
           {
             "name": "requestHeaders",
@@ -610,17 +610,13 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "action": "memory"
+              "extra_vars": {}
             }
           },
           {
@@ -668,7 +664,7 @@
           },
           {
             "name": "url",
-            "value": "https://192.168.2.66/api/controller/v2/job_templates/0/launch/"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/35/launch/"
           },
           {
             "name": "requestHeaders",
@@ -720,9 +716,9 @@
         }
       },
       {
-        "name": "Start_Storefront_Traffic_Spike",
+        "name": "Launch_AAP_Autoscale_Fault",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
             "name": "verb",
@@ -730,7 +726,7 @@
           },
           {
             "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/31/launch/"
           },
           {
             "name": "requestHeaders",
@@ -738,17 +734,13 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "action": "start-storefront-spike"
+              "extra_vars": {}
             }
           },
           {
@@ -782,9 +774,9 @@
         }
       },
       {
-        "name": "Deploy_Storefront_Demo_Bad",
+        "name": "Launch_AAP_Rollback_Fault",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
             "name": "verb",
@@ -792,7 +784,7 @@
           },
           {
             "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/29/launch/"
           },
           {
             "name": "requestHeaders",
@@ -800,17 +792,13 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": ["Bearer <DEMO_FAULT_TOKEN>"]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "action": "deploy-storefront-demo-bad"
+              "extra_vars": {}
             }
           },
           {
@@ -849,7 +837,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const scenario = $.Trigger.scenario;\n\nconst config = {\n  pool: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Pool_Fault,\n    templateId: '21',\n    templateName: 'Pool Fault',\n    action: 'pool'\n  },\n  disk: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Disk_Fault,\n    templateId: '22',\n    templateName: 'Disk Fault',\n    action: 'disk'\n  },\n  reset: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Reset_Demo,\n    templateId: '',\n    templateName: '',\n    action: 'reset'\n  },\n  autoscale: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Start_Storefront_Traffic_Spike,\n    templateId: '',\n    templateName: '',\n    action: 'start-storefront-spike'\n  },\n  rollback: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Deploy_Storefront_Demo_Bad,\n    templateId: '',\n    templateName: '',\n    action: 'deploy-storefront-demo-bad'\n  }\n};\n\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable(\n  'failure_reason',\n  accepted ? '' : 'Execution backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
+            "value": "const scenario = $.Trigger.scenario;\n\nconst config = {\n  pool: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Pool_Fault,\n    templateId: '21',\n    templateName: 'Pool Fault',\n    action: 'pool'\n  },\n  disk: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Disk_Fault,\n    templateId: '22',\n    templateName: 'Disk Fault',\n    action: 'disk'\n  },\n  reset: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Reset_Demo,\n    templateId: '',\n    templateName: '',\n    action: 'reset'\n  },\n  autoscale: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Autoscale_Fault,\n    templateId: '31',\n    templateName: 'Start Storefront Capacity Spike',\n    action: 'autoscale'\n  },\n  rollback: {\n    backend: 'AAP',\n    response: $.Steps.Launch_AAP_Rollback_Fault,\n    templateId: '29',\n    templateName: 'Deploy Storefront Demo-Bad',\n    action: 'rollback'\n  }\n};\n\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable(\n  'failure_reason',\n  accepted ? '' : 'Execution backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
           }
         ],
         "outboundEdges": [
@@ -910,7 +898,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { backend: 'DEMO_CONTROL', response: $.Steps.Start_Memory_Pressure_Demo, action: 'memory', templateName: '' },\n  'reset-memory': { backend: 'AAP', response: $.Steps.Launch_AAP_Reset_Memory, action: 'reset-memory', templateName: 'Restore Application VM Memory to 16 GiB' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nlet jobId = '';\nlet rawState = '';\nlet accepted = false;\nif (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted = httpStatus === 202 && body.ok === true && body.action === selected.action && body.state === 'accepted' && jobId !== '';\n} else if (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.backend === 'AAP' ? '0' : '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'Execution backend did not return the expected launch response');\nreturn { accepted, backend: selected.backend || 'UNKNOWN', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
+            "value": "const scenario = $.Trigger.scenario;\nconst config = {\n  memory: { backend: 'AAP', response: $.Steps.Launch_AAP_Memory_Fault, action: 'memory', templateId: '33', templateName: 'Inject Memory Pressure' },\n  'reset-memory': { backend: 'AAP', response: $.Steps.Launch_AAP_Reset_Memory, action: 'reset-memory', templateId: '35', templateName: 'Restore Memory Baseline' }\n};\nconst selected = config[scenario] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\nlet jobId = '';\nlet rawState = '';\nlet accepted = false;\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n$.Helpers.setVariable('execution_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('job_id', jobId);\n$.Helpers.setVariable('job_state', accepted ? 'running' : 'launch_failed');\n$.Helpers.setVariable('raw_job_state', rawState);\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable('job_action', selected.action || '');\n$.Helpers.setVariable('launch_http_status', httpStatus);\n$.Helpers.setVariable('failure_reason', accepted ? '' : 'AAP did not return the expected Job Template launch response');\nreturn { accepted, backend: selected.backend || 'UNKNOWN', http_status: httpStatus, job_id: jobId, raw_state: rawState };"
           }
         ],
         "outboundEdges": [
@@ -1063,7 +1051,7 @@
               {
                 "comparisonOperator": "lt",
                 "leftValue": "{{ Variables.poll_count }}",
-                "rightValue": 30
+                "rightValue": 60
               },
               {
                 "comparisonOperator": "eq",
@@ -1593,7 +1581,7 @@
               },
               {
                 "name": "failure_reason",
-                "value": "Job did not reach a terminal state within 300 seconds"
+                  "value": "Job did not reach a terminal state within 600 seconds"
               }
             ]
           }
@@ -1665,12 +1653,12 @@
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "demo_scenario",
+                "outboundBranch": "aap_scenario",
                 "value": "autoscale"
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "demo_scenario",
+                "outboundBranch": "aap_scenario",
                 "value": "rollback"
               },
               {
@@ -1680,7 +1668,7 @@
               },
               {
                 "comparisonOperator": "eq",
-                "outboundBranch": "demo_scenario",
+                "outboundBranch": "aap_scenario",
                 "value": "memory"
               },
               {

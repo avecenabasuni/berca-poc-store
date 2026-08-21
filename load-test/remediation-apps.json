@@ -1,7 +1,7 @@
 {
   "id": "f3041229-4fc9-4ae5-8c2e-4ef7deb48b0a",
   "name": "[POC] Investigate and Remediate Backend Degradation v5 - Memory Hot-Add",
-  "description": "Investigates generic service degradation, includes bounded application-VM memory-pressure diagnosis, performs approval-gated remediation through AAP, Demo Control API, or the temporary manual Prism memory path, and verifies recovery using Datadog telemetry.",
+  "description": "Investigates generic service degradation, performs approval-gated application and Nutanix memory remediation through Ansible Automation Platform, and verifies recovery using Datadog telemetry.",
   "tags": [
     "automation:aap-hybrid",
     "env:poc",
@@ -825,7 +825,7 @@
           },
           {
             "name": "promptText",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:mag: *INCIDENT RESPONSE · 2/3*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\n*Service:* `berca-backend`\n*Diagnosis:* `MEMORY_PRESSURE`\n*Confidence:* `{{ Variables.classification_confidence }}`\n\n*Observed Before Change*\n• Total RAM: `{{ Variables.memory_total_before_gib }} GiB`\n• Available RAM: `{{ Variables.memory_available_before_gib }} GiB`\n• Usable RAM: `{{ Variables.memory_usable_before_pct }}%`\n• Synthetic pressure: `active`\n\n*Approved Target*\n• Nutanix application VM profile: `16 GiB → 24 GiB`\n• Fixed action: `hot_add_memory`\n• Temporary executor: `Manual Nutanix Prism`\n\n*Assessment*\n{{ Variables.classification_reason }}\n\n*Evidence*\n{{ Variables.classification_evidence }}\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Source.monitor.url }}|View in Datadog>\n\n:shield: *Approve only if the operator is ready to apply the fixed 24 GiB profile in Prism immediately. No VM, host, or memory value comes from AI output.*"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:mag: *INCIDENT RESPONSE · 2/3*\n*Application VM Memory Pressure*\n━━━━━━━━━━━━━━━━━━━━\n\n*Service:* `berca-backend`\n*Diagnosis:* `MEMORY_PRESSURE`\n*Confidence:* `{{ Variables.classification_confidence }}`\n\n*Observed Before Change*\n• Total RAM: `{{ Variables.memory_total_before_gib }} GiB`\n• Available RAM: `{{ Variables.memory_available_before_gib }} GiB`\n• Usable RAM: `{{ Variables.memory_usable_before_pct }}%`\n• Synthetic pressure: `active`\n\n*Approved Target*\n• Nutanix application VM profile: `16 GiB → 24 GiB`\n• Fixed action: `hot_add_memory`\n• Execution backend: `Ansible Automation Platform`\n• Job Template: `34 · Hot Add Memory`\n\n*Assessment*\n{{ Variables.classification_reason }}\n\n*Evidence*\n{{ Variables.classification_evidence }}\n\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Source.monitor.url }}|View in Datadog>\n\n:shield: *AAP receives only bounded audit identifiers. VM UUID, Prism endpoint, credentials, and the fixed 24 GiB target remain in protected AAP configuration.*"
           },
           {
             "name": "teamId",
@@ -910,7 +910,7 @@
           },
           {
             "name": "text",
-            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *INCIDENT RESPONSE · APPROVED*\n*Remediation Authorized*\n━━━━━━━━━━━━━━━━━━━━\n\nHuman approval has been received. The workflow will now dispatch the fixed remediation mapped to the classified root cause.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Confidence:* `{{ Variables.classification_confidence }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n*Execution Mapping*\n• `POOL` → Ansible Automation Platform · JT 18\n• `DISK` → Ansible Automation Platform · JT 19\n• `AUTOSCALE` → Demo Control API\n• `ROLLBACK` → Demo Control API\n• `MEMORY_PRESSURE` → Operator applies the fixed 24 GiB profile in Nutanix Prism; Datadog verifies the result\n\n:gear: *For MEMORY_PRESSURE, apply the approved 16 → 24 GiB change in Prism now. The workflow will not stop the pressure and will only succeed after telemetry proves recovery.*\n\n_Next → Execute the approved response and verify service recovery_"
+            "value": "━━━━━━━━━━━━━━━━━━━━\n:white_check_mark: *INCIDENT RESPONSE · APPROVED*\n*Remediation Authorized*\n━━━━━━━━━━━━━━━━━━━━\n\nHuman approval has been received. The workflow will now dispatch the fixed remediation mapped to the classified root cause.\n\n*Root Cause:* `{{ Variables.root_cause }}`\n*Confidence:* `{{ Variables.classification_confidence }}`\n*Investigation ID:* `{{ Variables.investigation_id }}`\n*Monitor:* <{{ Variables.monitor_alert_url }}|View in Datadog>\n\n*Execution Mapping*\n• `POOL` → Ansible Automation Platform · JT 18\n• `DISK` → Ansible Automation Platform · JT 19\n• `ROLLBACK` → Ansible Automation Platform · JT 30\n• `AUTOSCALE` → Ansible Automation Platform · JT 32\n• `MEMORY_PRESSURE` → Ansible Automation Platform · JT 34\n\n:gear: *AAP executes only the fixed response mapped to the approved diagnosis. Datadog independently verifies recovery after execution.*\n\n_Next → Execute the approved response and verify service recovery_"
           }
         ],
         "outboundEdges": [
@@ -981,15 +981,15 @@
             "branchName": "DISK"
           },
           {
-            "nextStepName": "Remediate_Autoscale_Demo",
+            "nextStepName": "Remediate_Autoscale_AAP",
             "branchName": "AUTOSCALE"
           },
           {
-            "nextStepName": "Remediate_Rollback_Demo",
+            "nextStepName": "Remediate_Rollback_AAP",
             "branchName": "ROLLBACK"
           },
           {
-            "nextStepName": "Prepare_Manual_Memory_Hot_Add",
+            "nextStepName": "Remediate_Memory_AAP",
             "branchName": "MEMORY_PRESSURE"
           },
           {
@@ -1137,9 +1137,9 @@
         }
       },
       {
-        "name": "Remediate_Autoscale_Demo",
+        "name": "Remediate_Autoscale_AAP",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
             "name": "verb",
@@ -1147,7 +1147,7 @@
           },
           {
             "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/32/launch/"
           },
           {
             "name": "requestHeaders",
@@ -1155,19 +1155,17 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": [
-                  "Bearer <DEMO_REMEDIATION_TOKEN>"
-                ]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "action": "scale-storefront-to-2"
+              "extra_vars": {
+                "investigation_id": "${ String(Variables.investigation_id) }",
+                "monitor_id": "${ String(Source.monitor.id) }",
+                "workflow_instance_id": "${ String(InstanceId) }"
+              }
             }
           },
           {
@@ -1201,9 +1199,9 @@
         }
       },
       {
-        "name": "Remediate_Rollback_Demo",
+        "name": "Remediate_Rollback_AAP",
         "actionId": "com.datadoghq.http.request",
-        "connectionLabel": "INTEGRATION_NONE_1",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
             "name": "verb",
@@ -1211,7 +1209,7 @@
           },
           {
             "name": "url",
-            "value": "http://127.0.0.1:18080/v1/demo/action"
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/30/launch/"
           },
           {
             "name": "requestHeaders",
@@ -1219,19 +1217,17 @@
               {
                 "key": "Content-Type",
                 "value": ["application/json"]
-              },
-              {
-                "key": "Authorization",
-                "value": [
-                  "Bearer <DEMO_REMEDIATION_TOKEN>"
-                ]
               }
             ]
           },
           {
             "name": "body",
             "value": {
-              "action": "rollback-storefront-stable"
+              "extra_vars": {
+                "investigation_id": "${ String(Variables.investigation_id) }",
+                "monitor_id": "${ String(Source.monitor.id) }",
+                "workflow_instance_id": "${ String(InstanceId) }"
+              }
             }
           },
           {
@@ -1265,57 +1261,64 @@
         }
       },
       {
-        "name": "Prepare_Manual_Memory_Hot_Add",
-        "actionId": "com.datadoghq.core.setVariables",
+        "name": "Remediate_Memory_AAP",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "INTEGRATION_NONE",
         "parameters": [
           {
-            "name": "variables",
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://192.168.2.66/api/controller/v2/job_templates/34/launch/"
+          },
+          {
+            "name": "requestHeaders",
             "value": [
               {
-                "name": "remediation_backend",
-                "value": "MANUAL_PRISM"
-              },
-              {
-                "name": "remediation_action",
-                "value": "hot_add_memory"
-              },
-              {
-                "name": "remediation_job_id",
-                "value": "manual-prism-{{ InstanceId }}"
-              },
-              {
-                "name": "remediation_status_raw",
-                "value": "operator_action_requested"
-              },
-              {
-                "name": "remediation_state",
-                "value": "manual_pending"
-              },
-              {
-                "name": "remediation_execution_detail",
-                "value": "Manual Nutanix Prism hot-add from 16 GiB to fixed 24 GiB profile"
-              },
-              {
-                "name": "aap_job_template_id",
-                "value": ""
-              },
-              {
-                "name": "aap_job_template_name",
-                "value": ""
+                "key": "Content-Type",
+                "value": ["application/json"]
               }
             ]
+          },
+          {
+            "name": "body",
+            "value": {
+              "extra_vars": {
+                "investigation_id": "${ String(Variables.investigation_id) }",
+                "monitor_id": "${ String(Source.monitor.id) }",
+                "workflow_instance_id": "${ String(InstanceId) }"
+              }
+            }
+          },
+          {
+            "name": "responseParsing",
+            "value": "json"
           }
         ],
         "outboundEdges": [
           {
-            "nextStepName": "Wait_For_Telemetry",
+            "nextStepName": "Normalize_Remediation_Launch",
             "branchName": "main"
+          }
+        ],
+        "errorHandlers": [
+          {
+            "retryStrategy": {
+              "kind": "RETRY_STRATEGY_LINEAR",
+              "linear": {
+                "interval": "5s",
+                "maxRetries": 0
+              }
+            },
+            "fallbackStepName": "Set_Final_Result_RemFailed"
           }
         ],
         "display": {
           "bounds": {
             "x": 1800,
-            "y": 7360
+            "y": 4720
           }
         }
       },
@@ -1325,7 +1328,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const rootCause = String($.Variables.root_cause || '').toUpperCase();\n\nconst config = {\n  POOL: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Pool_AAP,\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation'\n  },\n  DISK: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Disk_AAP,\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation'\n  },\n  AUTOSCALE: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Remediate_Autoscale_Demo,\n    action: 'scale-storefront-to-2',\n    templateId: '',\n    templateName: ''\n  },\n  ROLLBACK: {\n    backend: 'DEMO_CONTROL',\n    response: $.Steps.Remediate_Rollback_Demo,\n    action: 'rollback-storefront-stable',\n    templateId: '',\n    templateName: ''\n  }\n};\n\nconst selected = config[rootCause] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n} else if (selected.backend === 'DEMO_CONTROL') {\n  jobId = typeof body.job_id === 'string' ? body.job_id : '';\n  rawState = String(body.state || '');\n  accepted =\n    httpStatus === 202 &&\n    body.ok === true &&\n    body.action === selected.action &&\n    body.state === 'accepted' &&\n    jobId !== '';\n}\n\n$.Helpers.setVariable('remediation_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('remediation_action', selected.action || 'none');\n$.Helpers.setVariable('remediation_job_id', jobId);\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', accepted ? 'accepted' : 'failed');\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  selected.backend === 'AAP'\n    ? `${selected.templateName} (JT ${selected.templateId})`\n    : `Demo Control API · ${selected.action}`\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  accepted ? '' : 'Remediation backend did not return the expected launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
+            "value": "const rootCause = String($.Variables.root_cause || '').toUpperCase();\n\nconst config = {\n  POOL: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Pool_AAP,\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation'\n  },\n  DISK: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Disk_AAP,\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation'\n  },\n  AUTOSCALE: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Autoscale_AAP,\n    action: 'scale-storefront-to-2',\n    templateId: '32',\n    templateName: 'Scale Storefront to 2'\n  },\n  ROLLBACK: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Rollback_AAP,\n    action: 'rollback-storefront-stable',\n    templateId: '30',\n    templateName: 'Rollback Storefront to Stable'\n  },\n  MEMORY_PRESSURE: {\n    backend: 'AAP',\n    response: $.Steps.Remediate_Memory_AAP,\n    action: 'hot_add_memory',\n    templateId: '34',\n    templateName: 'Hot Add Memory'\n  }\n};\n\nconst selected = config[rootCause] || {};\nconst response = selected.response || {};\nconst body = response.body || {};\nconst httpStatus = Number(response.status || 0);\n\nlet accepted = false;\nlet jobId = '';\nlet rawState = '';\n\nif (selected.backend === 'AAP') {\n  jobId = body.id !== undefined && body.id !== null ? String(body.id) : '';\n  rawState = String(body.status || 'pending');\n  accepted = httpStatus === 201 && jobId !== '';\n}\n\n$.Helpers.setVariable('remediation_backend', selected.backend || 'UNKNOWN');\n$.Helpers.setVariable('remediation_action', selected.action || 'none');\n$.Helpers.setVariable('remediation_job_id', jobId);\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', accepted ? 'accepted' : 'failed');\n$.Helpers.setVariable('aap_job_template_id', selected.templateId || '');\n$.Helpers.setVariable('aap_job_template_name', selected.templateName || '');\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  selected.backend === 'AAP'\n    ? `${selected.templateName} (JT ${selected.templateId})`\n    : ''\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  accepted ? '' : 'AAP did not return the expected remediation Job Template launch response'\n);\n\nreturn {\n  accepted,\n  backend: selected.backend || 'UNKNOWN',\n  http_status: httpStatus,\n  job_id: jobId,\n  raw_state: rawState\n};"
           }
         ],
         "outboundEdges": [
@@ -1430,7 +1433,7 @@
               {
                 "comparisonOperator": "lt",
                 "leftValue": "{{ Variables.remediation_poll_count }}",
-                "rightValue": 30
+                "rightValue": 60
               }
             ]
           },
@@ -1642,7 +1645,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const backend = $.Variables.remediation_backend;\nconst expectedJobId = String($.Variables.remediation_job_id || '');\n\nlet response = {};\nlet valid = false;\nlet rawState = '';\nlet normalizedState = 'failed';\nlet failureReason = '';\n\nif (backend === 'AAP') {\n  response = $.Steps.Get_AAP_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId =\n    body.id !== undefined && body.id !== null ? String(body.id) : '';\n\n  valid = Number(response.status || 0) === 200 && responseJobId === expectedJobId;\n  rawState = String(body.status || '');\n\n  if (['pending', 'waiting', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'successful') {\n    normalizedState = 'succeeded';\n  } else if (['failed', 'error', 'canceled'].includes(rawState)) {\n    normalizedState = 'failed';\n    failureReason = 'AAP terminal state: ' + rawState;\n  } else {\n    valid = false;\n    failureReason = 'Unexpected AAP job state: ' + rawState;\n  }\n} else if (backend === 'DEMO_CONTROL') {\n  response = $.Steps.Get_Demo_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId = String(body.job_id || '');\n\n  valid =\n    Number(response.status || 0) === 200 &&\n    body.ok === true &&\n    responseJobId === expectedJobId;\n\n  rawState = String(body.job_state || '');\n\n  if (['accepted', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'succeeded') {\n    normalizedState = 'succeeded';\n  } else if (rawState === 'failed') {\n    normalizedState = 'failed';\n    failureReason = String(\n      (body.job && body.job.error) ||\n      body.error ||\n      'Demo Control remediation job failed'\n    );\n  } else {\n    valid = false;\n    failureReason = 'Unexpected Demo Control job state: ' + rawState;\n  }\n}\n\nconst currentPollCount = Number($.Variables.remediation_poll_count || 0);\nconst nextPollCount = currentPollCount + 1;\n\nif (!valid) {\n  normalizedState = 'failed';\n  if (!failureReason) {\n    failureReason =\n      'Remediation status response was invalid, unauthorized, unreachable, or did not match the launched job';\n  }\n}\n\nconst inProgress = normalizedState === 'running' && nextPollCount < 30;\n\nlet finalState = normalizedState;\nif (normalizedState === 'running' && nextPollCount >= 30) {\n  finalState = 'timeout';\n  failureReason = 'Remediation job did not reach a terminal state within 300 seconds';\n}\n\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', finalState);\n$.Helpers.setVariable('remediation_poll_count', nextPollCount);\n$.Helpers.setVariable('remediation_in_progress', inProgress ? 'true' : 'false');\nif (failureReason) {\n  $.Helpers.setVariable('remediation_failure_reason', failureReason);\n}\n\nreturn {\n  valid,\n  backend,\n  raw_state: rawState,\n  state: finalState,\n  poll_count: nextPollCount,\n  in_progress: inProgress,\n  failure_reason: failureReason\n};"
+            "value": "const backend = $.Variables.remediation_backend;\nconst expectedJobId = String($.Variables.remediation_job_id || '');\nconst rootCause = String($.Variables.root_cause || '').toUpperCase();\nconst maxPolls = rootCause === 'MEMORY_PRESSURE' ? 60 : 30;\n\nlet response = {};\nlet valid = false;\nlet rawState = '';\nlet normalizedState = 'failed';\nlet failureReason = '';\n\nif (backend === 'AAP') {\n  response = $.Steps.Get_AAP_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId =\n    body.id !== undefined && body.id !== null ? String(body.id) : '';\n\n  valid = Number(response.status || 0) === 200 && responseJobId === expectedJobId;\n  rawState = String(body.status || '');\n\n  if (['pending', 'waiting', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'successful') {\n    normalizedState = 'succeeded';\n  } else if (['failed', 'error', 'canceled'].includes(rawState)) {\n    normalizedState = 'failed';\n    failureReason = 'AAP terminal state: ' + rawState;\n  } else {\n    valid = false;\n    failureReason = 'Unexpected AAP job state: ' + rawState;\n  }\n} else if (backend === 'DEMO_CONTROL') {\n  response = $.Steps.Get_Demo_Remediation_Status || {};\n  const body = response.body || {};\n  const responseJobId = String(body.job_id || '');\n\n  valid =\n    Number(response.status || 0) === 200 &&\n    body.ok === true &&\n    responseJobId === expectedJobId;\n\n  rawState = String(body.job_state || '');\n\n  if (['accepted', 'running'].includes(rawState)) {\n    normalizedState = 'running';\n  } else if (rawState === 'succeeded') {\n    normalizedState = 'succeeded';\n  } else if (rawState === 'failed') {\n    normalizedState = 'failed';\n    failureReason = String(\n      (body.job && body.job.error) ||\n      body.error ||\n      'Demo Control remediation job failed'\n    );\n  } else {\n    valid = false;\n    failureReason = 'Unexpected Demo Control job state: ' + rawState;\n  }\n}\n\nconst currentPollCount = Number($.Variables.remediation_poll_count || 0);\nconst nextPollCount = currentPollCount + 1;\n\nif (!valid) {\n  normalizedState = 'failed';\n  if (!failureReason) {\n    failureReason =\n      'Remediation status response was invalid, unauthorized, unreachable, or did not match the launched job';\n  }\n}\n\nconst inProgress = normalizedState === 'running' && nextPollCount < maxPolls;\n\nlet finalState = normalizedState;\nif (normalizedState === 'running' && nextPollCount >= maxPolls) {\n  finalState = 'timeout';\n  failureReason = `Remediation job did not reach a terminal state within ${maxPolls * 10} seconds`;\n}\n\n$.Helpers.setVariable('remediation_status_raw', rawState);\n$.Helpers.setVariable('remediation_state', finalState);\n$.Helpers.setVariable('remediation_poll_count', nextPollCount);\n$.Helpers.setVariable('remediation_in_progress', inProgress ? 'true' : 'false');\nif (failureReason) {\n  $.Helpers.setVariable('remediation_failure_reason', failureReason);\n}\n\nreturn {\n  valid,\n  backend,\n  raw_state: rawState,\n  state: finalState,\n  poll_count: nextPollCount,\n  max_polls: maxPolls,\n  in_progress: inProgress,\n  failure_reason: failureReason\n};"
           }
         ],
         "outboundEdges": [
@@ -2115,7 +2118,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const rootCause = String($.Variables.root_cause || 'UNKNOWN').toUpperCase();\nlet state = String($.Variables.remediation_state || 'failed');\n\nconst fallback = {\n  POOL: {\n    backend: 'AAP',\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation',\n    detail: 'Pool Remediation (JT 18)'\n  },\n  DISK: {\n    backend: 'AAP',\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation',\n    detail: 'Disk Remediation (JT 19)'\n  },\n  AUTOSCALE: {\n    backend: 'DEMO_CONTROL',\n    action: 'scale-storefront-to-2',\n    templateId: '',\n    templateName: '',\n    detail: 'Demo Control API · scale-storefront-to-2'\n  },\n  ROLLBACK: {\n    backend: 'DEMO_CONTROL',\n    action: 'rollback-storefront-stable',\n    templateId: '',\n    templateName: '',\n    detail: 'Demo Control API · rollback-storefront-stable'\n  },\n  MEMORY_PRESSURE: {\n    backend: 'MANUAL_PRISM',\n    action: 'hot_add_memory',\n    templateId: '',\n    templateName: '',\n    detail: 'Manual Nutanix Prism hot-add from 16 GiB to fixed 24 GiB profile'\n  }\n}[rootCause] || {};\n\nif (state !== 'timeout') {\n  state = 'failed';\n}\n\nconst workflowResult =\n  state === 'timeout' ? 'REMEDIATION_TIMEOUT' : 'REMEDIATION_FAILED';\n\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', 'skipped');\n$.Helpers.setVariable('remediation_state', state);\n$.Helpers.setVariable(\n  'remediation_backend',\n  $.Variables.remediation_backend || fallback.backend || 'UNKNOWN'\n);\n$.Helpers.setVariable(\n  'remediation_action',\n  $.Variables.remediation_action || fallback.action || 'none'\n);\n$.Helpers.setVariable(\n  'aap_job_template_id',\n  $.Variables.aap_job_template_id || fallback.templateId || ''\n);\n$.Helpers.setVariable(\n  'aap_job_template_name',\n  $.Variables.aap_job_template_name || fallback.templateName || ''\n);\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  $.Variables.remediation_execution_detail || fallback.detail || ''\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n);\n$.Helpers.setVariable('monitor_name', $.Source.monitor.name);\n$.Helpers.setVariable('monitor_alert_url', $.Source.monitor.url);\n\nreturn {\n  workflow_result: workflowResult,\n  remediation_state: state,\n  remediation_backend: $.Variables.remediation_backend || fallback.backend || 'UNKNOWN',\n  failure_reason:\n    $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n};"
+            "value": "const rootCause = String($.Variables.root_cause || 'UNKNOWN').toUpperCase();\nlet state = String($.Variables.remediation_state || 'failed');\n\nconst fallback = {\n  POOL: {\n    backend: 'AAP',\n    action: 'recover-pool',\n    templateId: '18',\n    templateName: 'Pool Remediation',\n    detail: 'Pool Remediation (JT 18)'\n  },\n  DISK: {\n    backend: 'AAP',\n    action: 'recover-disk',\n    templateId: '19',\n    templateName: 'Disk Remediation',\n    detail: 'Disk Remediation (JT 19)'\n  },\n  AUTOSCALE: {\n    backend: 'AAP',\n    action: 'scale-storefront-to-2',\n    templateId: '32',\n    templateName: 'Scale Storefront to 2',\n    detail: 'Scale Storefront to 2 (JT 32)'\n  },\n  ROLLBACK: {\n    backend: 'AAP',\n    action: 'rollback-storefront-stable',\n    templateId: '30',\n    templateName: 'Rollback Storefront to Stable',\n    detail: 'Rollback Storefront to Stable (JT 30)'\n  },\n  MEMORY_PRESSURE: {\n    backend: 'AAP',\n    action: 'hot_add_memory',\n    templateId: '34',\n    templateName: 'Hot Add Memory',\n    detail: 'Hot Add Memory (JT 34)'\n  }\n}[rootCause] || {};\n\nif (state !== 'timeout') {\n  state = 'failed';\n}\n\nconst workflowResult =\n  state === 'timeout' ? 'REMEDIATION_TIMEOUT' : 'REMEDIATION_FAILED';\n\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', 'skipped');\n$.Helpers.setVariable('remediation_state', state);\n$.Helpers.setVariable(\n  'remediation_backend',\n  $.Variables.remediation_backend || fallback.backend || 'UNKNOWN'\n);\n$.Helpers.setVariable(\n  'remediation_action',\n  $.Variables.remediation_action || fallback.action || 'none'\n);\n$.Helpers.setVariable(\n  'aap_job_template_id',\n  $.Variables.aap_job_template_id || fallback.templateId || ''\n);\n$.Helpers.setVariable(\n  'aap_job_template_name',\n  $.Variables.aap_job_template_name || fallback.templateName || ''\n);\n$.Helpers.setVariable(\n  'remediation_execution_detail',\n  $.Variables.remediation_execution_detail || fallback.detail || ''\n);\n$.Helpers.setVariable(\n  'remediation_failure_reason',\n  $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n);\n$.Helpers.setVariable('monitor_name', $.Source.monitor.name);\n$.Helpers.setVariable('monitor_alert_url', $.Source.monitor.url);\n\nreturn {\n  workflow_result: workflowResult,\n  remediation_state: state,\n  remediation_backend: $.Variables.remediation_backend || fallback.backend || 'UNKNOWN',\n  failure_reason:\n    $.Variables.remediation_failure_reason ||\n    'Remediation launch or execution did not complete successfully'\n};"
           }
         ],
         "outboundEdges": [
@@ -2393,7 +2396,7 @@
         "parameters": [
           {
             "name": "script",
-            "value": "const passed = $.Variables.verification_status === 'passed';\nconst workflowResult = passed ? 'REMEDIATION_SUCCEEDED' : 'VERIFICATION_FAILED';\nconst verificationStatus = passed ? 'passed' : 'failed';\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', verificationStatus);\nif (passed && $.Variables.remediation_backend === 'MANUAL_PRISM') {\n  $.Helpers.setVariable('remediation_state', 'telemetry_verified');\n  $.Helpers.setVariable('remediation_status_raw', 'guest_memory_profile_verified');\n}\nif (!passed && $.Variables.verification_reason !== 'control_plane_api_unavailable' && $.Variables.verification_reason !== 'datadog_monitor_status_unavailable') {\n  $.Helpers.setVariable('verification_reason', 'verification_window_exhausted');\n}\nreturn { workflow_result: workflowResult, verification_status: verificationStatus };"
+            "value": "const passed = $.Variables.verification_status === 'passed';\nconst workflowResult = passed ? 'REMEDIATION_SUCCEEDED' : 'VERIFICATION_FAILED';\nconst verificationStatus = passed ? 'passed' : 'failed';\n$.Helpers.setVariable('workflow_result', workflowResult);\n$.Helpers.setVariable('verification_status', verificationStatus);\nif (!passed && $.Variables.verification_reason !== 'control_plane_api_unavailable' && $.Variables.verification_reason !== 'datadog_monitor_status_unavailable') {\n  $.Helpers.setVariable('verification_reason', 'verification_window_exhausted');\n}\nreturn { workflow_result: workflowResult, verification_status: verificationStatus };"
           }
         ],
         "outboundEdges": [
@@ -2795,7 +2798,7 @@
         {
           "name": "remediation_backend",
           "label": "Remediation Backend",
-          "description": "Execution backend used for remediation: AAP, Demo Control API, or temporary manual Prism",
+          "description": "Execution backend used for remediation: Ansible Automation Platform",
           "type": "STRING",
           "value": "{{ Variables.remediation_backend }}"
         },

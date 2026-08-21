@@ -108,6 +108,16 @@
         - name: Handle VM already at target 24 GiB
           when: poc_memory_profile == 'target_24g'
           block:
+            - name: Verify idempotent hot-add runtime state
+              ansible.builtin.assert:
+                that:
+                  - poc_memory_pressure_active | bool
+                  - poc_storefront_healthy | bool
+                  - poc_traefik_healthy | bool
+                fail_msg: >-
+                  VM is already at the 24 GiB target, but the required
+                  memory-pressure or application health state is not valid.
+
             - name: Publish idempotent hot-add evidence
               ansible.builtin.set_stats:
                 data:
