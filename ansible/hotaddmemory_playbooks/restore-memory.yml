@@ -33,6 +33,7 @@
     poc_nutanix_guest_ram_poll_delay: 5
     poc_storefront_wait_retries: 60
     poc_storefront_wait_delay: 2
+    poc_storefront_catalog_probe_url: "http://127.0.0.1:8000/id/store"
   tasks:
     - name: Validate Nutanix credentials are provided
       ansible.builtin.assert:
