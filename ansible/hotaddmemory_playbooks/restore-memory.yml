@@ -1,6 +1,7 @@
 ---
 # Reset Job Template: stop memory pressure, restore VM RAM to 16 GiB
-# via Nutanix Prism Central v3 API, then verify baseline.
+# via Nutanix Prism Central v3 API (Power Off -> Resize -> Power On),
+# then verify baseline health.
 #
 # Job Template: "Restore Application VM Memory Baseline"
 # No survey -- presenter one-button reset.
@@ -29,6 +30,8 @@
     # Nutanix API polling
     poc_nutanix_task_poll_retries: 30
     poc_nutanix_task_poll_delay: 10
+    poc_nutanix_power_poll_retries: 30
+    poc_nutanix_power_poll_delay: 5
     poc_nutanix_guest_ram_poll_retries: 30
     poc_nutanix_guest_ram_poll_delay: 5
   tasks:
@@ -129,10 +132,10 @@
             _memory_before_gib: "{{ poc_memory_total_gib }}"
 
         # ------------------------------------------------------------ #
-        # Nutanix Prism Central v3 API -- get current VM spec
+        # Step 1: Power Off VM via Nutanix Prism Central v3 API
         # ------------------------------------------------------------ #
 
-        - name: Get current VM spec from Nutanix
+        - name: Get current VM spec before power off
           ansible.builtin.uri:
             url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
             method: GET
@@ -142,31 +145,10 @@
             validate_certs: false
             return_content: true
             status_code: 200
-          register: _nutanix_vm_get
+          register: _nutanix_vm_get_pre_off
           no_log: true
 
-        - name: Extract current VM memory and spec version
-          ansible.builtin.set_fact:
-            _nutanix_current_memory_mib: "{{ _nutanix_vm_get.json.spec.resources.memory_size_mib }}"
-            _nutanix_spec_version: "{{ _nutanix_vm_get.json.metadata.spec_version }}"
-            _nutanix_vm_spec: "{{ _nutanix_vm_get.json.spec }}"
-            _nutanix_vm_metadata: "{{ _nutanix_vm_get.json.metadata }}"
-
-        - name: Display current Nutanix VM memory
-          ansible.builtin.debug:
-            msg: "Nutanix VM current memory: {{ _nutanix_current_memory_mib }} MiB (spec_version: {{ _nutanix_spec_version }})"
-
-        # ------------------------------------------------------------ #
-        # Nutanix Prism Central v3 API -- restore baseline memory
-        # ------------------------------------------------------------ #
-
-        - name: Build updated VM spec with baseline memory
-          ansible.builtin.set_fact:
-            _nutanix_update_body:
-              spec: "{{ _nutanix_vm_spec | combine({'resources': _nutanix_vm_spec.resources | combine({'memory_size_mib': poc_memory_baseline_mib | int})}) }}"
-              metadata: "{{ _nutanix_vm_metadata | combine({'spec_version': _nutanix_spec_version | int}) }}"
-
-        - name: Restore VM memory via Nutanix Prism Central API
+        - name: Request VM power off via Nutanix Prism Central API
           ansible.builtin.uri:
             url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
             method: PUT
@@ -174,26 +156,87 @@
             password: "{{ nutanix_password }}"
             force_basic_auth: true
             validate_certs: false
-            body: "{{ _nutanix_update_body }}"
+            body:
+              spec: "{{ _nutanix_vm_get_pre_off.json.spec | combine({'resources': _nutanix_vm_get_pre_off.json.spec.resources | combine({'power_state': 'OFF'})}) }}"
+              metadata: "{{ _nutanix_vm_get_pre_off.json.metadata | combine({'spec_version': _nutanix_vm_get_pre_off.json.metadata.spec_version | int}) }}"
             body_format: json
             return_content: true
             status_code: [200, 202]
-          register: _nutanix_vm_update
+          register: _nutanix_vm_off_update
           no_log: true
 
-        - name: Extract Nutanix task UUID
+        - name: Poll power off task until complete
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/tasks/{{ _nutanix_vm_off_update.json.status.execution_context.task_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_off_task_poll
+          until: (_nutanix_off_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
+          retries: "{{ poc_nutanix_task_poll_retries }}"
+          delay: "{{ poc_nutanix_task_poll_delay }}"
+          no_log: true
+          when: _nutanix_vm_off_update.json.status.execution_context.task_uuid is defined
+
+        - name: Wait until VM power_state is OFF
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_vm_state_poll
+          until: (_nutanix_vm_state_poll.json.status.resources.power_state | default('')) == 'OFF'
+          retries: "{{ poc_nutanix_power_poll_retries }}"
+          delay: "{{ poc_nutanix_power_poll_delay }}"
+          no_log: true
+
+        # ------------------------------------------------------------ #
+        # Step 2: Update VM Memory to 16 GiB while OFF
+        # ------------------------------------------------------------ #
+
+        - name: Get current VM spec while powered off
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_vm_get_off
+          no_log: true
+
+        - name: Update VM memory to baseline (16 GiB) while powered off
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: PUT
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            body:
+              spec: "{{ _nutanix_vm_get_off.json.spec | combine({'resources': _nutanix_vm_get_off.json.spec.resources | combine({'memory_size_mib': poc_memory_baseline_mib | int})}) }}"
+              metadata: "{{ _nutanix_vm_get_off.json.metadata | combine({'spec_version': _nutanix_vm_get_off.json.metadata.spec_version | int}) }}"
+            body_format: json
+            return_content: true
+            status_code: [200, 202]
+          register: _nutanix_vm_mem_update
+          no_log: true
+
+        - name: Extract Nutanix memory resize task UUID
           ansible.builtin.set_fact:
-            _nutanix_task_uuid: "{{ _nutanix_vm_update.json.status.execution_context.task_uuid | default(_nutanix_vm_update.json.status.state | default('unknown')) }}"
+            _nutanix_task_uuid: "{{ _nutanix_vm_mem_update.json.status.execution_context.task_uuid | default('direct_apply') }}"
 
-        - name: Display Nutanix task UUID
-          ansible.builtin.debug:
-            msg: "Nutanix restore task UUID: {{ _nutanix_task_uuid }}"
-
-        # ------------------------------------------------------------ #
-        # Poll Nutanix task until completion
-        # ------------------------------------------------------------ #
-
-        - name: Poll Nutanix task until complete
+        - name: Poll memory update task until complete
           ansible.builtin.uri:
             url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/tasks/{{ _nutanix_task_uuid }}"
             method: GET
@@ -203,24 +246,96 @@
             validate_certs: false
             return_content: true
             status_code: 200
-          register: _nutanix_task_poll
-          until: (_nutanix_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
+          register: _nutanix_mem_task_poll
+          until: (_nutanix_mem_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
           retries: "{{ poc_nutanix_task_poll_retries }}"
           delay: "{{ poc_nutanix_task_poll_delay }}"
           no_log: true
+          when: _nutanix_task_uuid != 'direct_apply'
 
-        - name: Assert Nutanix task succeeded
+        - name: Assert memory update task succeeded
           ansible.builtin.assert:
             that:
-              - _nutanix_task_poll.json.status == 'SUCCEEDED'
+              - _nutanix_mem_task_poll.json.status == 'SUCCEEDED'
             fail_msg: >-
               ABORT: Nutanix memory restore task failed.
               Task UUID: {{ _nutanix_task_uuid }},
-              Status: {{ _nutanix_task_poll.json.status | default('unknown') }}
+              Status: {{ _nutanix_mem_task_poll.json.status | default('unknown') }}
+          when: _nutanix_task_uuid != 'direct_apply'
 
         # ------------------------------------------------------------ #
-        # Wait for guest to see restored RAM
+        # Step 3: Power On VM via Nutanix Prism Central v3 API
         # ------------------------------------------------------------ #
+
+        - name: Get current VM spec before powering on
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_vm_get_pre_on
+          no_log: true
+
+        - name: Power on VM via Nutanix Prism Central API
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: PUT
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            body:
+              spec: "{{ _nutanix_vm_get_pre_on.json.spec | combine({'resources': _nutanix_vm_get_pre_on.json.spec.resources | combine({'power_state': 'ON'})}) }}"
+              metadata: "{{ _nutanix_vm_get_pre_on.json.metadata | combine({'spec_version': _nutanix_vm_get_pre_on.json.metadata.spec_version | int}) }}"
+            body_format: json
+            return_content: true
+            status_code: [200, 202]
+          register: _nutanix_vm_on_update
+          no_log: true
+
+        - name: Poll power on task until complete
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/tasks/{{ _nutanix_vm_on_update.json.status.execution_context.task_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_on_task_poll
+          until: (_nutanix_on_task_poll.json.status | default('')) in ['SUCCEEDED', 'FAILED']
+          retries: "{{ poc_nutanix_task_poll_retries }}"
+          delay: "{{ poc_nutanix_task_poll_delay }}"
+          no_log: true
+          when: _nutanix_vm_on_update.json.status.execution_context.task_uuid is defined
+
+        # ------------------------------------------------------------ #
+        # Step 4: Wait for VM and SSH to come back online
+        # ------------------------------------------------------------ #
+
+        - name: Wait for VM to finish booting and accept SSH connections
+          ansible.builtin.wait_for_connection:
+            delay: 15
+            timeout: 300
+
+        # ------------------------------------------------------------ #
+        # Step 5: Verify in-guest memory and full stack health
+        # ------------------------------------------------------------ #
+
+        - name: Ensure baseline Docker Compose services are running
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - up
+              - -d
+            chdir: "{{ poc_project_path }}"
+          changed_when: false
 
         - name: Wait for guest to report baseline memory
           ansible.builtin.command:
@@ -239,10 +354,6 @@
           retries: "{{ poc_nutanix_guest_ram_poll_retries }}"
           delay: "{{ poc_nutanix_guest_ram_poll_delay }}"
 
-        # ------------------------------------------------------------ #
-        # Post-restore verification
-        # ------------------------------------------------------------ #
-
         - name: Read final memory state
           ansible.builtin.include_role:
             name: berca_poc_demo
@@ -255,10 +366,6 @@
             fail_msg: >-
               Restore verification failed: guest reports {{ poc_memory_total_gib }} GiB
               (profile: {{ poc_memory_profile }}), expected baseline_16g.
-
-        - name: Wait for SSH connectivity
-          ansible.builtin.wait_for_connection:
-            timeout: 60
 
         - name: Check Datadog Agent is running
           ansible.builtin.systemd:
