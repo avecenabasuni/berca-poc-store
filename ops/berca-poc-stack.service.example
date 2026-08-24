@@ -1,0 +1,20 @@
+[Unit]
+Description=Berca POC baseline Docker Compose boot bootstrap
+Requires=docker.service
+After=network-online.target docker.service
+Wants=network-online.target
+ConditionPathExists=@POC_PROJECT_PATH@/docker-compose.yml
+ConditionPathExists=@POC_PROJECT_PATH@/.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=@POC_PROJECT_PATH@
+ExecStart=/usr/bin/docker compose up -d --no-build postgres redis pgbouncer medusa traefik storefront log-generator traffic-generator datadog-agent
+ExecReload=/usr/bin/docker compose up -d --no-build postgres redis pgbouncer medusa traefik storefront log-generator traffic-generator datadog-agent
+TimeoutStartSec=600
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

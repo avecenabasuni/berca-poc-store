@@ -234,6 +234,20 @@ curl -s http://127.0.0.1:18080/healthz
 Use Datadog Private Action Runner/private HTTP Connections to reach the private
 endpoint. Do not expose this API directly to the internet.
 
+## VM boot and automatic recovery
+
+Install the baseline Compose systemd unit in addition to the Demo Control API
+unit. The baseline unit starts the application, database, proxy, organic
+traffic, log consumer, and Datadog Agent whenever the Linux VM boots. Synthetic
+fault profiles remain disabled.
+
+The complete installation and reboot acceptance test are documented in
+[`../ops/VM-AUTOSTART.md`](../ops/VM-AUTOSTART.md).
+
+Do not rely only on Docker restart policies. The systemd stack unit also
+recreates baseline containers after an earlier `docker compose down`, while
+`--no-build` prevents an unexpected image build during boot.
+
 Token scopes:
 
 | Connection | Allowed actions |
