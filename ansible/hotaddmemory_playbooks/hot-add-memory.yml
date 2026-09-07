@@ -1,19 +1,23 @@
 ---
-# Remediation Job Template: hot-add VM memory from 16 GiB to 24 GiB via
-# Nutanix Prism Central v3 API. Does NOT stop memory-pressure -- the
-# hot-add happens while pressure is still active to demonstrate that
-# vertical scaling resolves the degradation.
+# Remediation Job Template: hot-add VM memory via Nutanix Prism Central v3 API.
+# The amount of memory to add is controlled by the AAP survey field
+# 'memory_to_add_gib' (integer, GiB). Before patching the VM, the playbook
+# queries the Nutanix cluster to confirm enough available memory exists.
 #
-# Job Template: "Hot Add Application VM Memory to 24 GiB"
-# Survey fields: monitor_id, investigation_id, workflow_instance_id
+# Job Template: "Hot Add Application VM Memory"
+# Survey fields:
+#   memory_to_add_gib      - How many GiB of RAM to add (integer, min 1)
+#   monitor_id             - Datadog Monitor ID (audit)
+#   investigation_id       - Datadog Investigation ID (audit)
+#   workflow_instance_id   - Datadog Workflow Instance ID (audit)
 #
-# Nutanix credentials come from AAP Inventory/Credential variables:
+# Nutanix credentials come from AAP Credential variables:
 #   nutanix_prism_endpoint  (e.g. https://prism.bercalab.my.id:9440)
 #   nutanix_vm_uuid         (fixed VM UUID)
 #   nutanix_username
 #   nutanix_password
 
-- name: Hot Add Application VM Memory to 24 GiB
+- name: Hot Add Application VM Memory
   hosts: berca_poc_vm
   serial: 1
   any_errors_fatal: true
@@ -26,14 +30,6 @@
     poc_service: berca-backend
     poc_classification: MEMORY_PRESSURE
     poc_requested_action: hot_add_memory
-    poc_target_profile: application_vm_memory_24g
-    # Memory scenario defaults (duplicated from berca_poc_demo for AAP scope)
-    poc_memory_baseline_mib: 16384
-    poc_memory_target_mib: 24576
-    poc_memory_baseline_tolerance_min_gib: 15
-    poc_memory_baseline_tolerance_max_gib: 17
-    poc_memory_target_tolerance_min_gib: 23
-    poc_memory_target_tolerance_max_gib: 25
     # Nutanix API polling
     poc_nutanix_task_poll_retries: 30
     poc_nutanix_task_poll_delay: 10
@@ -41,6 +37,20 @@
     poc_nutanix_guest_ram_poll_delay: 5
     poc_storefront_catalog_probe_url: "http://127.0.0.1:8000/id/store"
   tasks:
+    # ------------------------------------------------------------ #
+    # Input validation
+    # ------------------------------------------------------------ #
+
+    - name: Validate memory_to_add_gib is provided and is a positive integer
+      ansible.builtin.assert:
+        that:
+          - (memory_to_add_gib | default(none)) is not none
+          - (memory_to_add_gib | int) >= 1
+          - (memory_to_add_gib | int) <= 256
+        fail_msg: >-
+          ABORT: 'memory_to_add_gib' must be a whole number between 1 and 256.
+          Got: '{{ memory_to_add_gib | default("<not provided>") }}'.
+
     - name: Validate audit IDs from survey
       ansible.builtin.assert:
         that:
@@ -88,7 +98,7 @@
             tasks_from: acquire-lock
 
         # ------------------------------------------------------------ #
-        # Read current state
+        # Read current VM state (guest OS view)
         # ------------------------------------------------------------ #
 
         - name: Read memory state
@@ -102,61 +112,7 @@
             tasks_from: read-storefront-state
 
         # ------------------------------------------------------------ #
-        # Idempotent check -- already at 24 GiB
-        # ------------------------------------------------------------ #
-
-        - name: Handle VM already at target 24 GiB
-          when: poc_memory_profile == 'target_24g'
-          block:
-            - name: Publish idempotent hot-add evidence
-              ansible.builtin.set_stats:
-                data:
-                  poc_hot_add_changed: false
-                  poc_memory_profile: "{{ poc_memory_profile }}"
-                  poc_memory_total_gib: "{{ poc_memory_total_gib }}"
-
-            - name: Release lock before ending idempotent hot-add
-              ansible.builtin.include_role:
-                name: berca_poc_demo
-                tasks_from: release-lock
-
-            - name: End host after idempotent hot-add
-              ansible.builtin.meta: end_host
-
-        # ------------------------------------------------------------ #
-        # Pre-flight assertions
-        # ------------------------------------------------------------ #
-
-        - name: Assert VM is at baseline 16 GiB
-          ansible.builtin.assert:
-            that:
-              - poc_memory_profile == 'baseline_16g'
-            fail_msg: >-
-              ABORT: VM memory profile is '{{ poc_memory_profile }}'
-              ({{ poc_memory_total_gib }} GiB), expected 'baseline_16g'.
-              Hot-add only operates from baseline to target.
-
-        - name: Assert memory pressure is active
-          ansible.builtin.assert:
-            that:
-              - poc_memory_pressure_active | bool
-            fail_msg: >-
-              ABORT: Memory pressure container is not active.
-              Hot-add remediation must happen while pressure is running.
-
-        - name: Assert application services are still observable
-          ansible.builtin.assert:
-            that:
-              - poc_storefront_healthy | bool
-              - poc_traefik_healthy | bool
-            fail_msg: "ABORT: Storefront or Traefik is not healthy."
-
-        - name: Store pre-hot-add memory state
-          ansible.builtin.set_fact:
-            _memory_before_gib: "{{ poc_memory_total_gib }}"
-
-        # ------------------------------------------------------------ #
-        # Nutanix Prism Central v3 API -- get current VM spec
+        # Get current VM spec from Nutanix (authoritative for sizing)
         # ------------------------------------------------------------ #
 
         - name: Get current VM spec from Nutanix
@@ -174,16 +130,134 @@
           become: false
           no_log: true
 
-        - name: Extract current VM memory and spec version
+        - name: Extract current VM memory and spec metadata from Nutanix
           ansible.builtin.set_fact:
-            _nutanix_current_memory_mib: "{{ _nutanix_vm_get.json.spec.resources.memory_size_mib }}"
+            _nutanix_current_memory_mib: "{{ _nutanix_vm_get.json.spec.resources.memory_size_mib | int }}"
             _nutanix_spec_version: "{{ _nutanix_vm_get.json.metadata.spec_version }}"
             _nutanix_vm_spec: "{{ _nutanix_vm_get.json.spec }}"
             _nutanix_vm_metadata: "{{ _nutanix_vm_get.json.metadata }}"
 
-        - name: Display current Nutanix VM memory
+        # ------------------------------------------------------------ #
+        # Compute target memory from current + user-requested delta
+        # ------------------------------------------------------------ #
+
+        - name: Compute target memory in MiB
+          ansible.builtin.set_fact:
+            _memory_add_mib: "{{ (memory_to_add_gib | int) * 1024 }}"
+            _memory_target_mib: "{{ (_nutanix_current_memory_mib | int) + ((memory_to_add_gib | int) * 1024) }}"
+            _memory_before_mib: "{{ _nutanix_current_memory_mib }}"
+
+        - name: Display planned memory change
           ansible.builtin.debug:
-            msg: "Nutanix VM current memory: {{ _nutanix_current_memory_mib }} MiB (spec_version: {{ _nutanix_spec_version }})"
+            msg: >
+              Planning hot-add:
+              current={{ _nutanix_current_memory_mib }} MiB
+              ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB)
+              + requested={{ _memory_add_mib }} MiB
+              ({{ memory_to_add_gib }} GiB)
+              => target={{ _memory_target_mib }} MiB
+              ({{ (_memory_target_mib | int // 1024) }} GiB)
+
+        # ------------------------------------------------------------ #
+        # Idempotent check: already at or above target
+        # ------------------------------------------------------------ #
+
+        - name: Handle VM already at or above target memory (idempotent)
+          when: (_nutanix_current_memory_mib | int) >= (_memory_target_mib | int)
+          block:
+            - name: Publish idempotent hot-add evidence
+              ansible.builtin.set_stats:
+                data:
+                  poc_hot_add_changed: false
+                  poc_memory_current_mib: "{{ _nutanix_current_memory_mib }}"
+                  poc_memory_target_mib: "{{ _memory_target_mib }}"
+
+            - name: Release lock before ending idempotent hot-add
+              ansible.builtin.include_role:
+                name: berca_poc_demo
+                tasks_from: release-lock
+
+            - name: End host after idempotent hot-add
+              ansible.builtin.meta: end_host
+
+        # ------------------------------------------------------------ #
+        # Pre-flight assertions (guest-side)
+        # ------------------------------------------------------------ #
+
+        - name: Assert memory pressure is active
+          ansible.builtin.assert:
+            that:
+              - poc_memory_pressure_active | bool
+            fail_msg: >-
+              ABORT: Memory pressure container is not active.
+              Hot-add remediation must happen while pressure is running.
+
+        - name: Assert application services are still observable
+          ansible.builtin.assert:
+            that:
+              - poc_storefront_healthy | bool
+              - poc_traefik_healthy | bool
+            fail_msg: "ABORT: Storefront or Traefik is not healthy."
+
+        # ------------------------------------------------------------ #
+        # Nutanix cluster capacity check
+        # ------------------------------------------------------------ #
+
+        - name: Query Nutanix cluster list
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/clusters/list"
+            method: POST
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            body: '{"kind": "cluster", "length": 1}'
+            body_format: json
+            return_content: true
+            status_code: 200
+          register: _nutanix_clusters
+          delegate_to: localhost
+          become: false
+          no_log: true
+
+        - name: Extract cluster memory capacity and usage from Nutanix
+          ansible.builtin.set_fact:
+            _cluster_memory_capacity_mib: >-
+              {{ _nutanix_clusters.json.entities[0].status.resources.memory_capacity_mib
+                 | default(0) | int }}
+            _cluster_memory_usage_mib: >-
+              {{ _nutanix_clusters.json.entities[0].status.resources.memory_usage_mib
+                 | default(0) | int }}
+
+        - name: Compute cluster free memory
+          ansible.builtin.set_fact:
+            _cluster_free_mib: >-
+              {{ (_cluster_memory_capacity_mib | int) - (_cluster_memory_usage_mib | int) }}
+
+        - name: Display cluster memory capacity summary
+          ansible.builtin.debug:
+            msg: >
+              Nutanix cluster memory —
+              capacity: {{ _cluster_memory_capacity_mib }} MiB
+              ({{ (_cluster_memory_capacity_mib | int // 1024) }} GiB),
+              used: {{ _cluster_memory_usage_mib }} MiB,
+              free: {{ _cluster_free_mib }} MiB
+              ({{ (_cluster_free_mib | int // 1024) }} GiB).
+              Requested delta: {{ _memory_add_mib }} MiB ({{ memory_to_add_gib }} GiB).
+
+        - name: Assert cluster has enough free memory for the requested hot-add
+          ansible.builtin.assert:
+            that:
+              - (_cluster_free_mib | int) >= (_memory_add_mib | int)
+            fail_msg: >-
+              ABORT: Nutanix cluster does not have enough free memory to satisfy
+              this request.
+              Requested: {{ _memory_add_mib }} MiB ({{ memory_to_add_gib }} GiB).
+              Cluster free: {{ _cluster_free_mib }} MiB
+              ({{ (_cluster_free_mib | int // 1024) }} GiB).
+              Cluster capacity: {{ _cluster_memory_capacity_mib }} MiB,
+              cluster used: {{ _cluster_memory_usage_mib }} MiB.
+              Reduce the requested amount or free cluster resources first.
 
         # ------------------------------------------------------------ #
         # Nutanix Prism Central v3 API -- update VM memory
@@ -192,7 +266,7 @@
         - name: Build updated VM spec with target memory
           ansible.builtin.set_fact:
             _nutanix_update_body:
-              spec: "{{ _nutanix_vm_spec | combine({'resources': _nutanix_vm_spec.resources | combine({'memory_size_mib': poc_memory_target_mib | int})}) }}"
+              spec: "{{ _nutanix_vm_spec | combine({'resources': _nutanix_vm_spec.resources | combine({'memory_size_mib': _memory_target_mib | int})}) }}"
               metadata: "{{ _nutanix_vm_metadata | combine({'spec_version': _nutanix_spec_version | int}) }}"
 
         - name: Update VM memory via Nutanix Prism Central API
@@ -252,10 +326,14 @@
               Status: {{ _nutanix_task_poll.json.status | default('unknown') }}
 
         # ------------------------------------------------------------ #
-        # Wait for guest to see updated RAM
+        # Wait for guest OS to see updated RAM
         # ------------------------------------------------------------ #
 
-        - name: Wait for guest to report target memory
+        - name: Compute minimum expected guest memory in KiB (target - 1 GiB tolerance)
+          ansible.builtin.set_fact:
+            _guest_ram_min_kib: "{{ ((_memory_target_mib | int) - 1024) * 1024 }}"
+
+        - name: Wait for guest OS to report at least target memory
           ansible.builtin.command:
             argv:
               - awk
@@ -263,7 +341,7 @@
               - /proc/meminfo
           register: _guest_ram_poll
           changed_when: false
-          until: ((_guest_ram_poll.stdout | trim | int) / 1048576) | round(0) | int >= (poc_memory_target_tolerance_min_gib | int)
+          until: (_guest_ram_poll.stdout | trim | int) >= (_guest_ram_min_kib | int)
           retries: "{{ poc_nutanix_guest_ram_poll_retries }}"
           delay: "{{ poc_nutanix_guest_ram_poll_delay }}"
 
@@ -276,14 +354,14 @@
             name: berca_poc_demo
             tasks_from: read-memory-state
 
-        - name: Assert VM is at target 24 GiB profile
+        - name: Assert VM guest reports at least target memory
           ansible.builtin.assert:
             that:
-              - poc_memory_profile == 'target_24g'
-              - (poc_memory_total_gib | float) >= (poc_memory_target_tolerance_min_gib | float)
+              - (poc_memory_total_mib | default(0) | int) >= ((_memory_target_mib | int) - 1024)
             fail_msg: >-
-              Hot-add verification failed: guest reports {{ poc_memory_total_gib }} GiB
-              (profile: {{ poc_memory_profile }}), expected target_24g.
+              Hot-add verification failed: guest reports
+              {{ poc_memory_total_mib | default(0) }} MiB,
+              expected at least {{ (_memory_target_mib | int) - 1024 }} MiB.
 
         - name: Assert memory pressure is still active
           ansible.builtin.assert:
@@ -307,12 +385,16 @@
           ansible.builtin.set_stats:
             data:
               poc_hot_add_changed: true
-              poc_memory_before_gib: "{{ _memory_before_gib }}"
-              poc_memory_after_gib: "{{ poc_memory_total_gib }}"
-              poc_memory_profile: "{{ poc_memory_profile }}"
+              poc_memory_before_mib: "{{ _memory_before_mib }}"
+              poc_memory_before_gib: "{{ (_memory_before_mib | int // 1024) }}"
+              poc_memory_added_gib: "{{ memory_to_add_gib }}"
+              poc_memory_target_mib: "{{ _memory_target_mib }}"
+              poc_memory_target_gib: "{{ (_memory_target_mib | int // 1024) }}"
+              poc_memory_after_mib: "{{ poc_memory_total_mib | default(0) }}"
               poc_memory_pressure_active: "{{ poc_memory_pressure_active }}"
               nutanix_task_uuid: "{{ _nutanix_task_uuid }}"
               poc_storefront_healthy: "{{ poc_storefront_healthy }}"
+              cluster_free_before_mib: "{{ _cluster_free_mib }}"
       always:
         - name: Release shared operation lock
           ansible.builtin.include_role:

@@ -38,8 +38,8 @@ ansible/roles/berca_poc_demo/           # Shared infrastructure
 | File | Job Template Name | JT ID | Purpose |
 |------|------------------|---|---------|
 | [`inject-memory.yml`](file:///C:/Users/User/OneDrive/Dokumen/GitHub/berca-poc-store/ansible/hotaddmemory_playbooks/inject-memory.yml) | `Inject Application VM Memory Pressure` | **33** | Starts `memory-pressure` container with preflight checks |
-| [`hot-add-memory.yml`](file:///C:/Users/User/OneDrive/Dokumen/GitHub/berca-poc-store/ansible/hotaddmemory_playbooks/hot-add-memory.yml) | `Hot Add Application VM Memory to 24 GiB` | **34** | Nutanix API hot-add 16->24 GiB while pressure active |
-| [`restore-memory.yml`](file:///C:/Users/User/OneDrive/Dokumen/GitHub/berca-poc-store/ansible/hotaddmemory_playbooks/restore-memory.yml) | `Restore Application VM Memory Baseline` | **35** | Stop pressure + Nutanix API restore 24->16 GiB + health check |
+| [`hot-add-memory.yml`](file:///C:/Users/User/OneDrive/Dokumen/GitHub/berca-poc-store/ansible/hotaddmemory_playbooks/hot-add-memory.yml) | `Hot Add Application VM Memory` | **34** | Nutanix API hot-add by user-specified GiB while pressure active |
+| [`restore-memory.yml`](file:///C:/Users/User/OneDrive/Dokumen/GitHub/berca-poc-store/ansible/hotaddmemory_playbooks/restore-memory.yml) | `Restore Application VM Memory Baseline` | **35** | Stop pressure + Nutanix API restore to 16 GiB + health check |
 
 ---
 
@@ -117,7 +117,7 @@ In AAP → **Resources > Credentials > Add**:
 - **Survey:** None
 - **User Access:** User `svc-datadog-fault-control` → Role: `Execute`
 
-#### Remediation JT: `Hot Add Application VM Memory to 24 GiB` (JT 34)
+#### Remediation JT: `Hot Add Application VM Memory` (JT 34)
 - **Job Type:** `Run`
 - **Inventory:** `Ansible Datadog Collab POC VMs`
 - **Project:** `Ansible Datadog Playbooks`
@@ -130,10 +130,13 @@ In AAP → **Resources > Credentials > Add**:
 - **Survey Configuration (Enabled):**
   | # | Prompt / Question | Description | Answer Variable Name | Type | Required | Default Answer |
   |---|---|---|---|---|---|---|
-  | 1 | Datadog Monitor ID | ID of the Datadog monitor triggering remediation | `monitor_id` | Text | Yes | `manual-test` |
-  | 2 | Bits Investigation ID | ID of the Bits investigation session | `investigation_id` | Text | Yes | `manual-test` |
-  | 3 | Workflow Instance ID | Execution ID of the Datadog remediation workflow | `workflow_instance_id` | Text | Yes | `manual-test` |
-- **User Access:** User `svc-datadog-remediation` → Role: `Execute`
+  | 1 | **Memory to Add (GiB)** | How many GiB of RAM to hot-add to the VM (must be ≥ 1) | `memory_to_add_gib` | Integer | Yes | `8` |
+  | 2 | Datadog Monitor ID | ID of the Datadog monitor triggering remediation | `monitor_id` | Text | Yes | `manual-test` |
+  | 3 | Bits Investigation ID | ID of the Bits investigation session | `investigation_id` | Text | Yes | `manual-test` |
+  | 4 | Workflow Instance ID | Execution ID of the Datadog remediation workflow | `workflow_instance_id` | Text | Yes | `manual-test` |
+
+> [!IMPORTANT]
+> The playbook computes the **target** as `current_vm_memory + memory_to_add_gib`. It then queries the Nutanix cluster to verify enough free memory exists **before** touching the VM. If the cluster cannot satisfy the request, the playbook fails immediately with a clear error showing free vs. requested capacity.
 
 #### Reset JT: `Restore Application VM Memory Baseline` (JT 35)
 - **Job Type:** `Run`
@@ -179,19 +182,26 @@ sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_pr
 3. Idempotency Check: Re-run JT 33 → Succeeds with `poc_memory_fault_changed: false`.
 
 ### Step 3: Trigger Remediation (JT 34)
-1. In AAP → Launch JT **34** (`Hot Add Application VM Memory to 24 GiB`) with default survey answers (`manual-test`).
-2. Verify on VM:
+1. In AAP → Launch JT **34** (`Hot Add Application VM Memory`).
+2. Fill in the survey:
+   - **Memory to Add (GiB):** `8` *(or any positive integer — the playbook validates against cluster capacity first)*
+   - **Datadog Monitor ID**, **Investigation ID**, **Workflow Instance ID**: `manual-test`
+3. The playbook will:
+   - Query Nutanix to read the **current VM RAM** (e.g., 16 GiB)
+   - Compute the **target** (e.g., 16 + 8 = 24 GiB)
+   - Query the Nutanix **cluster free memory** — if the cluster does not have 8 GiB free, the playbook fails immediately with a clear error
+   - Apply the update via Nutanix API and wait for the guest to report the new total
+4. Verify on VM:
    ```bash
    free -h
-   # Expected: Total shows ~23-24 GiB
+   # Expected: Total shows the new size (e.g., ~23-24 GiB for an 8 GiB add)
    docker ps --filter "name=memory_pressure"
    # Expected: Container is STILL running (hot-add succeeded under active workload)
    sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active, usable_pct: .memory_usable_fraction}'
-   # Expected: { "profile": "target_24g", "pressure": true, "usable_pct": >0.30 }
    curl -o /dev/null -s -w '%{http_code}\n' http://127.0.0.1:8000/id/store
    # Expected: 200
    ```
-3. Prism Central Check: VM `Datadog-Lab-Ubuntu` memory shows **24 GiB**.
+5. Prism Central Check: VM memory reflects the new size.
 
 ### Step 4: Stop Pressure and Reset Baseline (JT 35)
 1. Stop pressure container on VM:
