@@ -367,11 +367,11 @@
         - name: Assert VM guest reports at least target memory
           ansible.builtin.assert:
             that:
-              - (poc_memory_total_mib | default(0) | int) >= ((_memory_target_mib | int) - 1024)
+              - (poc_memory_total_gib | float) >= ((_memory_target_mib | int) / 1024 - 1) | float
             fail_msg: >-
               Hot-add verification failed: guest reports
-              {{ poc_memory_total_mib | default(0) }} MiB,
-              expected at least {{ (_memory_target_mib | int) - 1024 }} MiB.
+              {{ poc_memory_total_gib }} GiB,
+              expected at least {{ ((_memory_target_mib | int) / 1024 - 1) | round(1) }} GiB.
 
         - name: Assert memory pressure is still active
           ansible.builtin.assert:
@@ -400,7 +400,7 @@
               poc_memory_added_gib: "{{ memory_to_add_gib }}"
               poc_memory_target_mib: "{{ _memory_target_mib }}"
               poc_memory_target_gib: "{{ (_memory_target_mib | int // 1024) }}"
-              poc_memory_after_mib: "{{ poc_memory_total_mib | default(0) }}"
+              poc_memory_after_gib: "{{ poc_memory_total_gib }}"
               poc_memory_pressure_active: "{{ poc_memory_pressure_active }}"
               nutanix_task_uuid: "{{ _nutanix_task_uuid }}"
               poc_storefront_healthy: "{{ poc_storefront_healthy }}"
