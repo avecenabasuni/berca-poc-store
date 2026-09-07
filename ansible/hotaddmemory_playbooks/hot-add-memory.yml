@@ -200,34 +200,44 @@
             fail_msg: "ABORT: Storefront or Traefik is not healthy."
 
         # ------------------------------------------------------------ #
-        # Nutanix cluster capacity check
+        # Nutanix cluster capacity check (via hosts/list)
         # ------------------------------------------------------------ #
 
-        - name: Query Nutanix cluster list
+        - name: Query all Nutanix hosts to aggregate free memory
           ansible.builtin.uri:
-            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/clusters/list"
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/hosts/list"
             method: POST
             user: "{{ nutanix_username }}"
             password: "{{ nutanix_password }}"
             force_basic_auth: true
             validate_certs: false
-            body: '{"kind": "cluster", "length": 1}'
+            body: '{"kind": "host", "length": 100}'
             body_format: json
             return_content: true
             status_code: 200
-          register: _nutanix_clusters
+          register: _nutanix_hosts
           delegate_to: localhost
           become: false
           no_log: true
 
-        - name: Extract cluster memory capacity and usage from Nutanix
+        - name: Initialise cluster memory accumulators
+          ansible.builtin.set_fact:
+            _cluster_memory_capacity_mib: 0
+            _cluster_memory_usage_mib: 0
+
+        - name: Accumulate capacity and usage across all hosts
           ansible.builtin.set_fact:
             _cluster_memory_capacity_mib: >-
-              {{ _nutanix_clusters.json.entities[0].status.resources.memory_capacity_mib
-                 | default(0) | int }}
+              {{ (_cluster_memory_capacity_mib | int)
+                 + (item.status.resources.memory_capacity_mib | default(0) | int) }}
             _cluster_memory_usage_mib: >-
-              {{ _nutanix_clusters.json.entities[0].status.resources.memory_usage_mib
-                 | default(0) | int }}
+              {{ (_cluster_memory_usage_mib | int)
+                 + (((item.status.resources.memory_capacity_mib | default(0) | int)
+                     * (item.status.resources.hypervisor.memory_usage_ppm | default(0) | int))
+                    // 1000000) }}
+          loop: "{{ _nutanix_hosts.json.entities }}"
+          loop_control:
+            label: "{{ item.status.name | default('host') }}"
 
         - name: Compute cluster free memory
           ansible.builtin.set_fact:
@@ -237,7 +247,7 @@
         - name: Display cluster memory capacity summary
           ansible.builtin.debug:
             msg: >
-              Nutanix cluster memory —
+              Nutanix cluster memory (from {{ _nutanix_hosts.json.metadata.total_matches | default('?') }} host(s)) —
               capacity: {{ _cluster_memory_capacity_mib }} MiB
               ({{ (_cluster_memory_capacity_mib | int // 1024) }} GiB),
               used: {{ _cluster_memory_usage_mib }} MiB,
