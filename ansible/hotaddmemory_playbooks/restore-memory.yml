@@ -1,10 +1,12 @@
 ---
-# Reset Job Template: stop memory pressure, restore VM RAM to 16 GiB
-# via Nutanix Prism Central v3 API (Power Off -> Resize -> Power On),
+# Reset Job Template: stop memory pressure, restore VM RAM to the baseline
+# (16 GiB) via Nutanix Prism Central v3 API (Power Off -> Resize -> Power On),
 # then verify baseline health.
 #
-# All Nutanix API calls use delegate_to: localhost so they run directly
-# from the AAP runner container without requiring SSH to the target VM.
+# The playbook reads the current VM RAM from Nutanix and restores it to
+# poc_memory_baseline_mib regardless of what it was previously set to.
+# It is idempotent: if the VM is already at or below the baseline, it
+# succeeds without making any Nutanix API changes.
 #
 # Job Template: "Restore Application VM Memory Baseline"
 # No survey -- presenter one-button reset.
@@ -17,13 +19,11 @@
   gather_facts: true
   vars:
     poc_action: restore_memory_baseline
-    # Memory scenario defaults (duplicated from berca_poc_demo for AAP scope)
+    # Baseline definition -- the only hardcoded value; all other checks are
+    # derived from this at runtime.
     poc_memory_baseline_mib: 16384
-    poc_memory_target_mib: 24576
     poc_memory_baseline_tolerance_min_gib: 15
     poc_memory_baseline_tolerance_max_gib: 17
-    poc_memory_target_tolerance_min_gib: 23
-    poc_memory_target_tolerance_max_gib: 25
     # Nutanix API polling
     poc_nutanix_task_poll_retries: 30
     poc_nutanix_task_poll_delay: 10
@@ -74,27 +74,59 @@
             tasks_from: read-memory-state
 
         # ------------------------------------------------------------ #
-        # Idempotent check -- already at baseline
+        # Read current VM RAM from Nutanix (authoritative source)
         # ------------------------------------------------------------ #
 
-        - name: Handle VM already at baseline 16 GiB
-          when: poc_memory_profile == 'baseline_16g'
+        - name: Get current VM spec from Nutanix
+          ansible.builtin.uri:
+            url: "{{ nutanix_prism_endpoint }}/api/nutanix/v3/vms/{{ nutanix_vm_uuid }}"
+            method: GET
+            user: "{{ nutanix_username }}"
+            password: "{{ nutanix_password }}"
+            force_basic_auth: true
+            validate_certs: false
+            return_content: true
+            status_code: 200
+          register: _nutanix_vm_get_current
+          delegate_to: localhost
+          become: false
+          no_log: true
+
+        - name: Extract current VM RAM from Nutanix
+          ansible.builtin.set_fact:
+            _nutanix_current_memory_mib: "{{ _nutanix_vm_get_current.json.spec.resources.memory_size_mib | int }}"
+
+        - name: Display current Nutanix VM memory
+          ansible.builtin.debug:
+            msg: >-
+              Current VM RAM (Nutanix): {{ _nutanix_current_memory_mib }} MiB
+              ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB).
+              Baseline: {{ poc_memory_baseline_mib }} MiB
+              ({{ (poc_memory_baseline_mib | int // 1024) }} GiB).
+
+        # ------------------------------------------------------------ #
+        # Idempotent check -- already at or below baseline
+        # ------------------------------------------------------------ #
+
+        - name: Handle VM already at or below baseline (idempotent)
+          when: (_nutanix_current_memory_mib | int) <= (poc_memory_baseline_mib | int)
           block:
             - name: Verify pressure is not active at baseline
               ansible.builtin.assert:
                 that:
                   - not (poc_memory_pressure_active | bool)
                 fail_msg: >-
-                  VM is at baseline 16 GiB but memory pressure is still active.
-                  Stop pressure before restoring baseline, or use the canonical
-                  reset which handles both.
+                  VM is already at baseline RAM
+                  ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB) but
+                  memory pressure is still active. Stop the pressure container
+                  before running restore.
 
             - name: Publish idempotent restore evidence
               ansible.builtin.set_stats:
                 data:
                   poc_restore_changed: false
-                  poc_memory_profile: "{{ poc_memory_profile }}"
-                  poc_memory_total_gib: "{{ poc_memory_total_gib }}"
+                  poc_memory_current_gib: "{{ (_nutanix_current_memory_mib | int // 1024) }}"
+                  poc_memory_baseline_gib: "{{ (poc_memory_baseline_mib | int // 1024) }}"
 
             - name: Release lock before ending idempotent restore
               ansible.builtin.include_role:
@@ -108,15 +140,15 @@
         # Pre-flight assertions
         # ------------------------------------------------------------ #
 
-        - name: Assert VM is at target 24 GiB (not unexpected)
+        - name: Assert VM RAM is above baseline (restore is meaningful)
           ansible.builtin.assert:
             that:
-              - poc_memory_profile == 'target_24g'
+              - (_nutanix_current_memory_mib | int) > (poc_memory_baseline_mib | int)
             fail_msg: >-
-              ABORT: VM memory profile is '{{ poc_memory_profile }}'
-              ({{ poc_memory_total_gib }} GiB). Restore only operates
-              from target_24g to baseline_16g. Unexpected profiles
-              require manual intervention.
+              ABORT: VM RAM is {{ (_nutanix_current_memory_mib | int // 1024) }} GiB
+              ({{ _nutanix_current_memory_mib }} MiB), which is not above the
+              baseline of {{ (poc_memory_baseline_mib | int // 1024) }} GiB.
+              No restore action needed.
 
         - name: Assert memory pressure is NOT active
           ansible.builtin.assert:
@@ -129,7 +161,7 @@
 
         - name: Store pre-restore memory state
           ansible.builtin.set_fact:
-            _memory_before_gib: "{{ poc_memory_total_gib }}"
+            _memory_before_gib: "{{ (_nutanix_current_memory_mib | int // 1024) }}"
 
         # ------------------------------------------------------------ #
         # Step 1: Power Off VM via Nutanix Prism Central v3 API
@@ -428,13 +460,15 @@
             name: berca_poc_demo
             tasks_from: read-memory-state
 
-        - name: Assert VM is at baseline 16 GiB profile
+        - name: Assert VM guest is at baseline memory
           ansible.builtin.assert:
             that:
-              - poc_memory_profile == 'baseline_16g'
+              - (poc_memory_total_gib | float) >= (poc_memory_baseline_tolerance_min_gib | float)
+              - (poc_memory_total_gib | float) <= (poc_memory_baseline_tolerance_max_gib | float)
             fail_msg: >-
-              Restore verification failed: guest reports {{ poc_memory_total_gib }} GiB
-              (profile: {{ poc_memory_profile }}), expected baseline_16g.
+              Restore verification failed: guest reports {{ poc_memory_total_gib }} GiB,
+              expected between {{ poc_memory_baseline_tolerance_min_gib }} and
+              {{ poc_memory_baseline_tolerance_max_gib }} GiB.
 
         - name: Check Datadog Agent is running
           ansible.builtin.systemd:
