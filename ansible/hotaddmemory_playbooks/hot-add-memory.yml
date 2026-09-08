@@ -1,12 +1,14 @@
 ---
 # Remediation Job Template: hot-add VM memory via Nutanix Prism Central v3 API.
-# The amount of memory to add is controlled by the AAP survey field
-# 'memory_to_add_gib' (integer, GiB). Before patching the VM, the playbook
-# queries the Nutanix cluster to confirm enough available memory exists.
+# The desired total RAM is specified via the AAP survey field
+# 'memory_target_gib' (integer, GiB). The playbook:
+#   1. Fails if the target <= current VM RAM (cannot shrink memory via hot-add)
+#   2. Succeeds silently (idempotent) if the VM is already at or above the target
+#   3. Checks the Nutanix cluster for enough free memory before patching the VM
 #
 # Job Template: "Hot Add Application VM Memory"
 # Survey fields:
-#   memory_to_add_gib      - How many GiB of RAM to add (integer, min 1)
+#   memory_target_gib      - Desired total RAM in GiB after hot-add (integer, min 1)
 #   monitor_id             - Datadog Monitor ID (audit)
 #   investigation_id       - Datadog Investigation ID (audit)
 #   workflow_instance_id   - Datadog Workflow Instance ID (audit)
@@ -41,15 +43,15 @@
     # Input validation
     # ------------------------------------------------------------ #
 
-    - name: Validate memory_to_add_gib is provided and is a positive integer
+    - name: Validate memory_target_gib is provided and is a positive integer
       ansible.builtin.assert:
         that:
-          - (memory_to_add_gib | default(none)) is not none
-          - (memory_to_add_gib | int) >= 1
-          - (memory_to_add_gib | int) <= 256
+          - (memory_target_gib | default(none)) is not none
+          - (memory_target_gib | int) >= 1
+          - (memory_target_gib | int) <= 512
         fail_msg: >-
-          ABORT: 'memory_to_add_gib' must be a whole number between 1 and 256.
-          Got: '{{ memory_to_add_gib | default("<not provided>") }}'.
+          ABORT: 'memory_target_gib' must be a whole number between 1 and 512.
+          Got: '{{ memory_target_gib | default("<not provided>") }}'.
 
     - name: Validate audit IDs from survey
       ansible.builtin.assert:
@@ -138,14 +140,15 @@
             _nutanix_vm_metadata: "{{ _nutanix_vm_get.json.metadata }}"
 
         # ------------------------------------------------------------ #
-        # Compute target memory from current + user-requested delta
+        # Compute delta and validate direction of change
         # ------------------------------------------------------------ #
 
-        - name: Compute target memory in MiB
+        - name: Convert target to MiB and compute delta
           ansible.builtin.set_fact:
-            _memory_add_mib: "{{ (memory_to_add_gib | int) * 1024 }}"
-            _memory_target_mib: "{{ (_nutanix_current_memory_mib | int) + ((memory_to_add_gib | int) * 1024) }}"
+            _memory_target_mib: "{{ (memory_target_gib | int) * 1024 }}"
             _memory_before_mib: "{{ _nutanix_current_memory_mib }}"
+            _memory_add_mib: >-
+              {{ ((memory_target_gib | int) * 1024) - (_nutanix_current_memory_mib | int) }}
 
         - name: Display planned memory change
           ansible.builtin.debug:
@@ -153,10 +156,21 @@
               Planning hot-add:
               current={{ _nutanix_current_memory_mib }} MiB
               ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB)
-              + requested={{ _memory_add_mib }} MiB
-              ({{ memory_to_add_gib }} GiB)
               => target={{ _memory_target_mib }} MiB
-              ({{ (_memory_target_mib | int // 1024) }} GiB)
+              ({{ memory_target_gib }} GiB),
+              delta={{ _memory_add_mib }} MiB
+
+        - name: Fail if target RAM is less than current VM RAM (cannot shrink via hot-add)
+          ansible.builtin.assert:
+            that:
+              - (_memory_target_mib | int) > (_nutanix_current_memory_mib | int)
+            fail_msg: >-
+              ABORT: Requested target ({{ memory_target_gib }} GiB /
+              {{ _memory_target_mib }} MiB) is not greater than the VM's
+              current RAM ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB /
+              {{ _nutanix_current_memory_mib }} MiB).
+              Memory hot-add can only increase RAM. To shrink, use the Restore
+              playbook instead.
 
         # ------------------------------------------------------------ #
         # Idempotent check: already at or above target
@@ -169,8 +183,8 @@
               ansible.builtin.set_stats:
                 data:
                   poc_hot_add_changed: false
-                  poc_memory_current_mib: "{{ _nutanix_current_memory_mib }}"
-                  poc_memory_target_mib: "{{ _memory_target_mib }}"
+                  poc_memory_current_gib: "{{ (_nutanix_current_memory_mib | int // 1024) }}"
+                  poc_memory_target_gib: "{{ memory_target_gib }}"
 
             - name: Release lock before ending idempotent hot-add
               ansible.builtin.include_role:
@@ -397,9 +411,9 @@
               poc_hot_add_changed: true
               poc_memory_before_mib: "{{ _memory_before_mib }}"
               poc_memory_before_gib: "{{ (_memory_before_mib | int // 1024) }}"
-              poc_memory_added_gib: "{{ memory_to_add_gib }}"
+              poc_memory_added_gib: "{{ (_memory_add_mib | int // 1024) }}"
+              poc_memory_target_gib: "{{ memory_target_gib }}"
               poc_memory_target_mib: "{{ _memory_target_mib }}"
-              poc_memory_target_gib: "{{ (_memory_target_mib | int // 1024) }}"
               poc_memory_after_gib: "{{ poc_memory_total_gib }}"
               poc_memory_pressure_active: "{{ poc_memory_pressure_active }}"
               nutanix_task_uuid: "{{ _nutanix_task_uuid }}"

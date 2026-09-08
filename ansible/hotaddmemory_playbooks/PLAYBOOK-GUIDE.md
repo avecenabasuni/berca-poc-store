@@ -130,13 +130,13 @@ In AAP → **Resources > Credentials > Add**:
 - **Survey Configuration (Enabled):**
   | # | Prompt / Question | Description | Answer Variable Name | Type | Required | Default Answer |
   |---|---|---|---|---|---|---|
-  | 1 | **Memory to Add (GiB)** | How many GiB of RAM to hot-add to the VM (must be ≥ 1) | `memory_to_add_gib` | Integer | Yes | `8` |
+  | 1 | **Target RAM (GiB)** | Desired total VM RAM after hot-add — must be greater than current RAM | `memory_target_gib` | Integer | Yes | `24` |
   | 2 | Datadog Monitor ID | ID of the Datadog monitor triggering remediation | `monitor_id` | Text | Yes | `manual-test` |
   | 3 | Bits Investigation ID | ID of the Bits investigation session | `investigation_id` | Text | Yes | `manual-test` |
   | 4 | Workflow Instance ID | Execution ID of the Datadog remediation workflow | `workflow_instance_id` | Text | Yes | `manual-test` |
 
 > [!IMPORTANT]
-> The playbook computes the **target** as `current_vm_memory + memory_to_add_gib`. It then queries the Nutanix cluster to verify enough free memory exists **before** touching the VM. If the cluster cannot satisfy the request, the playbook fails immediately with a clear error showing free vs. requested capacity.
+> `memory_target_gib` is the **absolute total RAM** you want the VM to have after the operation — not the amount to add. For example, if the VM currently has 16 GiB and you enter `24`, the playbook adds 8 GiB. If the VM is already at 24 GiB or above, the playbook succeeds silently (idempotent). If you enter a value ≤ the current RAM, the playbook fails immediately with a clear error. The Nutanix cluster free-memory check is also performed before any changes are made.
 
 #### Reset JT: `Restore Application VM Memory Baseline` (JT 35)
 - **Job Type:** `Run`
@@ -184,17 +184,18 @@ sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_pr
 ### Step 3: Trigger Remediation (JT 34)
 1. In AAP → Launch JT **34** (`Hot Add Application VM Memory`).
 2. Fill in the survey:
-   - **Memory to Add (GiB):** `8` *(or any positive integer — the playbook validates against cluster capacity first)*
+   - **Target RAM (GiB):** `24` *(the total RAM you want the VM to have — e.g., if currently at 16 GiB, this adds 8 GiB)*
    - **Datadog Monitor ID**, **Investigation ID**, **Workflow Instance ID**: `manual-test`
 3. The playbook will:
    - Query Nutanix to read the **current VM RAM** (e.g., 16 GiB)
-   - Compute the **target** (e.g., 16 + 8 = 24 GiB)
-   - Query the Nutanix **cluster free memory** — if the cluster does not have 8 GiB free, the playbook fails immediately with a clear error
-   - Apply the update via Nutanix API and wait for the guest to report the new total
+   - Fail immediately if `24 ≤ 16` (target not greater than current — prevents mistakes)
+   - Succeed silently if the VM is already at 24 GiB or above (idempotent)
+   - Query the Nutanix **cluster free memory** — if the cluster doesn't have 8 GiB free, fail with a clear error
+   - Apply the update via Nutanix API and wait for the guest to confirm the new total
 4. Verify on VM:
    ```bash
    free -h
-   # Expected: Total shows the new size (e.g., ~23-24 GiB for an 8 GiB add)
+   # Expected: Total shows ~23-24 GiB
    docker ps --filter "name=memory_pressure"
    # Expected: Container is STILL running (hot-add succeeded under active workload)
    sudo /home/ave/berca-poc-store/demo-control.sh status | jq '{profile: .memory_profile, pressure: .memory_pressure_active, usable_pct: .memory_usable_fraction}'
