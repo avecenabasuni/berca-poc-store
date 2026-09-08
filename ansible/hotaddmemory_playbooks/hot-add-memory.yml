@@ -163,11 +163,11 @@
         - name: Fail if target RAM is less than current VM RAM (cannot shrink via hot-add)
           ansible.builtin.assert:
             that:
-              - (_memory_target_mib | int) > (_nutanix_current_memory_mib | int)
+              - (_memory_target_mib | int) >= (_nutanix_current_memory_mib | int)
             fail_msg: >-
               ABORT: Requested target ({{ memory_target_gib }} GiB /
-              {{ _memory_target_mib }} MiB) is not greater than the VM's
-              current RAM ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB /
+              {{ _memory_target_mib }} MiB) is less than the VM's current RAM
+              ({{ (_nutanix_current_memory_mib | int // 1024) }} GiB /
               {{ _nutanix_current_memory_mib }} MiB).
               Memory hot-add can only increase RAM. To shrink, use the Restore
               playbook instead.
@@ -176,8 +176,8 @@
         # Idempotent check: already at or above target
         # ------------------------------------------------------------ #
 
-        - name: Handle VM already at or above target memory (idempotent)
-          when: (_nutanix_current_memory_mib | int) >= (_memory_target_mib | int)
+        - name: Handle VM already at target memory (idempotent)
+          when: (_memory_target_mib | int) == (_nutanix_current_memory_mib | int)
           block:
             - name: Publish idempotent hot-add evidence
               ansible.builtin.set_stats:
