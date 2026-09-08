@@ -267,7 +267,8 @@
               used: {{ _cluster_memory_usage_mib }} MiB,
               free: {{ _cluster_free_mib }} MiB
               ({{ (_cluster_free_mib | int // 1024) }} GiB).
-              Requested delta: {{ _memory_add_mib }} MiB ({{ memory_to_add_gib }} GiB).
+              Requested delta: {{ _memory_add_mib }} MiB
+              (target: {{ memory_target_gib }} GiB).
 
         - name: Assert cluster has enough free memory for the requested hot-add
           ansible.builtin.assert:
@@ -276,7 +277,8 @@
             fail_msg: >-
               ABORT: Nutanix cluster does not have enough free memory to satisfy
               this request.
-              Requested: {{ _memory_add_mib }} MiB ({{ memory_to_add_gib }} GiB).
+              Requested delta: {{ _memory_add_mib }} MiB
+              (target: {{ memory_target_gib }} GiB,
               Cluster free: {{ _cluster_free_mib }} MiB
               ({{ (_cluster_free_mib | int // 1024) }} GiB).
               Cluster capacity: {{ _cluster_memory_capacity_mib }} MiB,
