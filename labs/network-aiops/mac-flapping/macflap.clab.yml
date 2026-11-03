@@ -1,0 +1,24 @@
+name: macflap
+
+topology:
+  nodes:
+    sw1:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:25.3.1
+      startup-config: sw1.cfg
+    host-a:
+      kind: linux
+      image: python:3.12-alpine
+      cmd: sleep infinity
+      binds:
+        - ./send_frame.py:/send_frame.py:ro
+    host-b:
+      kind: linux
+      image: python:3.12-alpine
+      cmd: sleep infinity
+      binds:
+        - ./send_frame.py:/send_frame.py:ro
+
+  links:
+    - endpoints: ["sw1:e1-1", "host-a:eth1"]
+    - endpoints: ["sw1:e1-2", "host-b:eth1"]
